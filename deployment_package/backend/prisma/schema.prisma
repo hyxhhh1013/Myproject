@@ -1,0 +1,259 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int            @id @default(autoincrement())
+  name      String
+  title     String
+  bio       String
+  avatar    String
+  email     String         @unique
+  password  String         @default("$2a$10$xW7/X7v.p0yqQ/hJq.1/6.z7y.y7y.y7y.y7y.y7y.y7y.y7y") // Default: password123 (hashed) - Placeholder, should be changed
+  phone     String
+  location  String
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+  
+  // Relations
+  education     Education[]
+  experience    Experience[]
+  skills        Skill[]
+  projects      Project[]
+  contacts      Contact[]
+  socialMedia   SocialMedia[]
+  
+  @@map("user")
+}
+
+model Education {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @map("user_id")
+  school      String
+  degree      String
+  major       String
+  startDate   DateTime @map("start_date")
+  endDate     DateTime? @map("end_date")
+  description String
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("education")
+}
+
+model Experience {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @map("user_id")
+  company     String
+  position    String
+  startDate   DateTime @map("start_date")
+  endDate     DateTime? @map("end_date")
+  description String
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("experience")
+}
+
+model Skill {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  name      String
+  level     Int      @default(1)
+  category  String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("skill")
+}
+
+model Project {
+  id           Int      @id @default(autoincrement())
+  userId       Int      @map("user_id")
+  title        String
+  description  String
+  startDate    DateTime @map("start_date")
+  endDate      DateTime? @map("end_date")
+  technologies String   // SQLite doesn't support Json well, using String and JSON.stringify/parse manually if needed, or rely on Prisma but let's be safe
+  imageUrl     String?  @map("image_url") // Keep for backward compatibility or main thumbnail
+  images       String?  // JSON string for multiple images
+  orderIndex   Int      @default(0) @map("order_index")
+  githubUrl    String?  @map("github_url")
+  demoUrl      String?  @map("demo_url")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("project")
+}
+
+model Contact {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  type      String
+  value     String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("contact")
+}
+
+model SocialMedia {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  platform  String
+  url       String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("social_media")
+}
+
+// 摄影作品分类
+model PhotoCategory {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  photos      Photo[]
+  
+  @@map("photo_category")
+}
+
+// 摄影作品
+model Photo {
+  id          Int            @id @default(autoincrement())
+  title       String
+  description String?
+  imageUrl    String
+  thumbnailUrl String
+  categoryId  Int            @map("category_id")
+  isFeatured  Boolean        @default(false)  // 是否置顶
+  isVisible   Boolean        @default(true)   // 是否可见
+  orderIndex  Int            @default(0)       // 排序索引
+  takenAt     DateTime       @map("taken_at")  // 拍摄日期
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+  
+  // EXIF信息 (JSON格式存储)
+  exifData    String?  // Changed from Json to String for SQLite compatibility
+  
+  // 图片元数据
+  width       Int?
+  height      Int?
+  size        Int?             // 文件大小(字节)
+  
+  // Relations
+  category    PhotoCategory  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  tags        Tag[]          @relation("PhotoTags")
+  
+  @@map("photo")
+}
+
+model Tag {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  photos    Photo[]  @relation("PhotoTags")
+  
+  @@map("tag")
+}
+
+model Message {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String
+  subject   String
+  content   String
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("message")
+}
+
+model Music {
+  id          Int      @id @default(autoincrement())
+  title       String   
+  artist      String?
+  coverUrl    String?  @map("cover_url")
+  platform    String   @default("netease") // netease, spotify, local
+  url         String?  // External link or file path
+  lyrics      String?  
+  orderIndex  Int      @default(0) @map("order_index")
+  isVisible   Boolean  @default(true) @map("is_visible")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("music")
+}
+
+model Movie {
+  id          Int      @id @default(autoincrement())
+  title       String
+  director    String?
+  year        Int?
+  posterUrl   String?  @map("poster_url")
+  rating      Float?   // 0-10
+  review      String?
+  watchedAt   DateTime? @map("watched_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("movie")
+}
+
+model TravelFootprint {
+  id          Int      @id @default(autoincrement())
+  location    String
+  latitude    Float
+  longitude   Float
+  visitedAt   DateTime? @map("visited_at")
+  description String?
+  photos      String?  // JSON string of photo URLs
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("travel_footprint")
+}
+
+model SiteConfig {
+  id          Int      @id @default(autoincrement())
+  siteTitle   String   @default("My Portfolio") @map("site_title")
+  seoKeywords String?  @map("seo_keywords")
+  seoDescription String? @map("seo_description")
+  icpCode     String?  @map("icp_code")
+  viewCount   Int      @default(0) @map("view_count")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("site_config")
+}

@@ -1,0 +1,145 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom Styles */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f5f5f7;
+  color: #1d1d1f;
+  line-height: 1.6;
+}
+
+/* Section Title */
+.section-title {
+  @apply text-4xl font-semibold text-black mb-12 tracking-tight;
+}
+
+/* Card Styles */
+.card {
+  @apply bg-white rounded-xl p-8 shadow-sm hover:shadow-md transition-all duration-300 ease-in-out;
+}
+
+/* Button Styles */
+.btn {
+  @apply px-6 py-3 rounded-full font-medium transition-all duration-300 ease-in-out transform hover:scale-105;
+}
+
+.btn-primary {
+  @apply bg-[#0071e3] text-white hover:bg-[#0077ed] active:bg-[#0056b3];
+}
+
+.btn-secondary {
+  @apply bg-transparent text-[#0071e3] border border-[#0071e3] hover:bg-[#f2f2f7] active:bg-[#e5e5ea];
+}
+
+/* Skill Bar */
+.skill-bar {
+  @apply w-full bg-[#e5e5ea] rounded-full h-2 mb-6;
+}
+
+.skill-bar-fill {
+  @apply bg-[#0071e3] h-2 rounded-full transition-all duration-700 ease-out;
+}
+
+/* Timeline Styles */
+.timeline {
+  @apply relative pl-12 border-l-2 border-[#e5e5ea];
+}
+
+.timeline-item {
+  @apply mb-12 relative;
+}
+
+.timeline-dot {
+  @apply absolute -left-[9px] top-0 w-4 h-4 bg-[#0071e3] rounded-full border-2 border-white;
+}
+
+.timeline-date {
+  @apply text-sm text-[#86868b] font-medium mb-2;
+}
+
+.timeline-title {
+  @apply text-xl font-semibold text-black mb-3 tracking-tight;
+}
+
+.timeline-subtitle {
+  @apply text-base text-[#6e6e73] mb-3;
+}
+
+.timeline-description {
+  @apply text-[#6e6e73] leading-relaxed;
+}
+
+/* Project Card */
+.project-card {
+  @apply card mb-10;
+}
+
+.project-title {
+  @apply text-2xl font-semibold text-black mb-3 tracking-tight;
+}
+
+.project-description {
+  @apply text-[#6e6e73] mb-6 leading-relaxed;
+}
+
+.project-technologies {
+  @apply flex flex-wrap gap-3 mb-6;
+}
+
+.project-tech-tag {
+  @apply bg-[#f2f2f7] text-[#6e6e73] px-4 py-2 rounded-full text-sm font-medium;
+}
+
+.project-links {
+  @apply flex space-x-5;
+}
+
+/* Contact Form */
+.form-group {
+  @apply mb-8;
+}
+
+.form-label {
+  @apply block text-black font-medium mb-3 text-sm uppercase tracking-wider;
+}
+
+.form-input {
+  @apply w-full px-4 py-3 bg-white border border-[#e5e5ea] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0071e3] focus:border-transparent transition-all duration-300;
+}
+
+.form-textarea {
+  @apply form-input resize-y min-h-[180px];
+}
+
+/* Additional Apple-style utilities */
+.apple-border {
+  @apply border border-[#e5e5ea];
+}
+
+.apple-card-hover {
+  @apply transition-all duration-300 ease-in-out hover:translate-y-[-4px];
+}
+
+.apple-text-gradient {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-[#0071e3] to-[#5856d6];
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Selection styles */
+::selection {
+  background-color: rgba(0, 113, 227, 0.2);
+}
+
+::-moz-selection {
+  background-color: rgba(0, 113, 227, 0.2);
+}
