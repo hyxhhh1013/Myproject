@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import logger from './logger';
 
 export const initData = async (prisma: PrismaClient) => {
   try {
@@ -21,18 +22,7 @@ export const initData = async (prisma: PrismaClient) => {
           location: '',
         }
       });
-    } else {
-      // Update existing user to use default credentials
-      await prisma.user.updateMany({
-        where: {},
-        data: {
-          email: 'admin@example.com',
-          password: defaultPassword,
-          name: 'Admin',
-          title: '全栈开发工程师',
-          bio: '欢迎访问我的个人网站。',
-        }
-      });
+      logger.info('Default user created');
     }
     
     // 2. Create Default Photo Categories
@@ -50,6 +40,6 @@ export const initData = async (prisma: PrismaClient) => {
         });
     }
   } catch (error) {
-    console.error('Failed to initialize data:', error);
+    logger.error('Failed to initialize data:', { error });
   }
 };

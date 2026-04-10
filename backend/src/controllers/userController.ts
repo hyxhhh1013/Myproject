@@ -1,15 +1,17 @@
 import { Request, Response } from 'express';
 import { prisma } from '../index';
 import path from 'path';
+import logger from '../utils/logger';
+import { FileUploadRequest, ApiResponse } from '../types/express';
 
 // Upload avatar
-export const uploadAvatar = async (req: Request, res: Response) => {
+export const uploadAvatar = async (req: FileUploadRequest, res: Response<ApiResponse>) => {
   try {
     const { id } = req.params;
-    const file = (req as any).file;
+    const file = req.file;
     
     if (!file) {
-      return res.status(400).json({ error: 'Please upload a file' });
+      return res.status(400).json({ status: 'error', message: 'Please upload a file' });
     }
 
     const CDN_BASE_URL = process.env.CDN_BASE_URL || '';
@@ -20,9 +22,10 @@ export const uploadAvatar = async (req: Request, res: Response) => {
       data: { avatar: avatarUrl },
     });
 
+    logger.info('Avatar uploaded successfully', { userId: user.id });
     res.json({ status: 'success', message: 'Avatar updated', data: { avatar: avatarUrl } });
   } catch (error) {
-    console.error('Error uploading avatar:', error);
+    logger.error('Error uploading avatar', { error: error instanceof Error ? error.message : 'Unknown error' });
     res.status(500).json({ status: 'error', message: 'Failed to upload avatar' });
   }
 };
@@ -40,9 +43,10 @@ export const getAllUsers = async (req: Request, res: Response) => {
         socialMedia: true,
       },
     });
+    logger.info('Retrieved all users', { count: users.length });
     res.status(200).json(users);
   } catch (error) {
-    console.error('Error getting users:', error);
+    logger.error('Error getting users', { error: error instanceof Error ? error.message : 'Unknown error' });
     res.status(500).json({ status: 'error', message: 'Failed to get users' });
   }
 };
@@ -50,7 +54,7 @@ export const getAllUsers = async (req: Request, res: Response) => {
 // Get user by ID
 export const getUserById = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as any;
     const user = await prisma.user.findUnique({
       where: { id: parseInt(id) },
       include: {
@@ -69,7 +73,7 @@ export const getUserById = async (req: Request, res: Response) => {
 
     res.status(200).json(user);
   } catch (error) {
-    console.error('Error getting user:', error);
+    logger.error('Error getting user', { error: error instanceof Error ? error.message : 'Unknown error' });
     res.status(500).json({ status: 'error', message: 'Failed to get user' });
   }
 };
@@ -77,7 +81,7 @@ export const getUserById = async (req: Request, res: Response) => {
 // Create user
 export const createUser = async (req: Request, res: Response) => {
   try {
-    const { name, title, bio, avatar, email, phone, location } = req.body;
+    const { name, title, bio, avatar, email, phone, location } = req.body as any;
 
     const user = await prisma.user.create({
       data: {
@@ -91,9 +95,10 @@ export const createUser = async (req: Request, res: Response) => {
       },
     });
 
+    logger.info('User created successfully', { userId: user.id });
     res.status(201).json({ status: 'success', message: 'User created successfully', data: user });
   } catch (error) {
-    console.error('Error creating user:', error);
+    logger.error('Error creating user', { error: error instanceof Error ? error.message : 'Unknown error' });
     res.status(500).json({ status: 'error', message: 'Failed to create user' });
   }
 };
@@ -101,8 +106,8 @@ export const createUser = async (req: Request, res: Response) => {
 // Update user
 export const updateUser = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const { name, title, bio, avatar, email, phone, location } = req.body;
+    const { id } = req.params as any;
+    const { name, title, bio, avatar, email, phone, location } = req.body as any;
 
     const user = await prisma.user.update({
       where: { id: parseInt(id) },
@@ -117,9 +122,10 @@ export const updateUser = async (req: Request, res: Response) => {
       },
     });
 
+    logger.info('User updated successfully', { userId: parseInt(id) });
     res.status(200).json({ status: 'success', message: 'User updated successfully', data: user });
   } catch (error) {
-    console.error('Error updating user:', error);
+    logger.error('Error updating user', { error: error instanceof Error ? error.message : 'Unknown error' });
     res.status(500).json({ status: 'error', message: 'Failed to update user' });
   }
 };
@@ -127,15 +133,16 @@ export const updateUser = async (req: Request, res: Response) => {
 // Delete user
 export const deleteUser = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as any;
 
     await prisma.user.delete({
       where: { id: parseInt(id) },
     });
-
+    
+    logger.info('User deleted successfully', { userId: id });
     res.status(200).json({ status: 'success', message: 'User deleted successfully' });
   } catch (error) {
-    console.error('Error deleting user:', error);
+    logger.error('Error deleting user', { error: error instanceof Error ? error.message : 'Unknown error' });
     res.status(500).json({ status: 'error', message: 'Failed to delete user' });
   }
 };

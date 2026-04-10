@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import logger from '../utils/logger';
 
 // 自定义错误类
 export class AppError extends Error {
@@ -47,8 +48,7 @@ export const errorHandler = (err: any, req: Request, res: Response, next: NextFu
   }
 
   // 记录错误日志
-  console.error('ERROR:', {
-    timestamp: new Date().toISOString(),
+  logger.error('ERROR:', {
     message: error.message,
     statusCode: error.statusCode,
     path: req.path,

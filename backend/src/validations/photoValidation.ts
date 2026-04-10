@@ -4,10 +4,17 @@ import { z } from 'zod';
 export const createPhotoSchema = z.object({
   title: z.string().optional(),
   description: z.string().optional(),
-  categoryId: z.string().regex(/^\d+$/, { message: 'categoryId必须是数字' }),
+  categoryId: z.string().regex(/^\d+$/, { message: 'categoryId必须是数字' }).optional(),
   isFeatured: z.union([z.string().transform(val => val === 'true'), z.boolean()]).optional().default(false),
   isVisible: z.union([z.string().transform(val => val === 'true'), z.boolean()]).optional().default(true),
   orderIndex: z.string().regex(/^\d+$/, { message: 'orderIndex必须是数字' }).optional().default('0'),
+  location: z.string().optional(),
+  cameraModel: z.string().optional(),
+  lens: z.string().optional(),
+  focalLength: z.string().optional(),
+  aperture: z.string().optional(),
+  shutterSpeed: z.string().optional(),
+  iso: z.string().optional(),
 });
 
 // 照片更新验证模式

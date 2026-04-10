@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '../utils/axiosConfig';
 
 interface User {
   id: number;
   name: string;
   email: string;
+  avatar?: string;
 }
 
 interface AuthContextType {
@@ -35,6 +36,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
     }
     setIsLoading(false);
+
+    // Ensure baseURL is set correctly
+    axios.defaults.baseURL = 'http://localhost:3001';
 
     // Add axios interceptor for 401
     const interceptor = axios.interceptors.response.use(

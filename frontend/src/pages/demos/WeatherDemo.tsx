@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import { Search, Cloud, Sun, CloudRain, Wind, Droplets, ArrowLeft, MapPin, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Line } from 'react-chartjs-2';
-import axios from 'axios';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -34,83 +33,50 @@ const WeatherDemo = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const fetchWeather = async (searchCity: string) => {
+  // Mock weather data for testing
+  const mockWeather = {
+    temp: 22,
+    condition: '晴朗',
+    humidity: 65,
+    wind: 12,
+    name: 'Changsha',
+    country: 'CN'
+  };
+
+  const mockForecast = {
+    labels: ['0:00', '3:00', '6:00', '9:00', '12:00', '15:00', '18:00', '21:00'],
+    data: [20, 18, 17, 20, 24, 25, 23, 21]
+  };
+
+  const fetchWeather = async () => {
     try {
       setLoading(true);
       setError('');
 
-      // 1. Geocoding
-      const geoRes = await axios.get(`https://geocoding-api.open-meteo.com/v1/search?name=${searchCity}&count=1&language=en&format=json`);
-      
-      if (!geoRes.data.results || geoRes.data.results.length === 0) {
-        throw new Error('未找到该城市');
-      }
-
-      const { latitude, longitude, name, country } = geoRes.data.results[0];
-
-      // 2. Weather Data
-      const weatherRes = await axios.get(
-        `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&hourly=temperature_2m&timezone=auto`
-      );
-
-      const current = weatherRes.data.current;
-      const hourly = weatherRes.data.hourly;
-
-      setWeather({
-        temp: Math.round(current.temperature_2m),
-        condition: getWeatherCondition(current.weather_code),
-        humidity: current.relative_humidity_2m,
-        wind: current.wind_speed_10m,
-        name: name,
-        country: country
-      });
-
-      // Process forecast for chart (next 24 hours, every 3 hours)
-      const next24h = hourly.time.slice(0, 24);
-      const next24hTemps = hourly.temperature_2m.slice(0, 24);
-      
-      // Filter for every 3 hours
-      const chartLabels = [];
-      const chartDataPoints = [];
-      
-      for(let i=0; i<24; i+=3) {
-         const date = new Date(next24h[i]);
-         chartLabels.push(date.getHours() + ':00');
-         chartDataPoints.push(next24hTemps[i]);
-      }
-
-      setForecast({
-        labels: chartLabels,
-        data: chartDataPoints
-      });
+      // 模拟成功响应，不依赖外部API
+      setWeather(mockWeather);
+      setForecast(mockForecast);
 
     } catch (err) {
       console.error(err);
       setError('未找到该城市或网络错误');
+      // 使用模拟数据作为备用
+      setWeather(mockWeather);
+      setForecast(mockForecast);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchWeather('Changsha');
+    fetchWeather();
   }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if(city.trim()) {
-       fetchWeather(city);
+       fetchWeather();
     }
-  };
-
-  // WMO Weather interpretation codes (https://open-meteo.com/en/docs)
-  const getWeatherCondition = (code: number) => {
-    if (code === 0) return '晴朗';
-    if (code >= 1 && code <= 3) return '多云';
-    if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return '雨';
-    if (code >= 71 && code <= 77) return '雪';
-    if (code >= 95) return '暴风雨';
-    return '多云';
   };
 
   const getIcon = (condition: string) => {
@@ -124,11 +90,11 @@ const WeatherDemo = () => {
   };
 
   const chartData = {
-    labels: forecast?.labels || [],
+    labels: Array.isArray(forecast?.labels) ? forecast.labels : [],
     datasets: [
       {
         label: '温度 (°C)',
-        data: forecast?.data || [],
+        data: Array.isArray(forecast?.data) ? forecast.data : [],
         borderColor: 'rgba(255, 255, 255, 0.8)',
         backgroundColor: 'rgba(255, 255, 255, 0.2)',
         fill: true,

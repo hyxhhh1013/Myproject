@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Send, Github, Linkedin, Mail, MapPin, Loader2 } from 'lucide-react';
 import axios from 'axios';
 import { message } from 'antd';
 
-export const Contact = () => {
+export const Contact = React.memo(() => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -13,33 +13,36 @@ export const Contact = () => {
     content: ''
   });
   
-  // Re-write form using name attributes
+  // 使用函数式更新，避免闭包问题
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-      setFormData({ ...formData, [e.target.name]: e.target.value });
+      setFormData(prev => ({
+        ...prev,
+        [e.target.name]: e.target.value
+      }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.email || !formData.content) {
-        message.warning('请填写必要信息');
+    if (!formData.name || !formData.email || !formData.subject || !formData.content) {
+        message.warning('请填写所有必要信息');
         return;
     }
     
     setLoading(true);
     try {
-        await axios.post('/messages', formData);
+        await axios.post('/api/messages', formData);
         message.success('消息发送成功！');
         setFormData({ name: '', email: '', subject: '', content: '' });
-    } catch (error) {
-        console.error('Send message failed:', error);
-        message.error('发送失败，请稍后重试');
+    } catch (error: any) {
+        const errorMessage = error.response?.data?.message || error.message || '发送失败，请稍后重试';
+        message.error(`发送失败: ${errorMessage}`);
     } finally {
         setLoading(false);
     }
   };
 
   return (
-    <section id="contact" className="py-24 bg-gray-50 dark:bg-gray-900 transition-colors duration-300 relative overflow-hidden">
+    <section id="contact" className="py-12 sm:py-24 bg-gray-50 dark:bg-gray-900 transition-colors duration-300 relative overflow-hidden">
       {/* Background Map Decoration (Abstract) */}
       <div className="absolute inset-0 opacity-5 dark:opacity-10 pointer-events-none">
          <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
@@ -94,7 +97,7 @@ export const Contact = () => {
              </div>
 
              <div className="flex space-x-6 pt-4">
-                <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="p-4 bg-white dark:bg-gray-800 rounded-full shadow-md hover:shadow-lg hover:text-blue-600 dark:hover:text-blue-400 transition-all transform hover:scale-110 group">
+                <a href="https://github.com/hyxhhh1013/Myproject" target="_blank" rel="noopener noreferrer" className="p-4 bg-white dark:bg-gray-800 rounded-full shadow-md hover:shadow-lg hover:text-blue-600 dark:hover:text-blue-400 transition-all transform hover:scale-110 group">
                    <Github className="w-6 h-6 text-gray-600 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400" />
                 </a>
                 <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="p-4 bg-white dark:bg-gray-800 rounded-full shadow-md hover:shadow-lg hover:text-blue-700 dark:hover:text-blue-500 transition-all transform hover:scale-110 group">
@@ -179,4 +182,4 @@ export const Contact = () => {
       </div>
     </section>
   );
-};
+});

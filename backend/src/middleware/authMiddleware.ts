@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import logger from '../utils/logger';
 
 interface AuthRequest extends Request {
   user?: any;
@@ -16,15 +17,20 @@ export const protect = (req: AuthRequest, res: Response, next: NextFunction) => 
       // Get token from header
       token = req.headers.authorization.split(' ')[1];
 
-      // Verify token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret123');
+      // Verify token - ensure JWT_SECRET is set in environment
+      if (!process.env.JWT_SECRET) {
+        throw new Error('JWT_SECRET environment variable is not set');
+      }
+
+      // Verify token with expiration check
+      const decoded = jwt.verify(token, process.env.JWT_SECRET) as any;
 
       // Add user to request
       req.user = decoded;
 
       next();
     } catch (error) {
-      console.error(error);
+      logger.error('Authentication failed', { error: error instanceof Error ? error.message : 'Unknown error', path: req.path, method: req.method });
       res.status(401).json({ status: 'fail', message: 'Not authorized, token failed' });
     }
   }

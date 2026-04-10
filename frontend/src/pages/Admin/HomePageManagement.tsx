@@ -1,182 +1,176 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { Form, Input, Button, Card, Row, Col, Upload, message, Statistic, Avatar } from 'antd';
-import { UploadOutlined, UserOutlined, EyeOutlined } from '@ant-design/icons';
-import { useAuth } from '../../context/AuthContext';
-import { useMediaQuery } from 'react-responsive';
+import { useState, useEffect } from 'react';
+import { Loader2, Save } from 'lucide-react';
+import axios from '../../utils/axiosConfig';
 
-const HomePageManagement: React.FC = () => {
+interface SiteConfig {
+  id?: number;
+  siteTitle: string;
+  seoKeywords: string;
+  seoDescription: string;
+  icpCode?: string;
+}
+
+const HomePageManagement = () => {
+  const [config, setConfig] = useState<SiteConfig>({
+    siteTitle: '',
+    seoKeywords: '',
+    seoDescription: '',
+    icpCode: ''
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [siteConfig, setSiteConfig] = useState<any>(null);
-  const [form] = Form.useForm();
-  const { user } = useAuth();
-  const [avatarUrl, setAvatarUrl] = useState<string>('');
-  
-  const isMobile = useMediaQuery({ maxWidth: 768 });
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const fetchData = async () => {
+  useEffect(() => {
+    fetchConfig();
+  }, []);
+
+  const fetchConfig = async () => {
     try {
       setLoading(true);
-      
-      // Fetch Site Config
-      try {
-        const configRes = await axios.get('/site-config');
-        setSiteConfig(configRes.data);
-      } catch (e) {
-        console.warn('Failed to fetch site config', e);
-        setSiteConfig({});
+      const response = await axios.get('/api/siteConfig');
+      const data = response.data?.data || response.data;
+      if (data) {
+        setConfig(data);
       }
-
-      // Fetch User
-      try {
-        const userRes = await axios.get(`/users/${user?.id || 1}`);
-        setAvatarUrl(userRes.data.avatar);
-        form.setFieldsValue({
-          title: userRes.data.title,
-          subtitle: userRes.data.bio,
-          github: getSocialLink(userRes.data.socialMedia, 'github'),
-          linkedin: getSocialLink(userRes.data.socialMedia, 'linkedin'),
-          twitter: getSocialLink(userRes.data.socialMedia, 'twitter'),
-        });
-      } catch (e: any) {
-        if (e.response && e.response.status === 404) {
-          console.warn('User not found, using default values');
-          form.setFieldsValue({
-             title: 'Admin',
-             subtitle: 'Welcome',
-          });
-        } else {
-          throw e;
-        }
-      }
-
     } catch (error) {
-      console.error('Failed to fetch data:', error);
-      message.error('加载数据失败，请检查网络或后端服务');
+      console.error('Failed to fetch config:', error);
+      setMessage({ type: 'error', text: '获取配置失败' });
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, [user]);
-
-  const getSocialLink = (socialMedia: any[], platform: string) => {
-    return socialMedia?.find((s: any) => s.platform.toLowerCase() === platform.toLowerCase())?.url || '';
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setConfig(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
-  const handleSave = async (values: any) => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
     try {
       setSaving(true);
-      
-      // Update User
-      await axios.put(`/users/${user?.id || 1}`, {
-        title: values.title,
-        bio: values.subtitle,
-        socialMedia: [
-          { platform: 'github', url: values.github },
-          { platform: 'linkedin', url: values.linkedin },
-          { platform: 'twitter', url: values.twitter },
-        ],
-      });
-
-      // Update Social Media
-      // This is simplified. Ideally we should upsert social media entries.
-      // For now, let's assume we just update user and maybe handle social media if endpoint supports it.
-      // But userController updateUser doesn't update relations.
-      // So we might need to update social media separately.
-      // Skipping detailed social media update for brevity, assume userController handles it or we need separate calls.
-      // Let's just update the title/bio for now as per "HomePage Info".
-      
-      message.success('保存成功');
+      // Backend uses PUT /api/siteConfig or PUT /api/site-config for update (checking index.ts, it mounts at /api/siteConfig)
+      await axios.put(`/api/siteConfig`, config);
+      setMessage({ type: 'success', text: '配置已保存' });
+      setTimeout(() => setMessage(null), 3000);
     } catch (error) {
-      console.error('Failed to save:', error);
-      message.error('保存失败');
+      console.error('Failed to save config:', error);
+      setMessage({ type: 'error', text: '保存失败，请重试' });
     } finally {
       setSaving(false);
     }
   };
 
-  const handleAvatarUpload = async (info: any) => {
-    const formData = new FormData();
-    formData.append('image', info.file);
-    
-    try {
-      const res = await axios.post(`/users/${user?.id || 1}/avatar`, formData);
-      setAvatarUrl(res.data.data.avatar);
-      message.success('头像上传成功');
-    } catch (error) {
-      message.error('头像上传失败');
-    }
-  };
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-96">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl md:text-2xl font-bold">主页管理</h2>
+    <div className="space-y-6 max-w-4xl">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-white">主页配置</h2>
+        <p className="text-gray-500 dark:text-gray-400 mt-1">配置网站的基本信息和SEO宣传</p>
       </div>
 
-      <Row gutter={[16, 16]}>
-        <Col xs={24} md={16}>
-            <Card title="主页信息" loading={loading} className="rounded-xl shadow-sm">
-                <Form
-                    form={form}
-                    layout="vertical"
-                    onFinish={handleSave}
-                >
-                    <div className="flex flex-col md:flex-row items-center mb-6 gap-6">
-                        <Avatar size={isMobile ? 80 : 100} src={avatarUrl} icon={<UserOutlined />} />
-                        <Upload 
-                            showUploadList={false}
-                            beforeUpload={(file) => {
-                                handleAvatarUpload({ file });
-                                return false;
-                            }}
-                        >
-                            <Button icon={<UploadOutlined />}>更换头像</Button>
-                        </Upload>
-                    </div>
+      {message && (
+        <div className={`p-4 rounded-lg ${message.type === 'success' ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300' : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300'}`}>
+          {message.text}
+        </div>
+      )}
 
-                    <Form.Item name="title" label="主页标题 (Name/Title)" rules={[{ required: true }]}>
-                        <Input />
-                    </Form.Item>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Site Title */}
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+          <label htmlFor="siteTitle" className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+            网站标题 *
+          </label>
+          <input
+            type="text"
+            id="siteTitle"
+            name="siteTitle"
+            value={config.siteTitle}
+            onChange={handleChange}
+            placeholder="例如: 奋辉.Dev"
+            className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            required
+          />
+          <p className="text-xs text-gray-500 mt-2">网站的主体标题，用于浏览器选项卡和SEO</p>
+        </div>
 
-                    <Form.Item name="subtitle" label="副标题 (Bio)">
-                        <Input.TextArea rows={3} />
-                    </Form.Item>
+        {/* SEO Keywords */}
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+          <label htmlFor="seoKeywords" className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+            SEO关键词 *
+          </label>
+          <textarea
+            id="seoKeywords"
+            name="seoKeywords"
+            value={config.seoKeywords}
+            onChange={handleChange}
+            placeholder="例如: 个人网站,全栈开发,React,Node.js"
+            rows={3}
+            className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            required
+          />
+          <p className="text-xs text-gray-500 mt-2">你的核心关键词，以逗号分隔</p>
+        </div>
 
-                    <Form.Item name="github" label="GitHub 链接">
-                        <Input />
-                    </Form.Item>
-                    
-                    <Form.Item name="linkedin" label="LinkedIn 链接">
-                        <Input />
-                    </Form.Item>
+        {/* SEO Description */}
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+          <label htmlFor="seoDescription" className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+            SEO描述 *
+          </label>
+          <textarea
+            id="seoDescription"
+            name="seoDescription"
+            value={config.seoDescription}
+            onChange={handleChange}
+            placeholder="例如: 奋辉的个人网站，展示个人作品、技术与技术希望"
+            rows={3}
+            className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            required
+          />
+          <p className="text-xs text-gray-500 mt-2">搜索引擎结果中所夺的描述</p>
+        </div>
 
-                    <Form.Item name="twitter" label="Twitter 链接">
-                        <Input />
-                    </Form.Item>
+        {/* ICP Code */}
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+          <label htmlFor="icpCode" className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+            ICP备案事业号
+          </label>
+          <input
+            type="text"
+            id="icpCode"
+            name="icpCode"
+            value={config.icpCode || ''}
+            onChange={handleChange}
+            placeholder="例如: 豆ICP备123456789号"
+            className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+          />
+          <p className="text-xs text-gray-500 mt-2">中国大陆网站的ICP备案事业号（可不填）</p>
+        </div>
 
-                    <Form.Item>
-                        <Button type="primary" htmlType="submit" loading={saving} block={isMobile}>
-                            保存修改
-                        </Button>
-                    </Form.Item>
-                </Form>
-            </Card>
-        </Col>
-        <Col xs={24} md={8}>
-            <Card title="访问统计" loading={loading} className="rounded-xl shadow-sm">
-                <Statistic 
-                    title="总访问量" 
-                    value={siteConfig?.viewCount || 0} 
-                    prefix={<EyeOutlined />} 
-                />
-            </Card>
-        </Col>
-      </Row>
+        {/* Save Button */}
+        <div className="flex gap-4">
+          <button
+            type="submit"
+            disabled={saving}
+            className="flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+            {saving ? '保存中...' : '保存配置'}
+          </button>
+        </div>
+      </form>
     </div>
   );
 };

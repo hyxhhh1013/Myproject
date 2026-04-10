@@ -22,7 +22,7 @@ const INITIAL_NOTES: Note[] = [
 - **实时预览**: 所见即所得
 - **Markdown 支持**: 
   - *斜体* 和 **粗体**
-  - 列表和 [链接](https://github.com)
+  - 列表和 [链接](https://github.com/hyxhhh1013/Myproject)
   - 代码块
 
 \`\`\`javascript

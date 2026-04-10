@@ -22,14 +22,18 @@ export const getMovies = async (req: Request, res: Response) => {
  */
 export const createMovie = async (req: Request, res: Response) => {
   try {
-    const { title, year, poster, rating, likes, orderIndex, isVisible } = req.body;
+    const { title, director, year, posterUrl, rating, review, watchedAt, likes, orderIndex, isVisible } = req.body;
     
     const movie = await prisma.movie.create({
       data: {
         title,
+        director,
         year,
-        poster,
+        posterUrl,
+        poster: posterUrl, // 兼容旧字段
         rating,
+        review,
+        watchedAt,
         likes: likes || 0,
         orderIndex: orderIndex || 0,
         isVisible: isVisible !== false
@@ -49,15 +53,19 @@ export const createMovie = async (req: Request, res: Response) => {
 export const updateMovie = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { title, year, poster, rating, likes, orderIndex, isVisible } = req.body;
+    const { title, director, year, posterUrl, rating, review, watchedAt, likes, orderIndex, isVisible } = req.body;
     
     const movie = await prisma.movie.update({
       where: { id: parseInt(id) },
       data: {
         title,
+        director,
         year,
-        poster,
+        posterUrl,
+        poster: posterUrl, // 兼容旧字段
         rating,
+        review,
+        watchedAt,
         likes,
         orderIndex,
         isVisible

@@ -3,6 +3,12 @@ import { prisma } from '../index';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import logger from '../utils/logger';
+import { FileUploadRequest } from '../types/express';
+import cache from '../utils/cache';
+
+const PROJECT_CACHE_KEY = 'projects_list';
+const CLEAR_PROJECT_CACHE = () => cache.del(PROJECT_CACHE_KEY);
 
 // 配置文件存储
 const storage = multer.diskStorage({
@@ -21,7 +27,7 @@ const storage = multer.diskStorage({
 });
 
 // 文件过滤
-const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+const fileFilter = (req: FileUploadRequest, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   // 允许上传的文件类型
   const allowedTypes = [
     'image/',
@@ -56,6 +62,13 @@ export const getAllProjects = async (req: Request, res: Response) => {
     const { page = 1, limit = 10 } = req.query;
     const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
     
+    // Check cache
+    const cacheKey = `${PROJECT_CACHE_KEY}_p${page}_l${limit}`;
+    const cachedData = cache.get(cacheKey);
+    if (cachedData) {
+      return res.status(200).json(cachedData);
+    }
+    
     // 使用Promise.all并行查询项目和总数，提高性能
     const [projects, total] = await Promise.all([
       prisma.project.findMany({
@@ -69,15 +82,14 @@ export const getAllProjects = async (req: Request, res: Response) => {
             },
           },
         },
-        orderBy: [{ createdAt: 'desc' }], // 添加排序
+        orderBy: [{ orderIndex: 'asc' }, { createdAt: 'desc' }], // Updated to orderIndex first
         skip,
         take: parseInt(limit as string),
       }),
       prisma.project.count(), // 获取项目总数
     ]);
     
-    // 返回分页信息
-    res.status(200).json({
+    const responseData = {
       status: 'success',
       data: projects,
       pagination: {
@@ -86,7 +98,13 @@ export const getAllProjects = async (req: Request, res: Response) => {
         total,
         totalPages: Math.ceil(total / parseInt(limit as string)),
       },
-    });
+    };
+    
+    // Cache the response
+    cache.set(cacheKey, responseData);
+    
+    // 返回分页信息
+    res.status(200).json(responseData);
   } catch (error) {
     console.error('Error getting projects:', error);
     res.status(500).json({ status: 'error', message: 'Failed to get projects' });
@@ -110,45 +128,57 @@ export const getProjectById = async (req: Request, res: Response) => {
 
     res.status(200).json(project);
   } catch (error) {
-    console.error('Error getting project:', error);
+    logger.error('Error getting project', { error: error instanceof Error ? error.message : 'Unknown error' });
     res.status(500).json({ status: 'error', message: 'Failed to get project' });
   }
 };
 
 // Create project
-export const createProject = async (req: Request, res: Response) => {
+export const createProject = async (req: FileUploadRequest, res: Response) => {
   try {
-    const { userId, title, description, startDate, endDate, technologies, githubUrl, demoUrl, orderIndex } = req.body;
+    const { 
+      userId, title, description, intro, startDate, endDate, technologies, 
+      responsibilities, challengesProblem, challengesSolution, githubUrl, demoUrl, 
+      orderIndex, isVisible, isFeatured
+    } = req.body as any;
     
     // Handle image upload if present
     const CDN_BASE_URL = process.env.CDN_BASE_URL || '';
     let images: string[] = [];
     let imageUrl = '';
 
-    if ((req as any).files && (req as any).files.length > 0) {
-      images = (req as any).files.map((file: any) => `${CDN_BASE_URL}/uploads/demos/${path.basename(file.path)}`);
+    if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+      images = req.files.map((file) => `${CDN_BASE_URL}/uploads/demos/${path.basename(file.path)}`);
       imageUrl = images[0];
     }
 
     const project = await prisma.project.create({
       data: {
-        userId: parseInt(userId),
+        userId: parseInt(userId) || 1,
         title,
         description,
-        startDate: new Date(startDate),
+        intro: intro || null,
+        startDate: startDate ? new Date(startDate) : new Date(),
         endDate: endDate ? new Date(endDate) : null,
-        technologies,
-        githubUrl,
-        demoUrl,
-        imageUrl,
+        technologies: typeof technologies === 'string' && !technologies.startsWith('[') ? JSON.stringify(technologies.split(',').map((t: string) => t.trim())) : technologies,
+        responsibilities: responsibilities || null,
+        challengesProblem: challengesProblem || null,
+        challengesSolution: challengesSolution || null,
+        githubUrl: githubUrl || null,
+        demoUrl: demoUrl || null,
+        imageUrl: imageUrl || null,
         images: JSON.stringify(images),
         orderIndex: orderIndex ? parseInt(orderIndex) : 0,
+        isVisible: isVisible !== undefined ? (isVisible === 'true' || isVisible === true) : true,
+        isFeatured: isFeatured !== undefined ? (isFeatured === 'true' || isFeatured === true) : false,
       },
     });
 
+    CLEAR_PROJECT_CACHE();
+    logger.info('Project created successfully', { projectId: project.id });
     res.status(201).json({ status: 'success', message: 'Project created successfully', data: project });
   } catch (error) {
-    console.error('Error creating project:', error);
+    logger.error('Error creating project', { error: error instanceof Error ? error.message : 'Unknown error' });
     res.status(500).json({ status: 'error', message: 'Failed to create project' });
   }
 };
@@ -157,7 +187,11 @@ export const createProject = async (req: Request, res: Response) => {
 export const updateProject = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { title, description, startDate, endDate, technologies, githubUrl, demoUrl, orderIndex, existingImages } = req.body;
+    const { 
+      title, description, intro, startDate, endDate, technologies, 
+      responsibilities, challengesProblem, challengesSolution, githubUrl, demoUrl, 
+      orderIndex, isVisible, isFeatured, existingImages 
+    } = req.body;
 
     const CDN_BASE_URL = process.env.CDN_BASE_URL || '';
     let finalImages: string[] = [];
@@ -176,26 +210,24 @@ export const updateProject = async (req: Request, res: Response) => {
     if ((req as any).files && (req as any).files.length > 0) {
       const newImages = (req as any).files.map((file: any) => `${CDN_BASE_URL}/uploads/demos/${path.basename(file.path)}`);
       finalImages = [...finalImages, ...newImages];
-    } else if (!existingImages && !(req as any).files) {
-       // If no existingImages sent and no files, maybe we should keep original?
-       // But usually update sends all fields.
-       // Let's fetch original to be safe if we want to support partial updates without sending images?
-       // But for now, let's assume client sends everything.
-       // If client sends NOTHING about images, we shouldn't overwrite images with empty array.
-       // Check if `existingImages` was in body (even if empty string/array).
-       // If undefined, don't update images.
     }
 
-    const dataToUpdate: any = {
-      title,
-      description,
-      startDate: new Date(startDate),
-      endDate: endDate ? new Date(endDate) : null,
-      technologies,
-      githubUrl,
-      demoUrl,
-      orderIndex: orderIndex ? parseInt(orderIndex) : undefined,
-    };
+    const dataToUpdate: any = {};
+    
+    if (title !== undefined) dataToUpdate.title = title;
+    if (description !== undefined) dataToUpdate.description = description;
+    if (intro !== undefined) dataToUpdate.intro = intro || null;
+    if (startDate !== undefined) dataToUpdate.startDate = new Date(startDate);
+    if (endDate !== undefined) dataToUpdate.endDate = endDate ? new Date(endDate) : null;
+    if (technologies !== undefined) dataToUpdate.technologies = typeof technologies === 'string' ? JSON.stringify(technologies.split(',').map((t: string) => t.trim())) : technologies;
+    if (responsibilities !== undefined) dataToUpdate.responsibilities = responsibilities || null;
+    if (challengesProblem !== undefined) dataToUpdate.challengesProblem = challengesProblem || null;
+    if (challengesSolution !== undefined) dataToUpdate.challengesSolution = challengesSolution || null;
+    if (githubUrl !== undefined) dataToUpdate.githubUrl = githubUrl || null;
+    if (demoUrl !== undefined) dataToUpdate.demoUrl = demoUrl || null;
+    if (orderIndex !== undefined) dataToUpdate.orderIndex = parseInt(orderIndex);
+    if (isVisible !== undefined) dataToUpdate.isVisible = isVisible === 'true' || isVisible === true;
+    if (isFeatured !== undefined) dataToUpdate.isFeatured = isFeatured === 'true' || isFeatured === true;
     
     // Only update images if we have changes or explicit existingImages
     if (existingImages !== undefined || ((req as any).files && (req as any).files.length > 0)) {
@@ -208,6 +240,7 @@ export const updateProject = async (req: Request, res: Response) => {
       data: dataToUpdate,
     });
 
+    CLEAR_PROJECT_CACHE();
     res.status(200).json({ status: 'success', message: 'Project updated successfully', data: project });
   } catch (error) {
     console.error('Error updating project:', error);
@@ -224,6 +257,7 @@ export const deleteProject = async (req: Request, res: Response) => {
       where: { id: parseInt(id) },
     });
 
+    CLEAR_PROJECT_CACHE();
     res.status(200).json({ status: 'success', message: 'Project deleted successfully' });
   } catch (error) {
     console.error('Error deleting project:', error);
@@ -253,6 +287,7 @@ export const uploadProjectDemo = async (req: Request, res: Response) => {
       data: { demoUrl },
     });
     
+    CLEAR_PROJECT_CACHE();
     res.json({ status: 'success', message: 'Demo上传成功', data: project });
   } catch (error) {
     console.error('上传Demo失败:', error);

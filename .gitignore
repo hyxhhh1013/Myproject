@@ -1,0 +1,16 @@
+node_modules
+dist
+.env
+.DS_Store
+*.log
+next-app
+simple-frontend
+deploy.zip
+test-db-output.txt
+compare_output.json
+*.mjs
+.trae
+backend/dist
+backend/logs
+backend/uploads
+frontend/dist

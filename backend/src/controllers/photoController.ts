@@ -5,7 +5,17 @@ import path from 'path';
 import sharp from 'sharp';
 import exifr from 'exifr';
 import fs from 'fs';
+import logger from '../utils/logger';
+import { FileUploadRequest, PrismaWhereInput, PrismaOrderByInput, PrismaSelectInput } from '../types/express';
 import { AppError } from '../middleware/errorHandler';
+import cache from '../utils/cache';
+
+const PHOTO_CACHE_KEY = 'photos_list';
+const CLEAR_PHOTO_CACHE = () => {
+  const keys = cache.keys();
+  const photoKeys = keys.filter(key => key.startsWith(PHOTO_CACHE_KEY));
+  cache.del(photoKeys);
+};
 
 // 配置文件存储
 const storage = multer.diskStorage({
@@ -24,18 +34,17 @@ const storage = multer.diskStorage({
 });
 
 // 文件过滤
-const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+const fileFilter = (req: any, file: Express.Multer.File, cb: (error: Error | null, acceptFile: boolean) => void) => {
   if (file.mimetype.startsWith('image/')) {
     cb(null, true);
   } else {
-    cb(new Error('只允许上传图片文件'));
+    cb(new Error('只允许上传图片文件'), false);
   }
 };
 
 // 配置multer
 const upload = multer({
   storage,
-  fileFilter,
   limits: {
     fileSize: 40 * 1024 * 1024, // 40MB
   },
@@ -45,7 +54,7 @@ const upload = multer({
 const CDN_BASE_URL = process.env.CDN_BASE_URL || '';
 
 // 生成缩略图
-const generateThumbnail = async (imagePath: string): Promise<string> => {
+export const generateThumbnail = async (imagePath: string): Promise<string> => {
   const thumbnailPath = imagePath.replace(/(\.[^.]+)$/, '-thumbnail$1');
   await sharp(imagePath)
     .resize(300, 300, { fit: 'cover' })
@@ -53,24 +62,57 @@ const generateThumbnail = async (imagePath: string): Promise<string> => {
   return thumbnailPath;
 };
 
+// EXIF数据类型
+interface ExifData {
+  cameraModel?: string;
+  make?: string;
+  LensModel?: string;
+  focalLength?: number;
+  aperture?: number;
+  shutterSpeed?: number;
+  iso?: number;
+  takenAt?: Date;
+}
+
 // 读取EXIF信息
-const readExifData = async (imagePath: string): Promise<any> => {
+const readExifData = async (imagePath: string): Promise<ExifData> => {
   try {
     const exif = await exifr.parse(imagePath, {
       gps: false,
       mergeOutput: true,
-    });
+    }) as any;
+    
+    // 如果没有解析到 exif，直接返回空对象
+    if (!exif) return {};
+
+    // 尝试不同的字段名，因为不同相机厂商存储 EXIF 的字段可能不同
+    const cameraModel = exif.Model || exif.CameraModelName;
+    const make = exif.Make;
+    const LensModel = exif.LensModel || exif.Lens;
+    const focalLength = exif.FocalLength || exif.FocalLengthIn35mmFormat;
+    const aperture = exif.FNumber || exif.ApertureValue;
+    const shutterSpeed = exif.ExposureTime || exif.ShutterSpeedValue;
+    const iso = exif.ISO;
+    const takenAt = exif.DateTimeOriginal || exif.CreateDate || exif.ModifyDate;
+
+    // 将快门速度转换为分数形式（例如：0.002 -> 1/500）
+    let formattedShutterSpeed = shutterSpeed;
+    if (typeof shutterSpeed === 'number' && shutterSpeed > 0 && shutterSpeed < 1) {
+      formattedShutterSpeed = `1/${Math.round(1 / shutterSpeed)}`;
+    }
+
     return {
-      cameraModel: exif.Model,
-      make: exif.Make,
-      focalLength: exif.FocalLength,
-      aperture: exif.FNumber,
-      shutterSpeed: exif.ExposureTime,
-      iso: exif.ISO,
-      takenAt: exif.DateTimeOriginal || exif.CreateDate,
+      cameraModel,
+      make,
+      LensModel,
+      focalLength,
+      aperture,
+      shutterSpeed: formattedShutterSpeed,
+      iso,
+      takenAt,
     };
   } catch (error) {
-    console.error('读取EXIF信息失败:', error);
+    logger.warn('Failed to read EXIF data', { error: error instanceof Error ? error.message : 'Unknown error' });
     return {};
   }
 };
@@ -81,10 +123,17 @@ export { upload };
 // 获取所有作品
 export const getAllPhotos = async (req: Request, res: Response) => {
   try {
-    const { categoryId, isFeatured, page = 1, limit = 20, search, sort } = req.query;
+    const { categoryId, isFeatured, page = 1, limit = 20, search, sort, fields } = req.query;
     const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
     
-    const where: any = {
+    // Check cache
+    const cacheKey = `${PHOTO_CACHE_KEY}_${JSON.stringify(req.query)}`;
+    const cachedData = cache.get(cacheKey);
+    if (cachedData) {
+      return res.json(cachedData);
+    }
+    
+    const where: PrismaWhereInput = {
       isVisible: true,
     };
     
@@ -114,40 +163,72 @@ export const getAllPhotos = async (req: Request, res: Response) => {
       orderBy = { size: 'desc' };
     }
 
+    // 动态字段选择
+    const fieldList = fields ? (fields as string).split(',') : [
+      'id', 'title', 'imageUrl', 'thumbnailUrl', 'isFeatured', 'takenAt', 'categoryId', 'orderIndex',
+      'location', 'cameraModel', 'lens', 'focalLength', 'aperture', 'shutterSpeed', 'iso', 'description', 'isVisible'
+    ];
+    
+    // 构建select对象
+    const select: any = {};
+    fieldList.forEach((field: string) => {
+      select[field] = true;
+    });
+
+    // 构建include对象
+    const include: any = {};
+    if (fieldList.includes('category') || fieldList.includes('categoryId')) {
+      include.category = {
+        select: { id: true, name: true, slug: true },
+      };
+    }
+    if (fieldList.includes('tags')) {
+      include.tags = true;
+    }
+
+    const useInclude = Object.keys(include).length > 0;
     const [photos, total] = await Promise.all([
-      prisma.photo.findMany({
-        where,
-        include: {
-          category: {
-            select: { id: true, name: true, slug: true },
-          },
-          tags: true,
-        },
-        orderBy,
-        skip,
-        take: parseInt(limit as string),
-      }),
+      useInclude
+        ? prisma.photo.findMany({
+            where,
+            orderBy,
+            skip,
+            take: parseInt(limit as string),
+            include,
+          })
+        : prisma.photo.findMany({
+            where,
+            orderBy,
+            skip,
+            take: parseInt(limit as string),
+            select,
+          }),
       prisma.photo.count({ where }),
     ]);
     
-    res.json({
+    const responseData = {
       photos,
       total,
       page: parseInt(page as string),
       limit: parseInt(limit as string),
       totalPages: Math.ceil(total / parseInt(limit as string)),
-    });
+    };
+    
+    // Cache the response
+    cache.set(cacheKey, responseData);
+    
+    res.json(responseData);
   } catch (error) {
     res.status(500).json({ error: '获取作品失败' });
   }
 };
 
 // 创建作品 - 支持文件上传
-export const createPhoto = async (req: Request, res: Response) => {
+export const createPhoto = async (req: any, res: Response) => {
   try {
     // 注意：这个函数需要配合multer中间件使用
     // 实际的文件对象会在req.file中
-    const file = (req as any).file;
+    const file = req.file;
     
     if (!file) {
       throw new AppError('请上传图片文件', 400);
@@ -160,20 +241,25 @@ export const createPhoto = async (req: Request, res: Response) => {
       isFeatured = false,
       isVisible = true,
       orderIndex = 0,
-      tags // json string array
-    } = req.body;
-    
-    // 验证categoryId是否存在
-    if (!categoryId) {
-      throw new AppError('请提供分类ID', 400);
-    }
-    
-    const category = await prisma.photoCategory.findUnique({
-      where: { id: parseInt(categoryId) },
-    });
-    
-    if (!category) {
-      throw new AppError(`分类ID ${categoryId} 不存在`, 404);
+      tags,
+      location,
+      cameraModel,
+      lens,
+      focalLength,
+      aperture,
+      shutterSpeed,
+      iso
+    } = req.body as any;
+
+    // 验证categoryId是否存在（如果提供了的话）
+    if (categoryId && categoryId !== '') {
+      const category = await prisma.photoCategory.findUnique({
+        where: { id: parseInt(categoryId) },
+      });
+
+      if (!category) {
+        throw new AppError(`分类ID ${categoryId} 不存在`, 404);
+      }
     }
     
     // 生成缩略图
@@ -191,6 +277,18 @@ export const createPhoto = async (req: Request, res: Response) => {
     
     // 使用EXIF中的拍摄日期，如果没有则使用当前时间
     const takenAt = exifData.takenAt ? new Date(exifData.takenAt) : new Date();
+
+    // 使用EXIF中的相机型号，如果没有则使用请求中的值
+    const finalCameraModel = exifData.cameraModel || cameraModel;
+    const finalMake = exifData.make;
+    const finalLens = exifData.LensModel || lens;
+    const finalFocalLength = exifData.focalLength ? String(exifData.focalLength) : (focalLength ? String(focalLength) : undefined);
+    const finalAperture = exifData.aperture ? String(exifData.aperture) : (aperture ? String(aperture) : undefined);
+    const finalShutterSpeed = exifData.shutterSpeed || shutterSpeed;
+    const finalIso = exifData.iso ? String(exifData.iso) : (iso ? String(iso) : undefined);
+
+    // 组合相机型号（如果同时有Make和Model）
+    const fullCameraModel = finalMake ? `${finalMake} ${finalCameraModel}`.trim() : finalCameraModel;
 
     // 处理标签
     let tagConnect = [];
@@ -212,12 +310,19 @@ export const createPhoto = async (req: Request, res: Response) => {
         description,
         imageUrl,
         thumbnailUrl,
-        categoryId: parseInt(categoryId),
+        categoryId: (categoryId && categoryId !== '') ? parseInt(categoryId) : undefined,
+        location,
+        cameraModel: fullCameraModel,
+        lens: finalLens,
+        focalLength: finalFocalLength,
+        aperture: finalAperture,
+        shutterSpeed: finalShutterSpeed,
+        iso: finalIso,
         isFeatured: isFeatured === 'true' || isFeatured === true,
         isVisible: isVisible === 'true' || isVisible === true,
         orderIndex: parseInt(orderIndex),
         takenAt,
-        exifData,
+        exifData: JSON.stringify(exifData),
         width: metadata.width,
         height: metadata.height,
         size: metadata.size,
@@ -230,6 +335,7 @@ export const createPhoto = async (req: Request, res: Response) => {
       }
     });
     
+    CLEAR_PHOTO_CACHE();
     res.json(photo);
   } catch (error) {
     console.error('创建作品失败:', {
@@ -251,16 +357,33 @@ export const createPhoto = async (req: Request, res: Response) => {
 };
 
 // 批量上传作品
-export const bulkUploadPhotos = async (req: Request, res: Response) => {
+export const bulkUploadPhotos = async (req: any, res: Response) => {
   try {
     // 注意：这个函数需要配合multer.array中间件使用
-    const files = (req as any).files;
+    let files: Express.Multer.File[] = [];
+    
+    // 处理不同类型的files
+    if (req.files) {
+      // 直接使用类型断言
+      const filesObj = req.files as any;
+      if (Array.isArray(filesObj)) {
+        files = filesObj;
+      } else if (typeof filesObj === 'object') {
+        // 从files对象中提取所有文件
+        for (const field in filesObj) {
+          const fieldFiles = filesObj[field];
+          if (Array.isArray(fieldFiles)) {
+            files = files.concat(fieldFiles);
+          }
+        }
+      }
+    }
     
     if (!files || files.length === 0) {
       return res.status(400).json({ error: '请上传至少一张图片' });
     }
     
-    const { title, description, categoryId, isFeatured = false, isVisible = true, tags } = req.body;
+    const { title, description, categoryId, isFeatured = false, isVisible = true, tags } = req.body as any;
     
     if (!categoryId) {
       return res.status(400).json({ error: '请选择分类' });
@@ -294,15 +417,10 @@ export const bulkUploadPhotos = async (req: Request, res: Response) => {
           // 递增orderIndex，避免重复
           currentOrderIndex++;
 
-          // 处理标签 (Assuming tags is passed as JSON stringified array of arrays or just common tags)
-          // For simplicity in bulk, we might just apply the same tags to all, or parse based on index if client sends array
-          // Here we assume tags are common for the batch if provided
+          // 处理标签
           let tagConnect = [];
           if (tags) {
             const parsedTags = typeof tags === 'string' ? JSON.parse(tags) : tags;
-             // If client sends array of tags per file, this logic needs to be more complex.
-             // But usually bulk upload shares context.
-             // If `tags` is Array<string>, apply to all.
             if (Array.isArray(parsedTags)) {
                for (const tagName of parsedTags) {
                  tagConnect.push({
@@ -313,18 +431,33 @@ export const bulkUploadPhotos = async (req: Request, res: Response) => {
             }
           }
           
+          const finalCameraModel = exifData.cameraModel;
+          const finalMake = exifData.make;
+          const finalLens = exifData.LensModel;
+          const finalFocalLength = exifData.focalLength ? String(exifData.focalLength) : undefined;
+          const finalAperture = exifData.aperture ? String(exifData.aperture) : undefined;
+          const finalShutterSpeed = exifData.shutterSpeed ? String(exifData.shutterSpeed) : undefined;
+          const finalIso = exifData.iso ? String(exifData.iso) : undefined;
+          const fullCameraModel = finalMake ? `${finalMake} ${finalCameraModel || ''}`.trim() : finalCameraModel;
+
           return prisma.photo.create({
             data: {
               title: title || `照片_${Date.now()}_${Math.round(Math.random() * 1E6)}`,
               description,
-              categoryId: parseInt(categoryId),
+              categoryId: (categoryId && categoryId !== '') ? parseInt(categoryId) : undefined,
               isFeatured: isFeatured === 'true' || isFeatured === true,
               isVisible: isVisible === 'true' || isVisible === true,
               orderIndex: currentOrderIndex,
               takenAt,
               imageUrl,
               thumbnailUrl,
-              exifData,
+              cameraModel: fullCameraModel,
+              lens: finalLens,
+              focalLength: finalFocalLength,
+              aperture: finalAperture,
+              shutterSpeed: finalShutterSpeed,
+              iso: finalIso,
+              exifData: JSON.stringify(exifData),
               width: metadata.width,
               height: metadata.height,
               size: metadata.size,
@@ -344,6 +477,10 @@ export const bulkUploadPhotos = async (req: Request, res: Response) => {
     // 过滤掉失败的上传
     const successfulUploads = uploadResults.filter((result) => result !== null);
     
+    if (successfulUploads.length > 0) {
+      CLEAR_PHOTO_CACHE();
+    }
+
     res.json({
       message: `批量上传完成，成功${successfulUploads.length}张，失败${uploadResults.length - successfulUploads.length}张`,
       photos: successfulUploads,
@@ -355,10 +492,10 @@ export const bulkUploadPhotos = async (req: Request, res: Response) => {
 };
 
 // 更新作品
-export const updatePhoto = async (req: Request, res: Response) => {
+export const updatePhoto = async (req: any, res: Response) => {
   try {
-    const { id } = req.params;
-    const {
+    const { id } = req.params as any;
+    let {
       title,
       description,
       imageUrl,
@@ -369,7 +506,13 @@ export const updatePhoto = async (req: Request, res: Response) => {
       orderIndex,
       takenAt,
       exifData,
-    } = req.body;
+      cameraModel,
+      lens,
+      focalLength,
+      aperture,
+      shutterSpeed,
+      iso
+    } = req.body as any;
     
     // 验证照片是否存在
     const existingPhoto = await prisma.photo.findUnique({
@@ -381,7 +524,7 @@ export const updatePhoto = async (req: Request, res: Response) => {
     }
     
     // 如果提供了categoryId，验证分类是否存在
-    if (categoryId !== undefined) {
+    if (categoryId !== undefined && categoryId !== '') {
       const category = await prisma.photoCategory.findUnique({
         where: { id: parseInt(categoryId) },
       });
@@ -390,35 +533,75 @@ export const updatePhoto = async (req: Request, res: Response) => {
         throw new AppError(`分类ID ${categoryId} 不存在`, 404);
       }
     }
+
+    // 处理新上传的图片
+    let width, height, size;
+    const file = req.file;
+    if (file) {
+      // 生成缩略图
+      const thumbnailPath = await generateThumbnail(file.path);
+      
+      // 读取EXIF信息
+      const newExifData = await readExifData(file.path);
+
+      // 获取图片尺寸和大小
+      const metadata = await sharp(file.path).metadata();
+      width = metadata.width;
+      height = metadata.height;
+      size = metadata.size;
+      
+      // 构建CDN URL
+      imageUrl = `${CDN_BASE_URL}/uploads/${path.basename(file.path)}`;
+      thumbnailUrl = `${CDN_BASE_URL}/uploads/${path.basename(thumbnailPath)}`;
+      
+      // 如果没有传入 takenAt，则使用EXIF或当前时间
+      if (!takenAt) {
+        takenAt = newExifData.takenAt ? new Date(newExifData.takenAt) : new Date();
+      }
+
+      // 如果没有手动指定相机参数，使用EXIF数据
+      cameraModel = cameraModel || (newExifData.make ? `${newExifData.make} ${newExifData.cameraModel || ''}`.trim() : newExifData.cameraModel) || existingPhoto.cameraModel;
+      lens = lens || newExifData.LensModel || existingPhoto.lens;
+      focalLength = focalLength || (newExifData.focalLength ? String(newExifData.focalLength) : undefined) || existingPhoto.focalLength;
+      aperture = aperture || (newExifData.aperture ? String(newExifData.aperture) : undefined) || existingPhoto.aperture;
+      shutterSpeed = shutterSpeed || (newExifData.shutterSpeed ? String(newExifData.shutterSpeed) : undefined) || existingPhoto.shutterSpeed;
+      iso = iso || (newExifData.iso ? String(newExifData.iso) : undefined) || existingPhoto.iso;
+      exifData = JSON.stringify(newExifData);
+    }
+
+    // 如果提供了exifData且是对象，转换为JSON字符串
+    const processedExifData = exifData && typeof exifData === 'object' ? JSON.stringify(exifData) : exifData;
     
     const photo = await prisma.photo.update({
       where: { id: parseInt(id) },
       data: {
         title,
         description,
-        imageUrl,
-        thumbnailUrl,
-        categoryId,
-        isFeatured,
-        isVisible,
-        orderIndex,
-        takenAt,
-        exifData,
+        imageUrl: imageUrl || existingPhoto.imageUrl,
+        thumbnailUrl: thumbnailUrl || existingPhoto.thumbnailUrl,
+        categoryId: categoryId ? parseInt(categoryId) : existingPhoto.categoryId,
+        isFeatured: isFeatured !== undefined ? (isFeatured === 'true' || isFeatured === true) : existingPhoto.isFeatured,
+        isVisible: isVisible !== undefined ? (isVisible === 'true' || isVisible === true) : existingPhoto.isVisible,
+        orderIndex: orderIndex ? parseInt(orderIndex) : existingPhoto.orderIndex,
+        takenAt: takenAt ? new Date(takenAt) : existingPhoto.takenAt,
+        exifData: processedExifData || existingPhoto.exifData,
+        cameraModel,
+        lens,
+        focalLength,
+        aperture,
+        shutterSpeed,
+        iso,
+        width: width || existingPhoto.width,
+        height: height || existingPhoto.height,
+        size: size || existingPhoto.size,
       },
     });
-    
+
+    CLEAR_PHOTO_CACHE();
+    logger.info('Photo updated successfully', { photoId: photo.id });
     res.json(photo);
   } catch (error) {
-    console.error('更新作品失败:', {
-      timestamp: new Date().toISOString(),
-      error,
-      request: {
-        path: req.path,
-        method: req.method,
-        params: req.params,
-        body: req.body,
-      },
-    });
+    logger.error('Failed to update photo', { error: error instanceof Error ? error.message : 'Unknown error' });
     
     if (error instanceof AppError) {
       return res.status(error.statusCode).json({ error: error.message });
@@ -431,7 +614,7 @@ export const updatePhoto = async (req: Request, res: Response) => {
 // 删除作品
 export const deletePhoto = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as any;
     
     // 验证照片是否存在
     const existingPhoto = await prisma.photo.findUnique({
@@ -443,16 +626,13 @@ export const deletePhoto = async (req: Request, res: Response) => {
     }
     
     await prisma.photo.delete({ where: { id: parseInt(id) } });
+    CLEAR_PHOTO_CACHE();
+    logger.info('Photo deleted successfully', { photoId: id });
     res.json({ message: '作品删除成功' });
   } catch (error) {
-    console.error('删除作品失败:', {
-      timestamp: new Date().toISOString(),
-      error,
-      request: {
-        path: req.path,
-        method: req.method,
-        params: req.params,
-      },
+    logger.error('Failed to delete photo', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      photoId: (req.params as any).id,
     });
     
     if (error instanceof AppError) {
@@ -466,7 +646,7 @@ export const deletePhoto = async (req: Request, res: Response) => {
 // 获取单个作品
 export const getPhoto = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as any;
     const photo = await prisma.photo.findUnique({
       where: { id: parseInt(id) },
       include: {
@@ -484,7 +664,7 @@ export const getPhoto = async (req: Request, res: Response) => {
 // 批量更新作品排序
 export const updatePhotosOrder = async (req: Request, res: Response) => {
   try {
-    const { photos } = req.body;
+    const { photos } = req.body as any;
     
     const updatedPhotos = await Promise.all(
       photos.map((photo: { id: number; orderIndex: number }) => {
@@ -495,6 +675,7 @@ export const updatePhotosOrder = async (req: Request, res: Response) => {
       })
     );
     
+    CLEAR_PHOTO_CACHE();
     res.json(updatedPhotos);
   } catch (error) {
     res.status(500).json({ error: '更新作品排序失败' });
@@ -545,6 +726,7 @@ export const batchDeletePhotos = async (req: Request, res: Response) => {
       }
     });
     
+    CLEAR_PHOTO_CACHE();
     res.json({ message: '批量删除成功' });
   } catch (error) {
     console.error('批量删除作品失败:', error);
@@ -555,7 +737,7 @@ export const batchDeletePhotos = async (req: Request, res: Response) => {
 // 批量分类作品
 export const batchUpdateCategory = async (req: Request, res: Response) => {
   try {
-    const { ids, categoryId } = req.body;
+    const { ids, categoryId } = req.body as any;
 
     if (!Array.isArray(ids) || ids.length === 0) {
       return res.status(400).json({ error: '请提供要更新的作品ID列表' });
@@ -582,6 +764,7 @@ export const batchUpdateCategory = async (req: Request, res: Response) => {
       }
     });
 
+    CLEAR_PHOTO_CACHE();
     res.json({ message: '批量分类成功' });
   } catch (error) {
     console.error('批量分类作品失败:', error);

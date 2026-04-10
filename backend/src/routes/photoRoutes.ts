@@ -60,7 +60,7 @@ router.post('/bulk', protect, upload.array('images', 10), validateRequest(bulkUp
 router.get('/:id', cacheMiddleware(600), validateRequest(photoIdSchema, 'params'), getPhoto);
 
 // 更新作品
-router.put('/:id', protect, validateRequests({ params: photoIdSchema, body: updatePhotoSchema }), async (req, res) => {
+router.put('/:id', protect, upload.single('image'), validateRequests({ params: photoIdSchema }), async (req, res) => {
   await updatePhoto(req, res);
   // 清除照片相关缓存
   clearCache('/api/photos');

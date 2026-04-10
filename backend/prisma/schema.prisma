@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
@@ -11,8 +11,8 @@ model User {
   id          Int           @id @default(autoincrement())
   name        String
   title       String
-  bio         String
-  avatar      String
+  bio         String        @db.Text
+  avatar      String        @db.Text
   email       String        @unique
   password    String        @default("$2a$10$xW7/X7v.p0yqQ/hJq.1/6.z7y.y7y.y7y.y7y.y7y.y7y.y7y")
   phone       String
@@ -27,6 +27,9 @@ model User {
   socialMedia SocialMedia[]
 
   @@map("user")
+  @@index([email])
+  @@index([createdAt])
+  @@index([updatedAt])
 }
 
 model Education {
@@ -37,12 +40,15 @@ model Education {
   major       String
   startDate   DateTime  @map("start_date")
   endDate     DateTime? @map("end_date")
-  description String
+  description String    @db.Text
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("education")
+  @@index([userId])
+  @@index([startDate])
+  @@index([createdAt])
 }
 
 model Experience {
@@ -52,12 +58,20 @@ model Experience {
   position    String
   startDate   DateTime  @map("start_date")
   endDate     DateTime? @map("end_date")
-  description String
+  description String?   @db.Text
+  images      String?   @db.Text
+  isVisible   Boolean   @default(true) @map("is_visible")
+  orderIndex  Int       @default(0) @map("order_index")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("experience")
+  @@index([userId])
+  @@index([isVisible])
+  @@index([orderIndex])
+  @@index([startDate])
+  @@index([createdAt])
 }
 
 model Skill {
@@ -66,31 +80,50 @@ model Skill {
   name      String
   level     Int      @default(1)
   category  String
+  isVisible Boolean  @default(true) @map("is_visible")
+  orderIndex Int     @default(0) @map("order_index")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("skill")
+  @@index([userId])
+  @@index([isVisible])
+  @@index([orderIndex])
+  @@index([category])
+  @@index([createdAt])
 }
 
 model Project {
-  id           Int       @id @default(autoincrement())
-  userId       Int       @map("user_id")
-  title        String
-  description  String
-  startDate    DateTime  @map("start_date")
-  endDate      DateTime? @map("end_date")
-  technologies String
-  imageUrl     String?   @map("image_url")
-  images       String?
-  orderIndex   Int       @default(0) @map("order_index")
-  githubUrl    String?   @map("github_url")
-  demoUrl      String?   @map("demo_url")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                  Int       @id @default(autoincrement())
+  userId              Int       @map("user_id")
+  title               String
+  description         String    @db.Text
+  intro               String?   @db.Text
+  startDate           DateTime  @map("start_date")
+  endDate             DateTime? @map("end_date")
+  technologies        String    @db.Text
+  responsibilities    String?   @db.Text
+  challengesProblem   String?   @db.Text @map("challenges_problem")
+  challengesSolution  String?   @db.Text @map("challenges_solution")
+  imageUrl            String?   @db.Text @map("image_url")
+  images              String?   @db.Text
+  orderIndex          Int       @default(0) @map("order_index")
+  githubUrl           String?   @db.Text @map("github_url")
+  demoUrl             String?   @db.Text @map("demo_url")
+  isVisible           Boolean   @default(true) @map("is_visible")
+  isFeatured          Boolean   @default(false) @map("is_featured")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("project")
+  @@index([userId])
+  @@index([isVisible])
+  @@index([isFeatured])
+  @@index([orderIndex])
+  @@index([startDate])
+  @@index([createdAt])
 }
 
 model Contact {
@@ -103,53 +136,74 @@ model Contact {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("contact")
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
 }
 
 model SocialMedia {
   id        Int      @id @default(autoincrement())
   userId    Int      @map("user_id")
   platform  String
-  url       String
+  url       String   @db.Text
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("social_media")
+  @@index([userId])
+  @@index([platform])
+  @@index([createdAt])
 }
 
 model PhotoCategory {
   id          Int      @id @default(autoincrement())
   name        String   @unique
   slug        String   @unique
-  description String?
+  description String?  @db.Text
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
   photos      Photo[]
 
   @@map("photo_category")
+  @@index([slug])
+  @@index([createdAt])
 }
 
 model Photo {
   id           Int           @id @default(autoincrement())
   title        String
-  description  String?
-  imageUrl     String
-  thumbnailUrl String
-  categoryId   Int           @map("category_id")
-  isFeatured   Boolean       @default(false)
-  isVisible    Boolean       @default(true)
-  orderIndex   Int           @default(0)
-  takenAt      DateTime      @map("taken_at")
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
-  exifData     String?
+  description  String?       @db.Text
+  imageUrl     String        @db.Text @map("image_url")
+  thumbnailUrl String?       @db.Text @map("thumbnail_url")
+  categoryId   Int?          @map("category_id")
+  isFeatured   Boolean       @default(false) @map("is_featured")
+  isVisible    Boolean      @default(true) @map("is_visible")
+  orderIndex   Int           @default(0) @map("order_index")
+  takenAt      DateTime?     @map("taken_at")
+  location     String?
+  cameraModel  String?       @map("camera_model")
+  lens         String?
+  focalLength  String?       @map("focal_length")
+  aperture     String?
+  shutterSpeed String?       @map("shutter_speed")
+  iso          String?
+  exifData     String?       @db.Text @map("exif_data")
   width        Int?
   height       Int?
   size         Int?
-  category     PhotoCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  category     PhotoCategory? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   tags         Tag[]         @relation("PhotoTags")
 
   @@map("photo")
+  @@index([categoryId])
+  @@index([isVisible])
+  @@index([isFeatured])
+  @@index([orderIndex])
+  @@index([takenAt])
+  @@index([createdAt])
 }
 
 model Tag {
@@ -159,6 +213,8 @@ model Tag {
   photos    Photo[]  @relation("PhotoTags")
 
   @@map("tag")
+  @@index([name])
+  @@index([createdAt])
 }
 
 model Message {
@@ -166,31 +222,40 @@ model Message {
   name      String
   email     String
   subject   String
-  content   String
+  content   String   @db.Text
+  reply     String?  @db.Text
   isRead    Boolean  @default(false) @map("is_read")
+  isVisible Boolean  @default(true) @map("is_visible")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("message")
+  @@index([isRead])
+  @@index([createdAt])
+  @@index([email])
 }
 
 model Music {
   id           Int      @id @default(autoincrement())
   title        String
   artist       String?
-  coverUrl     String?  @map("cover_url")
+  coverUrl     String?  @db.Text @map("cover_url")
   platform     String   @default("netease")
-  url          String?
-  lyrics       String?
+  url          String?  @db.Text
+  lyrics       String?  @db.Text
   orderIndex   Int      @default(0) @map("order_index")
   isVisible    Boolean  @default(true) @map("is_visible")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
-  description  String?
+  description  String?  @db.Text
   playlistId   String?  @map("playlist_id")
   playlistType String?  @map("playlist_type")
 
   @@map("music")
+  @@index([isVisible])
+  @@index([orderIndex])
+  @@index([platform])
+  @@index([createdAt])
 }
 
 model Movie {
@@ -198,38 +263,55 @@ model Movie {
   title      String
   director   String?
   year       Int?
-  posterUrl  String?   @map("poster_url")
-  poster     String?
+  posterUrl  String?   @db.Text @map("poster_url")
+  poster     String?   @db.Text
   isVisible  Boolean   @default(true)
   orderIndex Int       @default(0)
   likes      Int       @default(0)
   rating     Float?
-  review     String?
+  review     String?   @db.Text
   watchedAt  DateTime? @map("watched_at")
   createdAt  DateTime  @default(now()) @map("created_at")
   updatedAt  DateTime  @updatedAt @map("updated_at")
 
   @@map("movie")
+  @@index([isVisible])
+  @@index([orderIndex])
+  @@index([year])
+  @@index([rating])
+  @@index([createdAt])
 }
 
 model TravelCity {
   id          Int       @id @default(autoincrement())
   name        String
+  city        String?
+  province    String?
+  country     String    @default("中国")
   location    String?
   latitude    Float?
   longitude   Float?
   visitedAt   DateTime? @map("visited_at")
-  description String?
-  photos      String?
-  orderIndex  Int       @default(0)
-  isVisible   Boolean   @default(true)
-  note        String?
-  wantCount   Int       @default(0)
-  beenCount   Int       @default(0)
+  description String?   @db.Text
+  imageUrl    String?   @db.Text @map("image_url")
+  highlights  String?   @db.Text
+  tips        String?   @db.Text
+  rating      Float?
+  photos      String?   @db.Text
+  orderIndex  Int       @default(0) @map("order_index")
+  isVisible   Boolean   @default(true) @map("is_visible")
+  note        String?   @db.Text
+  wantCount   Int       @default(0) @map("want_count")
+  beenCount   Int       @default(0) @map("been_count")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
   @@map("travel_city")
+  @@index([isVisible])
+  @@index([orderIndex])
+  @@index([country])
+  @@index([rating])
+  @@index([createdAt])
 }
 
 model TravelFootprint {
@@ -238,23 +320,72 @@ model TravelFootprint {
   latitude    Float
   longitude   Float
   visitedAt   DateTime? @map("visited_at")
-  description String?
-  photos      String?
+  description String?   @db.Text
+  photos      String?   @db.Text
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
   @@map("travel_footprint")
+  @@index([location])
+  @@index([visitedAt])
+  @@index([createdAt])
 }
 
 model SiteConfig {
   id             Int      @id @default(autoincrement())
   siteTitle      String   @default("My Portfolio") @map("site_title")
-  seoKeywords    String?  @map("seo_keywords")
-  seoDescription String?  @map("seo_description")
+  seoKeywords    String?  @db.Text @map("seo_keywords")
+  seoDescription String?  @db.Text @map("seo_description")
   icpCode        String?  @map("icp_code")
   viewCount      Int      @default(0) @map("view_count")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
   @@map("site_config")
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+model VisitorStat {
+  id        Int      @id @default(autoincrement())
+  date      DateTime @unique @default(now())
+  count     Int      @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("visitor_stat")
+  @@index([date])
+  @@index([createdAt])
+}
+
+model Danmaku {
+  id        Int      @id @default(autoincrement())
+  content   String   @db.Text
+  color     String   @default("blue")
+  isVisible Boolean  @default(true) @map("is_visible")
+  orderIndex Int     @default(0) @map("order_index")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("danmaku")
+  @@index([isVisible])
+  @@index([orderIndex])
+  @@index([createdAt])
+}
+
+model Moment {
+  id        Int      @id @default(autoincrement())
+  content   String   @db.Text
+  images    String?  @db.Text // JSON array of image URLs
+  location  String?
+  likes     Int      @default(0)
+  isVisible Boolean  @default(true) @map("is_visible")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("moment")
+  @@index([isVisible])
+  @@index([likes])
+  @@index([createdAt])
+  @@index([location])
 }

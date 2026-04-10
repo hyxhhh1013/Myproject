@@ -3,17 +3,66 @@ import { Link as ScrollLink } from 'react-scroll';
 import { ChevronDown, ArrowRight, Mail, FileText } from 'lucide-react';
 import { ParticleBackground } from '../UI/ParticleBackground';
 import { ImageWithFallback } from '../UI/ImageWithFallback';
-import avatarImg from '../../assets/images/e8f47feeab5afd0a0fce8ab4f9373d09.jpg';
-import WeatherMiniDemo from '../Demos/WeatherMiniDemo';
-import PomodoroMiniDemo from '../Demos/PomodoroMiniDemo';
-import TodoMiniDemo from '../Demos/TodoMiniDemo';
+import axios from '../../utils/axiosConfig';
+import { useState, useEffect } from 'react';
 
 export const Hero = () => {
   const { scrollY } = useScroll();
   const y1 = useTransform(scrollY, [0, 500], [0, 200]);
   const y2 = useTransform(scrollY, [0, 500], [0, -150]);
-  
-  // 鼠标互动效果 - 使用motion的内置动画
+
+  const [heroData, setHeroData] = useState<{ name: string; title: string; bio: string; avatar: string; avatarThumbnail?: string }>({
+    name: '加载中...',
+    title: '在读学生',
+    bio: '记录成长与创作',
+    avatar: '',
+  });
+
+  const [projects, setProjects] = useState<any[]>([]);
+
+  const fetchData = async () => {
+    try {
+      // 并行获取用户数据和项目数据
+      const [userResponse, projectsResponse] = await Promise.all([
+        axios.get('/api/users/1'),
+        axios.get('/api/projects')
+      ]);
+
+      // 处理用户数据
+      const userData = userResponse.data?.data || userResponse.data;
+      if (userData) {
+        setHeroData({
+          name: userData.name || '访客',
+          title: userData.title || '在读学生',
+          bio: userData.bio || '记录成长与创作',
+          avatar: userData.avatar || '',
+          avatarThumbnail: userData.avatarThumbnail || '',
+        });
+      }
+
+      // 处理项目数据
+      const projectsData = projectsResponse.data?.data || (Array.isArray(projectsResponse.data) ? projectsResponse.data : []);
+      setProjects(projectsData);
+    } catch (error) {
+      console.error('Failed to fetch data:', error);
+      // 保持默认数据
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+    
+    // 监听localStorage变化，当项目数据更新时刷新
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'projectUpdated') {
+        fetchData();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
   const x = useMotionValue(0);
   const y = useMotionValue(0);
   
@@ -38,7 +87,7 @@ export const Hero = () => {
   return (
     <section 
       id="hero" 
-      className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gray-900 dark:bg-black pt-20 pb-10"
+      className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gray-900 dark:bg-black pt-12 pb-6 sm:pt-16 sm:pb-8 md:pt-20 md:pb-10"
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
     >
@@ -111,7 +160,8 @@ export const Hero = () => {
           >
             <div className="w-32 h-32 md:w-40 md:h-40 rounded-full overflow-hidden border-4 border-white/20 shadow-2xl relative z-10 ring-4 ring-blue-500/30">
               <ImageWithFallback
-                src={avatarImg}
+                src={heroData.avatar ? (heroData.avatar.startsWith('http') ? heroData.avatar : `${axios.defaults.baseURL || ''}${heroData.avatar.startsWith('/') ? '' : '/'}${heroData.avatar}`) : ""}
+                thumbnailSrc={heroData.avatarThumbnail ? (heroData.avatarThumbnail.startsWith('http') ? heroData.avatarThumbnail : `${axios.defaults.baseURL || ''}${heroData.avatarThumbnail.startsWith('/') ? '' : '/'}${heroData.avatarThumbnail}`) : (heroData.avatar ? (heroData.avatar.startsWith('http') ? heroData.avatar : `${axios.defaults.baseURL || ''}${heroData.avatar.startsWith('/') ? '' : '/'}${heroData.avatar}`) : "")}
                 alt="Avatar"
                 className="transition-transform duration-700 group-hover:scale-110"
               />
@@ -120,15 +170,15 @@ export const Hero = () => {
           </motion.div>
 
           <h1 className="text-5xl md:text-7xl font-bold mb-4 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-blue-200">
-            你好，我是 <span className="text-blue-400">黄奕轩</span>
+            你好，我是 <span className="text-blue-400">{heroData?.name || '加载中...'}</span>
           </h1>
-          
+
           <p className="text-xl md:text-2xl mb-6 text-gray-200 max-w-3xl mx-auto font-light leading-relaxed">
-            计算机科学与技术专业在读学生，AI 时代的新一代创作者。
+            {heroData?.title || '在读学生'}
           </p>
-          
+
           <p className="text-lg text-gray-400 max-w-2xl mx-auto mb-8 font-light">
-            这里记录了我创作出的各种项目与实践及我的成长经历。
+            {heroData?.bio || '记录成长与创作'}
           </p>
 
           
@@ -161,40 +211,37 @@ export const Hero = () => {
           </div>
 
           {/* Quick Preview Section */}
-          <div className="w-full max-w-5xl mx-auto mt-8 border-t border-white/10 pt-8">
-            <p className="text-sm text-gray-400 mb-6 uppercase tracking-widest">精选项目预览</p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
-              {[
-                { 
-                  title: 'WeatherCast', 
-                  desc: '实时全球天气仪表盘', 
-                  Demo: WeatherMiniDemo,
-                  color: 'bg-blue-500' 
-                },
-                { 
-                  title: 'TaskMaster', 
-                  desc: '拖拽式任务看板', 
-                  Demo: TodoMiniDemo,
-                  color: 'bg-green-500' 
-                },
-                { 
-                  title: 'FocusFlow', 
-                  desc: '极简番茄钟专注工具', 
-                  Demo: PomodoroMiniDemo,
-                  color: 'bg-red-500' 
-                }
-              ].map((proj, i) => (
-                <div key={i} className="group relative overflow-hidden rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all duration-300 hover:-translate-y-1 flex flex-col h-full">
-                  <div className="h-32 overflow-hidden relative pointer-events-none">
-                    <proj.Demo />
+          <div className="w-full max-w-5xl mx-auto mt-6 border-t border-white/10 pt-6 md:mt-8 md:pt-8">
+            <p className="text-sm text-gray-400 mb-4 md:mb-6 uppercase tracking-widest">精选项目预览</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 text-left">
+              {projects.filter(project => project.isFeatured).length > 0 ? (
+                projects.filter(project => project.isFeatured).slice(0, 3).map((project, i) => (
+                  <div key={project.id || i} className="group relative overflow-hidden rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all duration-300 hover:-translate-y-1 flex flex-col h-full">
+                    <div className="h-24 sm:h-32 overflow-hidden relative pointer-events-none bg-gray-800">
+                      {project.imageUrl ? (
+                        <img 
+                          src={(project.thumbnailUrl || project.imageUrl).startsWith('http') ? (project.thumbnailUrl || project.imageUrl) : `${axios.defaults.baseURL || ''}${(project.thumbnailUrl || project.imageUrl).startsWith('/') ? '' : '/'}${project.thumbnailUrl || project.imageUrl}`} 
+                          alt={project.title} 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-600">
+                          <span className="text-sm">暂无图片</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-4 md:p-5 relative z-20 flex-grow border-t border-white/5">
+                      <div className="w-3 h-3 bg-blue-500 rounded-full mb-2 md:mb-3 ring-2 ring-white/20"></div>
+                      <h3 className="text-sm md:text-lg font-bold text-white mb-1 group-hover:text-blue-300 transition-colors">{project.title}</h3>
+                      <p className="text-xs md:text-sm text-gray-400 line-clamp-2">{project.intro || project.description}</p>
+                    </div>
                   </div>
-                  <div className="p-5 relative z-20 flex-grow border-t border-white/5">
-                    <div className={`w-3 h-3 ${proj.color} rounded-full mb-3 ring-2 ring-white/20`}></div>
-                    <h3 className="text-lg font-bold text-white mb-1 group-hover:text-blue-300 transition-colors">{proj.title}</h3>
-                    <p className="text-sm text-gray-400 line-clamp-2">{proj.desc}</p>
-                  </div>
+                ))
+              ) : (
+                <div className="col-span-full text-center py-8 text-gray-400">
+                  <p>暂无精选项目</p>
                 </div>
-              ))}
+              )}
             </div>
           </div>
 

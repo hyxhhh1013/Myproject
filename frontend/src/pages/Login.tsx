@@ -20,7 +20,7 @@ const Login = () => {
     try {
       // In development, use full URL if proxy isn't set up for this path yet, or relative if proxy works.
       // Assuming vite proxy is set up or we use the baseURL from AuthContext
-      const response = await axios.post('/auth/login', {
+      const response = await axios.post('/api/auth/login', {
         email,
         password,
       });

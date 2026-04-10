@@ -15,11 +15,13 @@ export const validateRequest = (schema: ZodSchema, type: 'body' | 'query' | 'par
       const validatedData = schema.parse(req[type]);
       
       // 将验证后的数据赋值回请求对象
-      req[type] = validatedData;
+      // 注意：这可能会覆盖掉原本在 req[type] 中但未在 schema 中定义的字段！
+      // 推荐使用扩展或部分覆盖，避免丢失未验证的数据，特别是如果后续逻辑需要它们
+      req[type] = { ...req[type], ...validatedData };
       next();
     } catch (error: any) {
       // 处理验证错误
-      const message = error.errors.map((err: any) => err.message).join(', ');
+      const message = error.errors?.map((err: any) => err.message).join(', ') || 'Validation error';
       next(new AppError(message, 400));
     }
   };
@@ -39,21 +41,24 @@ export const validateRequests = (schemas: {
     try {
       // 验证不同类型的请求参数
       if (schemas.body) {
-        req.body = schemas.body.parse(req.body);
+        const validatedBody = schemas.body.parse(req.body);
+        req.body = { ...req.body, ...validatedBody };
       }
       
       if (schemas.query) {
-        req.query = schemas.query.parse(req.query);
+        const validatedQuery = schemas.query.parse(req.query);
+        req.query = { ...req.query, ...validatedQuery };
       }
       
       if (schemas.params) {
-        req.params = schemas.params.parse(req.params);
+        const validatedParams = schemas.params.parse(req.params);
+        req.params = { ...req.params, ...validatedParams };
       }
       
       next();
     } catch (error: any) {
       // 处理验证错误
-      const message = error.errors.map((err: any) => err.message).join(', ');
+      const message = error.errors?.map((err: any) => err.message).join(', ') || 'Validation error';
       next(new AppError(message, 400));
     }
   };

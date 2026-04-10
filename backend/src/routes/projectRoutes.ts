@@ -5,25 +5,27 @@ import {
   createProject,
   updateProject,
   deleteProject,
-  upload,
-  uploadProjectDemo
+  uploadProjectDemo,
+  upload
 } from '../controllers/projectController';
-import { cacheMiddleware, clearCache } from '../middleware/cache';
 import { protect } from '../middleware/authMiddleware';
+import { clearCache } from '../middleware/cache';
 
 const router = Router();
 
-// Project routes with cache
-router.get('/', cacheMiddleware(300), getAllProjects);
-router.get('/:id', cacheMiddleware(600), getProjectById);
+// Get all projects
+router.get('/', getAllProjects);
+
+// Get project by ID
+router.get('/:id', getProjectById);
 
 // Create, update, delete operations with cache clearing
-router.post('/', protect, upload.array('images'), async (req, res) => {
-  await createProject(req, res);
+router.post('/', protect, upload.array('demoFile', 5), async (req, res) => {
+  await createProject(req as any, res);
   clearCache('/api/projects');
 });
 
-router.put('/:id', protect, upload.array('images'), async (req, res) => {
+router.put('/:id', protect, upload.array('demoFile', 5), async (req, res) => {
   await updateProject(req, res);
   clearCache('/api/projects');
   clearCache(`/api/projects/${req.params.id}`);

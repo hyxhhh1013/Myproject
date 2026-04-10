@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
-import axios from 'axios';
+import axios from '../utils/axiosConfig';
 
 // 定义Photo类型
 export interface Photo {
@@ -7,7 +7,7 @@ export interface Photo {
   title: string;
   description?: string;
   imageUrl: string;
-  thumbnailUrl: string;
+  thumbnailUrl?: string;
   category: {
     id: number;
     name: string;
@@ -19,6 +19,12 @@ export interface Photo {
   takenAt: string;
   createdAt: string;
   updatedAt: string;
+  cameraModel?: string;
+  lens?: string;
+  focalLength?: string;
+  aperture?: string;
+  shutterSpeed?: string;
+  iso?: string;
   exifData?: any;
 }
 
@@ -47,13 +53,7 @@ interface PhotoContextType {
 const PhotoContext = createContext<PhotoContextType | undefined>(undefined);
 
 // --- Local Photos Logic ---
-// Dynamically import all images from the photography folder
-// key is the relative path, value is the public URL (string)
-const imageModules = import.meta.glob('../assets/images/photography/*.{jpg,jpeg,png}', {
-    eager: true,
-    import: 'default'
-});
-  
+// Fallback local photos when API is not available
 const CATEGORY_KEYS = ['风景', '城市', '日常'];
 const LOCAL_CATEGORY_MAP: Record<string, {id: number, name: string, slug: string}> = {
     '风景': { id: -1, name: '风景', slug: 'landscape' },
@@ -61,47 +61,44 @@ const LOCAL_CATEGORY_MAP: Record<string, {id: number, name: string, slug: string
     '日常': { id: -3, name: '日常', slug: 'daily' }
 };
 
-// Helper to generate deterministic mock metadata
-const generateMetadata = (path: string, index: number) => {
-    // Use simple hashing of path to determine category so it persists
-    let hash = 0;
-    for (let i = 0; i < path.length; i++) {
-      hash = path.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    const catIndex = Math.abs(hash) % CATEGORY_KEYS.length;
-    const catName = CATEGORY_KEYS[catIndex];
+// Generate mock local photos
+const localPhotos: Photo[] = Array.from({ length: 6 }, (_, index) => {
+    const categoryIndex = index % CATEGORY_KEYS.length;
+    const categoryName = CATEGORY_KEYS[categoryIndex];
+    const category = LOCAL_CATEGORY_MAP[categoryName];
     
     const cameras = ['Sony A7M4', 'Fujifilm X-T4', 'Canon R6', 'Nikon Zf'];
     const lens = ['35mm f/1.4', '50mm f/1.2', '85mm f/1.8', '24-70mm f/2.8'];
     
-    return {
-      category: LOCAL_CATEGORY_MAP[catName],
-      title: `Untitled ${index + 1}`,
-      exif: {
-          cameraModel: cameras[index % cameras.length],
-          aperture: lens[index % lens.length].split(' ')[1].replace('f/', ''),
-          iso: 100 * ((index % 4) + 1),
-          focalLength: lens[index % lens.length].split(' ')[0].replace('mm', '')
-      }
-    };
-};
-
-const localPhotos: Photo[] = Object.values(imageModules).map((src, index) => {
-    const path = src as string;
-    const meta = generateMetadata(path, index);
+    // Use placeholder images from picsum.photos
+    const imageUrl = `https://picsum.photos/800/600?random=${index + 1}`;
+    const thumbnailUrl = `https://picsum.photos/300/300?random=${index + 1}`;
+    
     return {
       id: -(index + 1000), // Negative ID to avoid collision
-      imageUrl: path,
-      thumbnailUrl: path, // Use same for thumbnail for local
-      ...meta,
-      description: '',
-      isFeatured: false,
+      imageUrl,
+      thumbnailUrl,
+      category,
+      title: `${categoryName} 照片 ${index + 1}`,
+      description: `这是一张${categoryName}类别的测试照片`,
+      isFeatured: index === 0,
       isVisible: true,
-      orderIndex: 1000 + index, // Put them at the end or mix?
-      takenAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      exifData: meta.exif
+      orderIndex: 1000 + index,
+      takenAt: new Date(Date.now() - index * 7 * 24 * 60 * 60 * 1000).toISOString(),
+      createdAt: new Date(Date.now() - index * 7 * 24 * 60 * 60 * 1000).toISOString(),
+      updatedAt: new Date(Date.now() - index * 7 * 24 * 60 * 60 * 1000).toISOString(),
+      cameraModel: cameras[index % cameras.length],
+      lens: lens[index % lens.length],
+      focalLength: lens[index % lens.length].split(' ')[0],
+      aperture: lens[index % lens.length].split(' ')[1].replace('f/', ''),
+      shutterSpeed: '1/1000',
+      iso: '100',
+      exifData: {
+        cameraModel: cameras[index % cameras.length],
+        aperture: lens[index % lens.length].split(' ')[1].replace('f/', ''),
+        iso: 100,
+        focalLength: lens[index % lens.length].split(' ')[0]
+      }
     };
 });
 // ---------------------------
@@ -124,15 +121,34 @@ export const PhotoProvider: React.FC<PhotoProviderProps> = ({ children }) => {
       setError(null);
       let apiPhotos: Photo[] = [];
       try {
-        const response = await axios.get('/photos', { params });
-        apiPhotos = response.data.photos;
+        const response = await axios.get('/api/photos', { params });
+        apiPhotos = Array.isArray(response.data.photos) ? response.data.photos : [];
+        
+        // 确保照片 URL 是完整的，包含后端服务器地址
+        apiPhotos = apiPhotos.map(photo => {
+          // 检查 imageUrl 是否已经是完整的 URL
+          if (photo.imageUrl) {
+            if (!photo.imageUrl.startsWith('http')) {
+              // 确保 URL 以 / 开头
+              const imagePath = photo.imageUrl.startsWith('/') ? photo.imageUrl : `/${photo.imageUrl}`;
+              photo.imageUrl = `${axios.defaults.baseURL || ''}${imagePath}`;
+            }
+          }
+          if (photo.thumbnailUrl) {
+            if (!photo.thumbnailUrl.startsWith('http')) {
+              // 确保 URL 以 / 开头
+              const thumbnailPath = photo.thumbnailUrl.startsWith('/') ? photo.thumbnailUrl : `/${photo.thumbnailUrl}`;
+              photo.thumbnailUrl = `${axios.defaults.baseURL || ''}${thumbnailPath}`;
+            }
+          }
+          return photo;
+        });
       } catch (e) {
         console.warn('API load failed, using local only', e);
       }
       
-      // Merge API photos with Local photos
-      // We can decide order here. Let's put API photos first (newer).
-      setPhotos([...apiPhotos, ...localPhotos]);
+      // Only use API photos, don't merge with local mock photos
+      setPhotos(apiPhotos);
     } catch (err) {
       setError('Failed to load photos');
       console.error('Failed to load photos:', err);
@@ -145,29 +161,16 @@ export const PhotoProvider: React.FC<PhotoProviderProps> = ({ children }) => {
   // 加载分类数据
   const loadCategories = async () => {
     try {
-      const response = await axios.get('/photo-categories');
-      // Merge API categories with local dummy categories
-      const apiCats = response.data;
-      const localCats = Object.values(LOCAL_CATEGORY_MAP);
-      
-      // De-duplicate by name
-      const mergedCats = [...apiCats];
-      localCats.forEach(lc => {
-          if (!mergedCats.find(ac => ac.name === lc.name)) {
-              mergedCats.push({
-                  ...lc,
-                  _count: { photos: localPhotos.filter(p => p.category.name === lc.name).length }
-              });
-          }
-      });
-      
-      setCategories(mergedCats);
+      const response = await axios.get('/api/photo-categories');
+      // Only use API categories
+      const apiCats = Array.isArray(response.data) ? response.data : [];
+      setCategories(apiCats);
     } catch (err) {
-      console.error('Failed to load categories:', err);
+      console.warn('Failed to load categories:', err);
       // Fallback
       setCategories(Object.values(LOCAL_CATEGORY_MAP).map(c => ({
           ...c,
-          _count: { photos: localPhotos.filter(p => p.category.name === c.name).length }
+          _count: { photos: 0 }
       })));
     }
   };
@@ -177,13 +180,16 @@ export const PhotoProvider: React.FC<PhotoProviderProps> = ({ children }) => {
     loadPhotos({ limit: 100 }); 
     loadCategories();
     
-    // 定时刷新数据，每60秒刷新一次
-    const refreshInterval = setInterval(() => {
-      loadPhotos({ limit: 100 });
-      loadCategories();
-    }, 60000);
-    
-    return () => clearInterval(refreshInterval);
+    // 监听localStorage变化，当照片数据更新时刷新
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'photosUpdated') {
+        loadPhotos({ limit: 100 });
+        loadCategories();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   // 刷新照片数据
@@ -198,7 +204,7 @@ export const PhotoProvider: React.FC<PhotoProviderProps> = ({ children }) => {
       return photos;
     }
     // Handle local negative IDs
-    return photos.filter(photo => photo.category.id === categoryId);
+    return photos.filter(photo => photo.category?.id === categoryId);
   };
 
   const value: PhotoContextType = {

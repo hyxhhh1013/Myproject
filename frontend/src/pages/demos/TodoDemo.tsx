@@ -7,9 +7,7 @@ import {
   useSensor, 
   useSensors, 
   DragOverlay,
-  defaultDropAnimationSideEffects,
-  DragStartEvent,
-  DragOverEvent
+  defaultDropAnimationSideEffects
 } from '@dnd-kit/core';
 import { 
   arrayMove, 
@@ -156,11 +154,11 @@ const TodoDemo = () => {
     })
   );
 
-  const handleDragStart = (event: DragStartEvent) => {
+  const handleDragStart = (event: any) => {
     setActiveId(event.active.id as string);
   };
 
-  const handleDragOver = (event: DragOverEvent) => {
+  const handleDragOver = (event: any) => {
     const { active, over } = event;
     if (!over) return;
 

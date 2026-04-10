@@ -6,13 +6,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 interface ImageWithFallbackProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   fallbackSrc?: string;
   containerClassName?: string;
+  thumbnailSrc?: string;
 }
 
 export const ImageWithFallback = ({ 
   src, 
   alt, 
-  className, 
-  containerClassName
+  className,
+  containerClassName,
+  thumbnailSrc
 }: ImageWithFallbackProps) => {
   const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
   const [retryCount, setRetryCount] = useState(0);
@@ -21,22 +23,61 @@ export const ImageWithFallback = ({
   useEffect(() => {
     setStatus('loading');
     
-    const img = new Image();
-    img.src = src as string;
-    
-    img.onload = () => {
-      setStatus('loaded');
-    };
-    
-    img.onerror = () => {
-      setStatus('error');
+    // 首先加载缩略图（如果有），然后加载原图
+    const loadImage = async () => {
+      // 先加载缩略图进行预加载
+      if (thumbnailSrc) {
+        const thumbnailImg = new Image();
+        thumbnailImg.src = thumbnailSrc;
+        
+        thumbnailImg.onload = () => {
+          // 缩略图加载完成后，加载原图
+          const mainImg = new Image();
+          mainImg.src = src as string;
+          
+          mainImg.onload = () => {
+            setStatus('loaded');
+          };
+          
+          mainImg.onerror = () => {
+            setStatus('error');
+          };
+        };
+        
+        thumbnailImg.onerror = () => {
+          // 缩略图加载失败，直接加载原图
+          const mainImg = new Image();
+          mainImg.src = src as string;
+          
+          mainImg.onload = () => {
+            setStatus('loaded');
+          };
+          
+          mainImg.onerror = () => {
+            setStatus('error');
+          };
+        };
+      } else {
+        // 没有缩略图，直接加载原图
+        const img = new Image();
+        img.src = src as string;
+        
+        img.onload = () => {
+          setStatus('loaded');
+        };
+        
+        img.onerror = () => {
+          setStatus('error');
+        };
+      }
     };
 
+    loadImage();
+
     return () => {
-      img.onload = null;
-      img.onerror = null;
+      // 清理逻辑
     };
-  }, [src, retryCount]);
+  }, [src, thumbnailSrc, retryCount]);
 
   const handleRetry = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -44,7 +85,7 @@ export const ImageWithFallback = ({
   };
 
   return (
-    <div className={clsx("relative overflow-hidden bg-gray-100 dark:bg-gray-800", containerClassName || className)}>
+    <div className={clsx("relative overflow-hidden bg-gray-100 dark:bg-gray-800", containerClassName)}>
       <AnimatePresence mode="popLayout">
         {status === 'loading' && (
           <motion.div 
@@ -86,7 +127,7 @@ export const ImageWithFallback = ({
         animate={{ opacity: status === 'loaded' ? 1 : 0 }}
         transition={{ duration: 0.5 }}
         className={clsx(
-          "w-full h-full object-cover",
+          "w-full h-auto object-contain z-0",
           className
         )}
         loading="lazy"

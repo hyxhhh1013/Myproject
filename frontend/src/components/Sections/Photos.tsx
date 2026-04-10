@@ -20,18 +20,31 @@ export const Photos = () => {
 
   const allPhotos = useMemo(() => {
     // Map Context photos (which includes both API and Local now) to the shape used in this component
-    return apiPhotos.map(p => ({
-        src: p.imageUrl,
-        category: p.category.name,
-        title: p.title,
-        exif: p.exifData ? `${p.exifData.cameraModel || 'Unknown'} • f/${p.exifData.aperture || '?'} • ISO ${p.exifData.iso || '?'}` : 'No EXIF'
-    }));
+    return apiPhotos.filter(p => p.imageUrl).map(p => {
+        // Handle both flattened API structure and nested local/legacy structure
+        const camera = p.cameraModel || (p.exifData && p.exifData.cameraModel) || 'Unknown';
+        const aperture = p.aperture || (p.exifData && p.exifData.aperture) || '?';
+        const iso = p.iso || (p.exifData && p.exifData.iso) || '?';
+        const hasExif = camera !== 'Unknown' || aperture !== '?' || iso !== '?';
+
+        return {
+          src: p.imageUrl, // 原图，用于Lightbox
+          thumbnail: p.thumbnailUrl || p.imageUrl, // 缩略图，用于网格显示
+          category: p.category?.name || '未分类',
+          title: p.title || '未命名',
+          exif: hasExif ? `${camera} • f/${aperture} • ISO ${iso}` : 'No EXIF'
+        };
+    });
   }, [apiPhotos]);
 
   // Update CATEGORIES based on data
   const dynamicCategories = useMemo(() => {
       const cats = new Set(CATEGORIES);
-      apiPhotos.forEach(p => cats.add(p.category.name));
+      apiPhotos.forEach(p => {
+        if (p.category?.name) {
+          cats.add(p.category.name);
+        }
+      });
       return Array.from(cats);
   }, [apiPhotos]);
 
@@ -61,7 +74,7 @@ export const Photos = () => {
   }, [activeCategory]);
 
   return (
-    <section id="photos" className="py-24 bg-white dark:bg-dark-surface transition-colors duration-300">
+    <section id="photos" className="py-12 sm:py-24 bg-white dark:bg-dark-surface transition-colors duration-300">
       <div className="container mx-auto px-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -94,47 +107,44 @@ export const Photos = () => {
           ))}
         </div>
 
-        <motion.div 
-          layout
-          className="columns-2 md:columns-3 lg:columns-4 gap-4 md:gap-6 space-y-4 md:space-y-6"
-        >
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
           <AnimatePresence>
             {visiblePhotos.map((photo, i) => (
               <motion.div
-                layout
                 key={photo.src}
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.8 }}
                 transition={{ duration: 0.3 }}
-                className="break-inside-avoid relative group rounded-xl overflow-hidden cursor-pointer shadow-md hover:shadow-xl bg-gray-200 dark:bg-gray-800"
+                className="relative group rounded-lg sm:rounded-xl overflow-hidden cursor-pointer shadow-sm sm:shadow-md hover:shadow-md sm:hover:shadow-xl bg-gray-200 dark:bg-gray-800 flex items-center justify-center"
                 onClick={() => setIndex(i)}
               >
                 <ImageWithFallback
-                  src={photo.src}
+                  src={photo.thumbnail}
                   alt={photo.title}
-                  className="w-full h-auto block transform group-hover:scale-105 transition-transform duration-700"
+                  className="w-full h-auto transform group-hover:scale-105 transition-transform duration-700"
+                  containerClassName="w-full aspect-auto"
                 />
                 {/* Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4 md:p-6">
-                  <div className="transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
-                    <span className="inline-block px-2 py-1 mb-2 text-[10px] md:text-xs font-semibold bg-blue-600 text-white rounded-md">
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3 sm:p-4 md:p-6 z-10">
+                  <div className="transform translate-y-3 hover:translate-y-0 transition-transform duration-300">
+                    <span className="inline-block px-1.5 py-0.5 mb-1.5 text-[9px] sm:text-[10px] md:text-xs font-semibold bg-blue-600 text-white rounded-md">
                       {photo.category}
                     </span>
-                    <h3 className="text-white font-bold text-sm md:text-lg truncate">{photo.title}</h3>
-                    <div className="flex items-center text-white/80 text-[10px] md:text-xs mt-1 truncate">
-                      <Camera className="w-3 h-3 mr-1 flex-shrink-0" />
+                    <h3 className="text-white font-bold text-xs sm:text-sm md:text-lg truncate">{photo.title}</h3>
+                    <div className="flex items-center text-white/80 text-[9px] sm:text-[10px] md:text-xs mt-0.5 sm:mt-1 truncate">
+                      <Camera className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-1 flex-shrink-0" />
                       <span className="truncate">{photo.exif}</span>
                     </div>
                   </div>
-                  <div className="absolute top-4 right-4 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100">
-                     <Maximize2 className="w-5 h-5 drop-shadow-md" />
+                  <div className="absolute top-3 sm:top-4 right-3 sm:right-4 text-white opacity-0 hover:opacity-100 transition-opacity duration-300 delay-100 bg-black/50 p-1.5 rounded-full">
+                     <Maximize2 className="w-4 h-4 sm:w-5 sm:h-5 drop-shadow-md" />
                   </div>
                 </div>
               </motion.div>
             ))}
           </AnimatePresence>
-        </motion.div>
+        </div>
         
         {filteredPhotos.length === 0 && (
            <div className="text-center py-20 text-gray-500">
@@ -171,7 +181,11 @@ export const Photos = () => {
 
         <Lightbox
           index={index}
-          slides={filteredPhotos}
+          slides={visiblePhotos.map(photo => ({
+            src: photo.src,
+            alt: photo.title,
+            title: photo.title
+          }))}
           open={index >= 0}
           close={() => setIndex(-1)}
           plugins={[Captions]}
