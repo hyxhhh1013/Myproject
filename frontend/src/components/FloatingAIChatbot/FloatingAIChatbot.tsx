@@ -51,7 +51,7 @@ export const FloatingAIChatbot = () => {
     if (url.startsWith('http://') || url.startsWith('https://')) {
       return url;
     }
-    return `http://localhost:3001${url}`;
+    return `${url}`;
   };
 
   const handleProgressClick = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {

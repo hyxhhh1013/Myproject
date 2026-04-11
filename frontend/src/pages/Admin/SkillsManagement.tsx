@@ -46,7 +46,7 @@ const SkillsManagement = () => {
     console.log('Auth status:', { isAuthenticated, token });
     console.log('Local storage token:', localStorage.getItem('token'));
     // Set axios base URL and headers
-    axios.defaults.baseURL = 'http://localhost:3001';
+    axios.defaults.baseURL = '';
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     }

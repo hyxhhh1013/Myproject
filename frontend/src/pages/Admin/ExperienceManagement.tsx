@@ -70,7 +70,7 @@ const ExperienceManagement = () => {
         images: experience.images || [],
         isVisible: experience.isVisible ?? true,
       });
-      setPreviewUrls(experience.images?.map(img => img.startsWith('http') ? img : `http://localhost:3001${img}`) || []);
+      setPreviewUrls(experience.images?.map(img => img.startsWith('http') ? img : `${img}`) || []);
     } else {
       setEditingExperience(null);
       setFormData(initialFormData);

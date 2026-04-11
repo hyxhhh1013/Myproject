@@ -6,6 +6,8 @@ import fs from 'fs';
 import logger from '../utils/logger';
 import { FileUploadRequest } from '../types/express';
 import cache from '../utils/cache';
+import { saveFileToDb, saveBufferToDb } from '../utils/dbStorage';
+import { optimizeImageBuffer } from '../utils/imageOptimizer';
 
 const PROJECT_CACHE_KEY = 'projects_list';
 const CLEAR_PROJECT_CACHE = () => cache.del(PROJECT_CACHE_KEY);
@@ -148,7 +150,17 @@ export const createProject = async (req: FileUploadRequest, res: Response) => {
     let imageUrl = '';
 
     if (req.files && Array.isArray(req.files) && req.files.length > 0) {
-      images = req.files.map((file) => `${CDN_BASE_URL}/uploads/demos/${path.basename(file.path)}`);
+      images = await Promise.all(req.files.map(async (file) => {
+        // 优化项目图片 (内存处理)
+        const { buffer } = await optimizeImageBuffer(file.path, 1920, 75);
+        const baseFilename = path.basename(file.path, path.extname(file.path));
+        const filename = `${baseFilename}-opt.webp`;
+        
+        await saveBufferToDb(buffer, filename);
+        // 清理原始上传文件
+        fs.promises.unlink(file.path).catch(() => {});
+        return `/uploads/${filename}`;
+      }));
       imageUrl = images[0];
     }
 
@@ -208,7 +220,17 @@ export const updateProject = async (req: Request, res: Response) => {
 
     // Handle new uploads
     if ((req as any).files && (req as any).files.length > 0) {
-      const newImages = (req as any).files.map((file: any) => `${CDN_BASE_URL}/uploads/demos/${path.basename(file.path)}`);
+      const newImages = await Promise.all((req as any).files.map(async (file: any) => {
+        // 优化项目图片 (内存处理)
+        const { buffer } = await optimizeImageBuffer(file.path, 1920, 75);
+        const baseFilename = path.basename(file.path, path.extname(file.path));
+        const filename = `${baseFilename}-opt.webp`;
+        
+        await saveBufferToDb(buffer, filename);
+        // 清理原始上传文件
+        fs.promises.unlink(file.path).catch(() => {});
+        return `/uploads/${filename}`;
+      }));
       finalImages = [...finalImages, ...newImages];
     }
 
@@ -279,7 +301,12 @@ export const uploadProjectDemo = async (req: Request, res: Response) => {
     const CDN_BASE_URL = process.env.CDN_BASE_URL || '';
     
     // 构建Demo文件URL
-    const demoUrl = `${CDN_BASE_URL}/uploads/demos/${path.basename(file.path)}`;
+    const filename = path.basename(file.path);
+    await saveFileToDb(file.path, filename);
+    const demoUrl = `/uploads/${filename}`;
+    
+    // 清理临时文件 (如果是图片 demo 可能被存入 DB 了)
+    // 注意：saveFileToDb 内部已经 unlink 了，所以这里不用重复处理
     
     // 更新项目信息
     const project = await prisma.project.update({

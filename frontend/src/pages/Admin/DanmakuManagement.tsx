@@ -17,6 +17,7 @@ const colorOptions = [
   { value: 'darkblue', label: '深蓝', bg: 'rgba(29, 78, 216, 0.8)' },
   { value: 'slate', label: '石板灰', bg: 'rgba(75, 85, 99, 0.8)' },
   { value: 'primary', label: '主色调', bg: 'rgba(37, 99, 235, 0.8)' },
+  { value: 'pink', label: '粉色', bg: 'rgba(236, 72, 153, 0.8)' },
 ];
 
 const DanmakuManagement = () => {

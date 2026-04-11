@@ -81,7 +81,7 @@ const ProjectsManagement = () => {
         imageUrl: project.imageUrl || '',
         isFeatured: project.isFeatured || false,
       });
-      setPreviewUrl(project.imageUrl && !project.imageUrl.startsWith('http') ? `http://localhost:3001${project.imageUrl}` : (project.imageUrl || ''));
+      setPreviewUrl(project.imageUrl && !project.imageUrl.startsWith('http') ? `${project.imageUrl}` : (project.imageUrl || ''));
     } else {
       setEditingProject(null);
       setFormData(initialFormData);

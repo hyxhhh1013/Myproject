@@ -52,10 +52,10 @@ export const Experience = () => {
           .map((exp: any) => ({
             ...exp,
             images: exp.images && exp.images.length > 0 ? exp.images.map((img: string) => 
-              img.startsWith('http') ? img : `http://localhost:3001${img}`
+              img.startsWith('http') ? img : `${img}`
             ) : [],
             thumbnailImages: exp.thumbnailImages && exp.thumbnailImages.length > 0 ? exp.thumbnailImages.map((img: string) => 
-              img.startsWith('http') ? img : `http://localhost:3001${img}`
+              img.startsWith('http') ? img : `${img}`
             ) : []
           }))
           .sort((a: any, b: any) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());

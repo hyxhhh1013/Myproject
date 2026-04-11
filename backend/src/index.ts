@@ -30,6 +30,7 @@ import uploadRoutes from './routes/uploadRoutes';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { initData } from './utils/initData';
 import { rateLimit } from 'express-rate-limit';
+import { serveFileFromDb } from './controllers/dbUploadController';
 
 // Load environment variables
 dotenv.config();
@@ -46,6 +47,9 @@ export const prisma = new PrismaClient({
 
 // Create Express app
 const app = express();
+
+// Trust proxy for express-rate-limit
+app.set('trust proxy', true);
 
 // Rate limiting middleware
 const apiLimiter = rateLimit({
@@ -79,16 +83,7 @@ app.use((req, res, next) => {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-  res.setHeader('Content-Security-Policy', 
-    "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; " +
-    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
-    "img-src 'self' data: https://* http://localhost:3001; " +
-    "font-src 'self' https://cdn.jsdelivr.net; " +
-    "connect-src 'self' http://localhost:3001 https://api.example.com https://open.bigmodel.cn https://api.vvhan.com https://api.yyua.com; " +
-    "frame-src 'none'; " +
-    "object-src 'none'"
-  );
+  // Removed CSP for now to fix access issues
   res.setHeader('Permissions-Policy', 
     "geolocation=(self), " +
     "camera=(), " +
@@ -129,12 +124,8 @@ app.use(express.urlencoded({
 // 5. Rate limiting for API routes
 app.use('/api', apiLimiter);
 
-// 6. Static file serving with caching
-app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
-  maxAge: '1y',
-  etag: true,
-  lastModified: true,
-}));
+// 6. Static file serving from Database
+app.get('/uploads/:filename', serveFileFromDb);
 
 // Health check route
 app.get('/health', (req, res) => {

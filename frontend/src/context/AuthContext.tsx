@@ -38,7 +38,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(false);
 
     // Ensure baseURL is set correctly
-    axios.defaults.baseURL = 'http://localhost:3001';
+    axios.defaults.baseURL = '';
 
     // Add axios interceptor for 401
     const interceptor = axios.interceptors.response.use(

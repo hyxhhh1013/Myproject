@@ -50,8 +50,8 @@ const ProjectCard: React.FC<ProjectCardProps> = React.memo(({ title, intro, desc
       ) : imageUrl ? (
         <div className="h-48 sm:h-56 md:h-64 bg-gray-100 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 overflow-hidden relative group">
           <ImageWithFallback 
-            src={imageUrl.startsWith('http') ? imageUrl : `http://localhost:3001${imageUrl}`} 
-            thumbnailSrc={thumbnailUrl ? (thumbnailUrl.startsWith('http') ? thumbnailUrl : `http://localhost:3001${thumbnailUrl}`) : undefined}
+            src={imageUrl.startsWith('http') ? imageUrl : `${imageUrl}`} 
+            thumbnailSrc={thumbnailUrl ? (thumbnailUrl.startsWith('http') ? thumbnailUrl : `${thumbnailUrl}`) : undefined}
             alt={title} 
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
           />

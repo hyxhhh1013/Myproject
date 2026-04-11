@@ -7,6 +7,161 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model dream_records {
+  id                                                     String              @id
+  user_id                                                String
+  content                                                String              @db.Text
+  emotion                                                String              @default("NEUTRAL")
+  recorded_at                                            DateTime            @default(now())
+  audio_url                                              String?
+  analysis_result                                        String?             @db.Text
+  cross_analysis                                         String?             @db.Text
+  vividness                                              Int                 @default(0)
+  terror                                                 Int                 @default(0)
+  lucidity                                               Int                 @default(0)
+  content_embedding                                      String?             @db.Text
+  created_at                                             DateTime            @default(now())
+  updated_at                                             DateTime
+  deleted_at                                             DateTime?
+  users                                                  users               @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  dream_to_symbols                                       dream_to_symbols[]
+  physiological_data                                     physiological_data?
+  tarot_readings                                         tarot_readings[]
+  topology_edges_topology_edges_source_idTodream_records topology_edges[]    @relation("topology_edges_source_idTodream_records")
+  topology_edges_topology_edges_target_idTodream_records topology_edges[]    @relation("topology_edges_target_idTodream_records")
+
+  @@index([recorded_at])
+  @@index([user_id])
+}
+
+model dream_symbols {
+  id                String             @id
+  name              String             @unique @db.VarChar(255)
+  universal_meaning String             @db.Text
+  created_at        DateTime           @default(now())
+  updated_at        DateTime
+  dream_to_symbols  dream_to_symbols[]
+}
+
+model dream_to_symbols {
+  id                   String        @id
+  dream_record_id      String
+  dream_symbol_id      String
+  personalized_meaning String        @db.Text
+  created_at           DateTime      @default(now())
+  dream_records        dream_records @relation(fields: [dream_record_id], references: [id], onDelete: Cascade)
+  dream_symbols        dream_symbols @relation(fields: [dream_symbol_id], references: [id], onDelete: Cascade)
+
+  @@unique([dream_record_id, dream_symbol_id])
+  @@index([dream_symbol_id], map: "dream_to_symbols_dream_symbol_id_fkey")
+}
+
+model insight_reports {
+  id                String   @id
+  user_id           String
+  report_type       String
+  period_start      DateTime
+  period_end        DateTime
+  summary           String   @db.Text
+  detailed_analysis String   @db.Text
+  created_at        DateTime @default(now())
+  updated_at        DateTime
+  users             users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, period_start, period_end])
+}
+
+model physiological_data {
+  id               String        @id
+  dream_record_id  String        @unique
+  rem_heart_rate   Int?
+  room_temperature Float?
+  raw_health_data  String?       @db.Text
+  device_source    String?
+  created_at       DateTime      @default(now())
+  updated_at       DateTime
+  dream_records    dream_records @relation(fields: [dream_record_id], references: [id], onDelete: Cascade)
+}
+
+model tarot_favorites {
+  id         String   @id
+  user_id    String
+  card_code  String
+  card_name  String
+  card_emoji String?
+  created_at DateTime @default(now())
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, card_code])
+  @@index([user_id, created_at])
+}
+
+model tarot_reading_cards {
+  id               String         @id
+  tarot_reading_id String
+  position         Int
+  card_code        String
+  card_name        String
+  card_emoji       String?
+  is_reversed      Boolean        @default(false)
+  upright_meaning  String         @db.Text
+  reversed_meaning String         @db.Text
+  created_at       DateTime       @default(now())
+  tarot_readings   tarot_readings @relation(fields: [tarot_reading_id], references: [id], onDelete: Cascade)
+
+  @@index([tarot_reading_id, position])
+}
+
+model tarot_readings {
+  id                  String                @id
+  user_id             String
+  dream_record_id     String?
+  spread_type         String                @default("three_card")
+  question            String?               @db.Text
+  ai_summary          String
+  ai_interpretation   String                @db.Text
+  ai_advice           String?               @db.Text
+  created_at          DateTime              @default(now())
+  tarot_reading_cards tarot_reading_cards[]
+  dream_records       dream_records?        @relation(fields: [dream_record_id], references: [id])
+  users               users                 @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([dream_record_id], map: "tarot_readings_dream_record_id_fkey")
+  @@index([user_id, created_at])
+}
+
+model topology_edges {
+  id                                                    String        @id
+  source_id                                             String
+  target_id                                             String
+  weight                                                Float         @default(1)
+  logic_relation                                        String?
+  created_at                                            DateTime      @default(now())
+  dream_records_topology_edges_source_idTodream_records dream_records @relation("topology_edges_source_idTodream_records", fields: [source_id], references: [id], onDelete: Cascade)
+  dream_records_topology_edges_target_idTodream_records dream_records @relation("topology_edges_target_idTodream_records", fields: [target_id], references: [id], onDelete: Cascade)
+
+  @@index([source_id])
+  @@index([target_id])
+}
+
+model users {
+  id              String            @id
+  email           String            @unique
+  name            String?
+  password_hash   String
+  encryption_key  String
+  preferences     String?           @db.Text
+  created_at      DateTime          @default(now())
+  updated_at      DateTime
+  deleted_at      DateTime?
+  dream_records   dream_records[]
+  insight_reports insight_reports[]
+  tarot_favorites tarot_favorites[]
+  tarot_readings  tarot_readings[]
+
+  @@index([created_at])
+}
+
 model User {
   id          Int           @id @default(autoincrement())
   name        String
@@ -26,10 +181,10 @@ model User {
   skills      Skill[]
   socialMedia SocialMedia[]
 
-  @@map("user")
   @@index([email])
   @@index([createdAt])
   @@index([updatedAt])
+  @@map("user")
 }
 
 model Education {
@@ -45,10 +200,11 @@ model Education {
   updatedAt   DateTime  @updatedAt @map("updated_at")
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@map("education")
   @@index([userId])
   @@index([startDate])
   @@index([createdAt])
+  @@index([updatedAt])
+  @@map("education")
 }
 
 model Experience {
@@ -66,64 +222,67 @@ model Experience {
   updatedAt   DateTime  @updatedAt @map("updated_at")
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@map("experience")
   @@index([userId])
   @@index([isVisible])
   @@index([orderIndex])
   @@index([startDate])
   @@index([createdAt])
+  @@index([updatedAt])
+  @@map("experience")
 }
 
 model Skill {
-  id        Int      @id @default(autoincrement())
-  userId    Int      @map("user_id")
-  name      String
-  level     Int      @default(1)
-  category  String
-  isVisible Boolean  @default(true) @map("is_visible")
-  orderIndex Int     @default(0) @map("order_index")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         Int      @id @default(autoincrement())
+  userId     Int      @map("user_id")
+  name       String
+  level      Int      @default(1)
+  category   String
+  isVisible  Boolean  @default(true) @map("is_visible")
+  orderIndex Int      @default(0) @map("order_index")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@map("skill")
   @@index([userId])
   @@index([isVisible])
   @@index([orderIndex])
   @@index([category])
   @@index([createdAt])
+  @@index([updatedAt])
+  @@map("skill")
 }
 
 model Project {
-  id                  Int       @id @default(autoincrement())
-  userId              Int       @map("user_id")
-  title               String
-  description         String    @db.Text
-  intro               String?   @db.Text
-  startDate           DateTime  @map("start_date")
-  endDate             DateTime? @map("end_date")
-  technologies        String    @db.Text
-  responsibilities    String?   @db.Text
-  challengesProblem   String?   @db.Text @map("challenges_problem")
-  challengesSolution  String?   @db.Text @map("challenges_solution")
-  imageUrl            String?   @db.Text @map("image_url")
-  images              String?   @db.Text
-  orderIndex          Int       @default(0) @map("order_index")
-  githubUrl           String?   @db.Text @map("github_url")
-  demoUrl             String?   @db.Text @map("demo_url")
-  isVisible           Boolean   @default(true) @map("is_visible")
-  isFeatured          Boolean   @default(false) @map("is_featured")
-  createdAt           DateTime  @default(now()) @map("created_at")
-  updatedAt           DateTime  @updatedAt @map("updated_at")
-  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                 Int       @id @default(autoincrement())
+  userId             Int       @map("user_id")
+  title              String
+  description        String    @db.Text
+  intro              String?   @db.Text
+  startDate          DateTime  @map("start_date")
+  endDate            DateTime? @map("end_date")
+  technologies       String    @db.Text
+  responsibilities   String?   @db.Text
+  challengesProblem  String?   @map("challenges_problem") @db.Text
+  challengesSolution String?   @map("challenges_solution") @db.Text
+  imageUrl           String?   @map("image_url") @db.Text
+  images             String?   @db.Text
+  orderIndex         Int       @default(0) @map("order_index")
+  githubUrl          String?   @map("github_url") @db.Text
+  demoUrl            String?   @map("demo_url") @db.Text
+  isVisible          Boolean   @default(true) @map("is_visible")
+  isFeatured         Boolean   @default(false) @map("is_featured")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@map("project")
   @@index([userId])
   @@index([isVisible])
   @@index([isFeatured])
   @@index([orderIndex])
   @@index([startDate])
   @@index([createdAt])
+  @@index([updatedAt])
+  @@map("project")
 }
 
 model Contact {
@@ -135,10 +294,11 @@ model Contact {
   updatedAt DateTime @updatedAt @map("updated_at")
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@map("contact")
   @@index([userId])
   @@index([type])
   @@index([createdAt])
+  @@index([updatedAt])
+  @@map("contact")
 }
 
 model SocialMedia {
@@ -150,10 +310,11 @@ model SocialMedia {
   updatedAt DateTime @updatedAt @map("updated_at")
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@map("social_media")
   @@index([userId])
   @@index([platform])
   @@index([createdAt])
+  @@index([updatedAt])
+  @@map("social_media")
 }
 
 model PhotoCategory {
@@ -165,56 +326,58 @@ model PhotoCategory {
   updatedAt   DateTime @updatedAt @map("updated_at")
   photos      Photo[]
 
-  @@map("photo_category")
   @@index([slug])
   @@index([createdAt])
+  @@index([updatedAt])
+  @@map("photo_category")
 }
 
 model Photo {
-  id           Int           @id @default(autoincrement())
+  id           Int            @id @default(autoincrement())
   title        String
-  description  String?       @db.Text
-  imageUrl     String        @db.Text @map("image_url")
-  thumbnailUrl String?       @db.Text @map("thumbnail_url")
-  categoryId   Int?          @map("category_id")
-  isFeatured   Boolean       @default(false) @map("is_featured")
-  isVisible    Boolean      @default(true) @map("is_visible")
-  orderIndex   Int           @default(0) @map("order_index")
-  takenAt      DateTime?     @map("taken_at")
+  description  String?        @db.Text
+  imageUrl     String         @map("image_url") @db.Text
+  thumbnailUrl String?        @map("thumbnail_url") @db.Text
+  categoryId   Int?           @map("category_id")
+  isFeatured   Boolean        @default(false) @map("is_featured")
+  isVisible    Boolean        @default(true) @map("is_visible")
+  orderIndex   Int            @default(0) @map("order_index")
+  takenAt      DateTime?      @map("taken_at")
   location     String?
-  cameraModel  String?       @map("camera_model")
+  cameraModel  String?        @map("camera_model")
   lens         String?
-  focalLength  String?       @map("focal_length")
+  focalLength  String?        @map("focal_length")
   aperture     String?
-  shutterSpeed String?       @map("shutter_speed")
+  shutterSpeed String?        @map("shutter_speed")
   iso          String?
-  exifData     String?       @db.Text @map("exif_data")
+  exifData     String?        @map("exif_data") @db.Text
   width        Int?
   height       Int?
   size         Int?
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
   category     PhotoCategory? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  tags         Tag[]         @relation("PhotoTags")
+  tag          Tag[]          @relation("phototags")
 
-  @@map("photo")
   @@index([categoryId])
   @@index([isVisible])
   @@index([isFeatured])
   @@index([orderIndex])
   @@index([takenAt])
   @@index([createdAt])
+  @@index([updatedAt])
+  @@map("photo")
 }
 
 model Tag {
   id        Int      @id @default(autoincrement())
   name      String   @unique
   createdAt DateTime @default(now()) @map("created_at")
-  photos    Photo[]  @relation("PhotoTags")
+  photo     Photo[]  @relation("phototags")
 
-  @@map("tag")
   @@index([name])
   @@index([createdAt])
+  @@map("tag")
 }
 
 model Message {
@@ -229,17 +392,18 @@ model Message {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@map("message")
   @@index([isRead])
   @@index([createdAt])
   @@index([email])
+  @@index([updatedAt])
+  @@map("message")
 }
 
 model Music {
   id           Int      @id @default(autoincrement())
   title        String
   artist       String?
-  coverUrl     String?  @db.Text @map("cover_url")
+  coverUrl     String?  @map("cover_url") @db.Text
   platform     String   @default("netease")
   url          String?  @db.Text
   lyrics       String?  @db.Text
@@ -251,11 +415,12 @@ model Music {
   playlistId   String?  @map("playlist_id")
   playlistType String?  @map("playlist_type")
 
-  @@map("music")
   @@index([isVisible])
   @@index([orderIndex])
   @@index([platform])
   @@index([createdAt])
+  @@index([updatedAt])
+  @@map("music")
 }
 
 model Movie {
@@ -263,7 +428,7 @@ model Movie {
   title      String
   director   String?
   year       Int?
-  posterUrl  String?   @db.Text @map("poster_url")
+  posterUrl  String?   @map("poster_url") @db.Text
   poster     String?   @db.Text
   isVisible  Boolean   @default(true)
   orderIndex Int       @default(0)
@@ -274,12 +439,13 @@ model Movie {
   createdAt  DateTime  @default(now()) @map("created_at")
   updatedAt  DateTime  @updatedAt @map("updated_at")
 
-  @@map("movie")
   @@index([isVisible])
   @@index([orderIndex])
   @@index([year])
   @@index([rating])
   @@index([createdAt])
+  @@index([updatedAt])
+  @@map("movie")
 }
 
 model TravelCity {
@@ -293,7 +459,7 @@ model TravelCity {
   longitude   Float?
   visitedAt   DateTime? @map("visited_at")
   description String?   @db.Text
-  imageUrl    String?   @db.Text @map("image_url")
+  imageUrl    String?   @map("image_url") @db.Text
   highlights  String?   @db.Text
   tips        String?   @db.Text
   rating      Float?
@@ -306,12 +472,13 @@ model TravelCity {
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
-  @@map("travel_city")
   @@index([isVisible])
   @@index([orderIndex])
   @@index([country])
   @@index([rating])
   @@index([createdAt])
+  @@index([updatedAt])
+  @@map("travel_city")
 }
 
 model TravelFootprint {
@@ -325,25 +492,26 @@ model TravelFootprint {
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
-  @@map("travel_footprint")
   @@index([location])
   @@index([visitedAt])
   @@index([createdAt])
+  @@index([updatedAt])
+  @@map("travel_footprint")
 }
 
 model SiteConfig {
   id             Int      @id @default(autoincrement())
   siteTitle      String   @default("My Portfolio") @map("site_title")
-  seoKeywords    String?  @db.Text @map("seo_keywords")
-  seoDescription String?  @db.Text @map("seo_description")
+  seoKeywords    String?  @map("seo_keywords") @db.Text
+  seoDescription String?  @map("seo_description") @db.Text
   icpCode        String?  @map("icp_code")
   viewCount      Int      @default(0) @map("view_count")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  @@map("site_config")
   @@index([createdAt])
   @@index([updatedAt])
+  @@map("site_config")
 }
 
 model VisitorStat {
@@ -353,39 +521,54 @@ model VisitorStat {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@map("visitor_stat")
   @@index([date])
   @@index([createdAt])
+  @@index([updatedAt])
+  @@map("visitor_stat")
 }
 
 model Danmaku {
-  id        Int      @id @default(autoincrement())
-  content   String   @db.Text
-  color     String   @default("blue")
-  isVisible Boolean  @default(true) @map("is_visible")
-  orderIndex Int     @default(0) @map("order_index")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id         Int      @id @default(autoincrement())
+  content    String   @db.Text
+  color      String   @default("blue")
+  isVisible  Boolean  @default(true) @map("is_visible")
+  orderIndex Int      @default(0) @map("order_index")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
-  @@map("danmaku")
   @@index([isVisible])
   @@index([orderIndex])
   @@index([createdAt])
+  @@index([updatedAt])
+  @@map("danmaku")
 }
 
 model Moment {
   id        Int      @id @default(autoincrement())
   content   String   @db.Text
-  images    String?  @db.Text // JSON array of image URLs
+  images    String?  @db.Text
   location  String?
   likes     Int      @default(0)
   isVisible Boolean  @default(true) @map("is_visible")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@map("moment")
   @@index([isVisible])
   @@index([likes])
   @@index([createdAt])
   @@index([location])
+  @@index([updatedAt])
+  @@map("moment")
+}
+
+model UploadedFile {
+  id        Int      @id @default(autoincrement())
+  filename  String   @unique
+  mimeType  String   @map("mime_type")
+  data      Bytes    @db.LongBlob
+  size      Int
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("uploaded_file")
+  @@index([filename])
 }

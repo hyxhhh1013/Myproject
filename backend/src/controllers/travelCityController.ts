@@ -3,6 +3,9 @@ import { prisma } from '../index';
 import logger from '../utils/logger';
 import { FileUploadRequest } from '../types/express';
 import path from 'path';
+import fs from 'fs/promises';
+import { saveFileToDb, saveBufferToDb } from '../utils/dbStorage';
+import { optimizeImageBuffer } from '../utils/imageOptimizer';
 
 const CDN_BASE_URL = process.env.CDN_BASE_URL || '';
 
@@ -64,13 +67,31 @@ export const createTravelCity = async (req: any, res: Response) => {
     // Handle cover image upload
     const coverFile = req.files?.coverImage?.[0];
     if (coverFile) {
-      coverImageUrl = `${CDN_BASE_URL}/uploads/${path.basename(coverFile.path)}`;
+      // 优化封面图 (内存处理)
+      const { buffer } = await optimizeImageBuffer(coverFile.path, 1920, 75);
+      const baseFilename = path.basename(coverFile.path, path.extname(coverFile.path));
+      const filename = `${baseFilename}-opt.webp`;
+      
+      await saveBufferToDb(buffer, filename);
+      // 清理原始文件
+      await fs.unlink(coverFile.path).catch(() => {});
+      coverImageUrl = `/uploads/${filename}`;
     }
     
     // Handle newly uploaded files
     const imageFiles = req.files?.images;
     if (imageFiles && Array.isArray(imageFiles) && imageFiles.length > 0) {
-      const newUrls = imageFiles.map((file: Express.Multer.File) => `${CDN_BASE_URL}/uploads/${path.basename(file.path)}`);
+      const newUrls = await Promise.all(imageFiles.map(async (file: Express.Multer.File) => {
+        // 优化旅行照片 (内存处理)
+        const { buffer } = await optimizeImageBuffer(file.path, 1920, 75);
+        const baseFilename = path.basename(file.path, path.extname(file.path));
+        const filename = `${baseFilename}-opt.webp`;
+        
+        await saveBufferToDb(buffer, filename);
+        // 清理原始文件
+        await fs.unlink(file.path).catch(() => {});
+        return `/uploads/${filename}`;
+      }));
       imageUrls = [...imageUrls, ...newUrls];
     }
     
@@ -140,7 +161,15 @@ export const updateTravelCity = async (req: any, res: Response) => {
     // Handle cover image upload
     const coverFile = req.files?.coverImage?.[0];
     if (coverFile) {
-      dataToUpdate.imageUrl = `${CDN_BASE_URL}/uploads/${path.basename(coverFile.path)}`;
+      // 优化封面图 (内存处理)
+      const { buffer } = await optimizeImageBuffer(coverFile.path, 1920, 75);
+      const baseFilename = path.basename(coverFile.path, path.extname(coverFile.path));
+      const filename = `${baseFilename}-opt.webp`;
+      
+      await saveBufferToDb(buffer, filename);
+      // 清理原始文件
+      await fs.unlink(coverFile.path).catch(() => {});
+      dataToUpdate.imageUrl = `/uploads/${filename}`;
     }
     
     let imageUrls: string[] = [];
@@ -154,7 +183,17 @@ export const updateTravelCity = async (req: any, res: Response) => {
     // Handle newly uploaded files
     const imageFiles = req.files?.images;
     if (imageFiles && Array.isArray(imageFiles) && imageFiles.length > 0) {
-      const newUrls = imageFiles.map((file: Express.Multer.File) => `${CDN_BASE_URL}/uploads/${path.basename(file.path)}`);
+      const newUrls = await Promise.all(imageFiles.map(async (file: Express.Multer.File) => {
+        // 优化旅行照片 (内存处理)
+        const { buffer } = await optimizeImageBuffer(file.path, 1920, 75);
+        const baseFilename = path.basename(file.path, path.extname(file.path));
+        const filename = `${baseFilename}-opt.webp`;
+        
+        await saveBufferToDb(buffer, filename);
+        // 清理原始文件
+        await fs.unlink(file.path).catch(() => {});
+        return `/uploads/${filename}`;
+      }));
       imageUrls = [...imageUrls, ...newUrls];
       shouldUpdatePhotos = true;
     }

@@ -28,6 +28,7 @@ const DanmakuSystem = () => {
     { value: 'darkblue', bg: 'bg-blue-800' },
     { value: 'slate', bg: 'bg-slate-600' },
     { value: 'primary', bg: 'bg-indigo-500' },
+    { value: 'pink', bg: 'bg-pink-500' },
   ];
 
   useEffect(() => {
@@ -68,6 +69,7 @@ const DanmakuSystem = () => {
       'darkblue': 'rgba(29, 78, 216, 0.8)',
       'slate': 'rgba(75, 85, 99, 0.8)',
       'primary': 'rgba(37, 99, 235, 0.8)',
+      'pink': 'rgba(236, 72, 153, 0.8)',
     };
     return colorMap[color] || 'rgba(59, 130, 246, 0.8)';
   };
@@ -115,8 +117,8 @@ const DanmakuSystem = () => {
             style={{
               top: `${(index % 5) * 20 + 10}%`,
               right: '-100%',
-              animation: 'danmakuMove 10s linear infinite',
-              animationDelay: `${index * 2}s`,
+              animation: 'danmakuMove 15s linear infinite',
+              animationDelay: `${index * 3}s`,
               background: getColorStyle(msg.color),
               color: 'white',
               backdropFilter: 'blur(8px)',

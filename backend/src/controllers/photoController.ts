@@ -9,6 +9,11 @@ import logger from '../utils/logger';
 import { FileUploadRequest, PrismaWhereInput, PrismaOrderByInput, PrismaSelectInput } from '../types/express';
 import { AppError } from '../middleware/errorHandler';
 import cache from '../utils/cache';
+import { saveFileToDb, saveBufferToDb } from '../utils/dbStorage';
+import { optimizeImageBuffer, generateThumbnailBuffer } from '../utils/imageOptimizer';
+
+// 模拟CDN地址
+const CDN_BASE_URL = '';
 
 const PHOTO_CACHE_KEY = 'photos_list';
 const CLEAR_PHOTO_CACHE = () => {
@@ -50,17 +55,7 @@ const upload = multer({
   },
 });
 
-// 模拟CDN地址
-const CDN_BASE_URL = process.env.CDN_BASE_URL || '';
 
-// 生成缩略图
-export const generateThumbnail = async (imagePath: string): Promise<string> => {
-  const thumbnailPath = imagePath.replace(/(\.[^.]+)$/, '-thumbnail$1');
-  await sharp(imagePath)
-    .resize(300, 300, { fit: 'cover' })
-    .toFile(thumbnailPath);
-  return thumbnailPath;
-};
 
 // EXIF数据类型
 interface ExifData {
@@ -262,18 +257,32 @@ export const createPhoto = async (req: any, res: Response) => {
       }
     }
     
-    // 生成缩略图
-    const thumbnailPath = await generateThumbnail(file.path);
+    // 1. 并行生成缩略图和优化后的原图 (直接在内存中处理)
+    const [thumbRes, optRes, exifData] = await Promise.all([
+      generateThumbnailBuffer(file.path),
+      optimizeImageBuffer(file.path),
+      readExifData(file.path)
+    ]);
     
-    // 读取EXIF信息
-    const exifData = await readExifData(file.path);
+    // 2. 构建文件名
+    const baseFilename = path.basename(file.path, path.extname(file.path));
+    const optimizedFilename = `${baseFilename}-opt.webp`;
+    const thumbnailFilename = `${baseFilename}-thumb.webp`;
+    
+    const imageUrl = `/uploads/${optimizedFilename}`;
+    const thumbnailUrl = `/uploads/${thumbnailFilename}`;
 
-    // 获取图片尺寸和大小
-    const metadata = await sharp(file.path).metadata();
+    // 3. 并行保存到云数据库
+    await Promise.all([
+      saveBufferToDb(optRes.buffer, optimizedFilename),
+      saveBufferToDb(thumbRes.buffer, thumbnailFilename)
+    ]);
     
-    // 构建CDN URL
-    const imageUrl = `${CDN_BASE_URL}/uploads/${path.basename(file.path)}`;
-    const thumbnailUrl = `${CDN_BASE_URL}/uploads/${path.basename(thumbnailPath)}`;
+    // 4. 获取图片尺寸
+    const metadata = optRes.info;
+    
+    // 异步清理最原始的上传文件
+    fs.promises.unlink(file.path).catch(() => {});
     
     // 使用EXIF中的拍摄日期，如果没有则使用当前时间
     const takenAt = exifData.takenAt ? new Date(exifData.takenAt) : new Date();
@@ -326,12 +335,12 @@ export const createPhoto = async (req: any, res: Response) => {
         width: metadata.width,
         height: metadata.height,
         size: metadata.size,
-        tags: {
+        tag: {
           connectOrCreate: tagConnect
         }
       },
       include: {
-        tags: true
+        tag: true
       }
     });
     
@@ -398,20 +407,33 @@ export const bulkUploadPhotos = async (req: any, res: Response) => {
     const uploadResults = await Promise.all(
       files.map(async (file: Express.Multer.File, index: number) => {
         try {
-          // 生成缩略图
-          const thumbnailPath = await generateThumbnail(file.path);
+          // 1. 并行生成缩略图、优化原图和读取 EXIF
+          const [thumbRes, optRes, exifData] = await Promise.all([
+            generateThumbnailBuffer(file.path),
+            optimizeImageBuffer(file.path),
+            readExifData(file.path)
+          ]);
           
-          // 读取EXIF信息
-          const exifData = await readExifData(file.path);
+          // 2. 构建访问路径
+          const baseFilename = path.basename(file.path, path.extname(file.path));
+          const optimizedFilename = `${baseFilename}-opt.webp`;
+          const thumbnailFilename = `${baseFilename}-thumb.webp`;
+          
+          const imageUrl = `/uploads/${optimizedFilename}`;
+          const thumbnailUrl = `/uploads/${thumbnailFilename}`;
 
-          // 获取图片尺寸和大小
-          const metadata = await sharp(file.path).metadata();
+          // 3. 并行保存到云数据库
+          await Promise.all([
+            saveBufferToDb(optRes.buffer, optimizedFilename),
+            saveBufferToDb(thumbRes.buffer, thumbnailFilename)
+          ]);
           
-          // 构建CDN URL
-          const imageUrl = `${CDN_BASE_URL}/uploads/${path.basename(file.path)}`;
-          const thumbnailUrl = `${CDN_BASE_URL}/uploads/${path.basename(thumbnailPath)}`;
+          const metadata = optRes.info;
           
-          // 使用EXIF中的拍摄日期，如果没有则使用当前时间
+          // 异步清理最原始的文件
+          fs.promises.unlink(file.path).catch(() => {});
+
+          // 4. 使用EXIF中的拍摄日期，如果没有则使用当前时间
           const takenAt = exifData.takenAt ? new Date(exifData.takenAt) : new Date();
           
           // 递增orderIndex，避免重复
@@ -461,11 +483,11 @@ export const bulkUploadPhotos = async (req: any, res: Response) => {
               width: metadata.width,
               height: metadata.height,
               size: metadata.size,
-              tags: {
+              tag: {
                 connectOrCreate: tagConnect
               }
             },
-            include: { tags: true }
+            include: { tag: true }
           });
         } catch (error) {
           console.error(`上传文件失败 ${file.originalname}:`, error);
@@ -538,22 +560,36 @@ export const updatePhoto = async (req: any, res: Response) => {
     let width, height, size;
     const file = req.file;
     if (file) {
-      // 生成缩略图
-      const thumbnailPath = await generateThumbnail(file.path);
-      
-      // 读取EXIF信息
-      const newExifData = await readExifData(file.path);
+      // 1. 并行生成缩略图、优化原图和读取 EXIF
+      const [thumbRes, optRes, newExifData] = await Promise.all([
+        generateThumbnailBuffer(file.path),
+        optimizeImageBuffer(file.path),
+        readExifData(file.path)
+      ]);
 
-      // 获取图片尺寸和大小
-      const metadata = await sharp(file.path).metadata();
+      const baseFilename = path.basename(file.path, path.extname(file.path));
+      const optimizedFilename = `${baseFilename}-opt.webp`;
+      const thumbnailFilename = `${baseFilename}-thumb.webp`;
+
+      // 2. 并行保存到云数据库
+      await Promise.all([
+        saveBufferToDb(optRes.buffer, optimizedFilename),
+        saveBufferToDb(thumbRes.buffer, thumbnailFilename)
+      ]);
+
+      // 获取元数据
+      const metadata = optRes.info;
       width = metadata.width;
       height = metadata.height;
       size = metadata.size;
       
-      // 构建CDN URL
-      imageUrl = `${CDN_BASE_URL}/uploads/${path.basename(file.path)}`;
-      thumbnailUrl = `${CDN_BASE_URL}/uploads/${path.basename(thumbnailPath)}`;
+      // 构建 URL
+      imageUrl = `/uploads/${optimizedFilename}`;
+      thumbnailUrl = `/uploads/${thumbnailFilename}`;
       
+      // 清理临时文件
+      fs.promises.unlink(file.path).catch(() => {});
+
       // 如果没有传入 takenAt，则使用EXIF或当前时间
       if (!takenAt) {
         takenAt = newExifData.takenAt ? new Date(newExifData.takenAt) : new Date();

@@ -56,7 +56,7 @@ const getImageUrl = (url: string) => {
   if (url.startsWith('http://') || url.startsWith('https://')) {
     return url;
   }
-  return `http://localhost:3001${url}`;
+  return `${url}`;
 };
 
 const PhotosManagement = () => {
@@ -123,7 +123,7 @@ const PhotosManagement = () => {
         iso: photo.iso || '',
         isVisible: photo.isVisible,
       });
-      setPreviewUrl(photo.imageUrl ? `http://localhost:3001${photo.imageUrl}` : '');
+      setPreviewUrl(photo.imageUrl ? `${photo.imageUrl}` : '');
     } else {
       setEditingPhoto(null);
       setFormData(initialFormData);

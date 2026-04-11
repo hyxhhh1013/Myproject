@@ -1,8 +1,12 @@
 import { Request, Response } from 'express';
 import { prisma } from '../index';
 import path from 'path';
+import fs from 'fs/promises';
+import sharp from 'sharp';
 import logger from '../utils/logger';
 import { FileUploadRequest, ApiResponse } from '../types/express';
+import { saveFileToDb, saveBufferToDb } from '../utils/dbStorage';
+import { optimizeImageBuffer } from '../utils/imageOptimizer';
 
 // Upload avatar
 export const uploadAvatar = async (req: FileUploadRequest, res: Response<ApiResponse>) => {
@@ -14,8 +18,17 @@ export const uploadAvatar = async (req: FileUploadRequest, res: Response<ApiResp
       return res.status(400).json({ status: 'error', message: 'Please upload a file' });
     }
 
-    const CDN_BASE_URL = process.env.CDN_BASE_URL || '';
-    const avatarUrl = `${CDN_BASE_URL}/uploads/${path.basename(file.path)}`;
+    // 优化头像：缩放到 512x512 并转换为 WebP (直接在内存中)
+    const avatarFilename = `avatar-${id}-${Date.now()}.webp`;
+    const { buffer } = await optimizeImageBuffer(file.path, 512, 80);
+
+    const avatarUrl = `/uploads/${avatarFilename}`;
+    
+    // 保存到数据库
+    await saveBufferToDb(buffer, avatarFilename);
+    
+    // 清理本地临时文件
+    await fs.unlink(file.path).catch(() => {});
 
     const user = await prisma.user.update({
       where: { id: parseInt(id) },

@@ -90,8 +90,8 @@ const TravelManagement = () => {
         longitude: travel.longitude?.toString() || '',
         isVisible: travel.isVisible,
       });
-      setPreviewUrls(travel.photos?.map(img => img.startsWith('http') ? img : `http://localhost:3001${img}`) || []);
-      setCoverPreview(travel.imageUrl ? (travel.imageUrl.startsWith('http') ? travel.imageUrl : `http://localhost:3001${travel.imageUrl}`) : '');
+      setPreviewUrls(travel.photos?.map(img => img.startsWith('http') ? img : `${img}`) || []);
+      setCoverPreview(travel.imageUrl ? (travel.imageUrl.startsWith('http') ? travel.imageUrl : `${travel.imageUrl}`) : '');
     } else {
       setEditingTravel(null);
       setFormData(initialFormData);

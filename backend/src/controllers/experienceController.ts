@@ -2,6 +2,9 @@ import { Request, Response } from 'express';
 import { prisma } from '../index';
 import { FileUploadRequest } from '../types/express';
 import path from 'path';
+import fs from 'fs/promises';
+import { saveFileToDb, saveBufferToDb } from '../utils/dbStorage';
+import { optimizeImageBuffer } from '../utils/imageOptimizer';
 
 const CDN_BASE_URL = process.env.CDN_BASE_URL || '';
 
@@ -70,7 +73,17 @@ export const createExperience = async (req: FileUploadRequest, res: Response) =>
     // Handle newly uploaded files
     const files = req.files as Express.Multer.File[];
     if (files && files.length > 0) {
-      const newUrls = files.map((file: Express.Multer.File) => `${CDN_BASE_URL}/uploads/${path.basename(file.path)}`);
+      const newUrls = await Promise.all(files.map(async (file: Express.Multer.File) => {
+        // 优化经历图片 (内存处理)
+        const { buffer } = await optimizeImageBuffer(file.path, 1600, 75);
+        const baseFilename = path.basename(file.path, path.extname(file.path));
+        const filename = `${baseFilename}-opt.webp`;
+        
+        await saveBufferToDb(buffer, filename);
+        // 清理原始文件
+        await fs.unlink(file.path).catch(() => {});
+        return `/uploads/${filename}`;
+      }));
       imageUrls = [...imageUrls, ...newUrls];
     }
 
@@ -111,7 +124,17 @@ export const updateExperience = async (req: FileUploadRequest, res: Response) =>
     // Handle newly uploaded files
     const files = req.files as Express.Multer.File[];
     if (files && files.length > 0) {
-      const newUrls = files.map((file: Express.Multer.File) => `${CDN_BASE_URL}/uploads/${path.basename(file.path)}`);
+      const newUrls = await Promise.all(files.map(async (file: Express.Multer.File) => {
+        // 优化经历图片 (内存处理)
+        const { buffer } = await optimizeImageBuffer(file.path, 1600, 75);
+        const baseFilename = path.basename(file.path, path.extname(file.path));
+        const filename = `${baseFilename}-opt.webp`;
+        
+        await saveBufferToDb(buffer, filename);
+        // 清理原始文件
+        await fs.unlink(file.path).catch(() => {});
+        return `/uploads/${filename}`;
+      }));
       imageUrls = [...imageUrls, ...newUrls];
     }
 
