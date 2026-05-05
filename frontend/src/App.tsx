@@ -1,113 +1,64 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { lazy, Suspense } from 'react'
-import { PhotoProvider } from './context/PhotoContext'
-import { ThemeProvider } from './context/ThemeContext'
-import { AuthProvider } from './context/AuthContext'
-import { MusicProvider } from './context/MusicContext'
-import { ProtectedRoute } from './components/ProtectedRoute'
-import { Layout } from './components/Layout/Layout'
-import { AdminLayout } from './components/Layout/AdminLayout'
-import { FloatingAIChatbot } from './components/FloatingAIChatbot/FloatingAIChatbot'
-import Login from './pages/Login'
-
-// Lazy load pages
-const Home = lazy(() => import('./pages/Home'))
-const Interests = lazy(() => import('./pages/Interests'))
-const AiAssistantDemo = lazy(() => import('./pages/demos/AiAssistantDemo'))
-const DashboardDemo = lazy(() => import('./pages/demos/DashboardDemo'))
-const WeatherDemo = lazy(() => import('./pages/demos/WeatherDemo'))
-const PomodoroDemo = lazy(() => import('./pages/demos/PomodoroDemo'))
-const TodoDemo = lazy(() => import('./pages/demos/TodoDemo'))
-const NotesDemo = lazy(() => import('./pages/demos/NotesDemo'))
-
-// Admin pages
-const PhotosManagement = lazy(() => import('./pages/Admin/PhotosManagement'))
-const ProjectsManagement = lazy(() => import('./pages/Admin/ProjectsManagement'))
-const MessagesManagement = lazy(() => import('./pages/Admin/MessagesManagement'))
-const MusicManagement = lazy(() => import('./pages/Admin/MusicManagement'))
-const MoviesManagement = lazy(() => import('./pages/Admin/MoviesManagement'))
-const TravelManagement = lazy(() => import('./pages/Admin/TravelManagement'))
-const SkillsManagement = lazy(() => import('./pages/Admin/SkillsManagement'))
-const ExperienceManagement = lazy(() => import('./pages/Admin/ExperienceManagement'))
-const ProfileManagement = lazy(() => import('./pages/Admin/ProfileManagement'))
-const DanmakuManagement = lazy(() => import('./pages/Admin/DanmakuManagement'))
-const MomentsManagement = lazy(() => import('./pages/Admin/MomentsManagement'))
-const Settings = lazy(() => import('./pages/Admin/Settings'))
-
-// Loading Spinner
-const LoadingSpinner = () => (
-  <div className="flex justify-center items-center h-screen bg-white dark:bg-gray-900 transition-colors">
-    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
-  </div>
-)
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
+import Home from './pages/Home'
+import About from './pages/About'
+import Experience from './pages/Experience'
+import Skills from './pages/Skills'
+import Projects from './pages/Projects'
+import Contact from './pages/Contact'
 
 function App() {
   return (
     <Router>
-      <ThemeProvider>
-        <PhotoProvider>
-          <AuthProvider>
-            <MusicProvider>
-              <Suspense fallback={<LoadingSpinner />}>
-                <FloatingAIChatbot />
-                <Routes>
-                  {/* Public Routes - Wrapped in Layout */}
-                  <Route path="/" element={
-                    <Layout>
-                      <Home />
-                    </Layout>
-                  } />
-                  <Route path="/interests" element={
-                    <Layout>
-                      <Interests />
-                    </Layout>
-                  } />
-                  {/* Login Route */}
-                  <Route path="/login" element={<Login />} />
-                  
-                  {/* Redirect old routes to Home */}
-                  <Route path="/about" element={<Navigate to="/" replace />} />
-                  <Route path="/experience" element={<Navigate to="/" replace />} />
-                  <Route path="/skills" element={<Navigate to="/" replace />} />
-                  <Route path="/projects" element={<Navigate to="/" replace />} />
-                  <Route path="/photos" element={<Navigate to="/" replace />} />
-                  <Route path="/contact" element={<Navigate to="/" replace />} />
-                  
-                  {/* Demo Routes - Standalone */}
-                  <Route path="/demo/ai-assistant" element={<AiAssistantDemo />} />
-                  <Route path="/demo/dashboard" element={<DashboardDemo />} />
-                  <Route path="/demo/weather" element={<WeatherDemo />} />
-                  <Route path="/demo/pomodoro" element={<PomodoroDemo />} />
-                  <Route path="/demo/todo" element={<TodoDemo />} />
-                  <Route path="/demo/notes" element={<NotesDemo />} />
-                  
-                  {/* Admin Routes - Protected */}
-                  <Route path="/admin" element={
-                    <ProtectedRoute>
-                      <AdminLayout />
-                    </ProtectedRoute>
-                  }>
-                    <Route index element={<Navigate to="photos" replace />} />
-                    <Route path="photos" element={<PhotosManagement />} />
-                    <Route path="projects" element={<ProjectsManagement />} />
-                    <Route path="messages" element={<MessagesManagement />} />
-                    <Route path="danmaku" element={<DanmakuManagement />} />
-                    <Route path="moments" element={<MomentsManagement />} />
-                    <Route path="music" element={<MusicManagement />} />
-                    <Route path="movies" element={<MoviesManagement />} />
-                    <Route path="travel" element={<TravelManagement />} />
-                    <Route path="settings" element={<Settings />} />
-                    <Route path="skills" element={<SkillsManagement />} />
-                    <Route path="experience" element={<ExperienceManagement />} />
-                    <Route path="profile" element={<ProfileManagement />} />
-                  </Route>
-                </Routes>
-              </Suspense>
-            </MusicProvider>
-          </AuthProvider>
-        </PhotoProvider>
-      </ThemeProvider>
+      <div className="min-h-screen bg-gray-50">
+        {/* Navigation */}
+        <nav className="bg-white shadow-md">
+          <div className="container mx-auto px-4 py-3 flex justify-between items-center">
+            <Link to="/" className="text-xl font-bold text-blue-600">
+              个人自我介绍
+            </Link>
+            <div className="hidden md:flex space-x-8">
+              <NavLink to="/">首页</NavLink>
+              <NavLink to="/about">关于我</NavLink>
+              <NavLink to="/experience">工作经历</NavLink>
+              <NavLink to="/skills">技能</NavLink>
+              <NavLink to="/projects">项目案例</NavLink>
+              <NavLink to="/contact">联系方式</NavLink>
+            </div>
+          </div>
+        </nav>
+
+        {/* Main Content */}
+        <main className="container mx-auto px-4 py-8">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/experience" element={<Experience />} />
+            <Route path="/skills" element={<Skills />} />
+            <Route path="/projects" element={<Projects />} />
+            <Route path="/contact" element={<Contact />} />
+          </Routes>
+        </main>
+
+        {/* Footer */}
+        <footer className="bg-gray-800 text-white py-8">
+          <div className="container mx-auto px-4 text-center">
+            <p>&copy; {new Date().getFullYear()} 个人自我介绍网站. All rights reserved.</p>
+          </div>
+        </footer>
+      </div>
     </Router>
+  )
+}
+
+// Navigation Link Component
+function NavLink({ to, children }: { to: string; children: React.ReactNode }) {
+  return (
+    <Link
+      to={to}
+      className="text-gray-600 hover:text-blue-600 font-medium transition-colors duration-200"
+    >
+      {children}
+    </Link>
   )
 }
 

@@ -1,563 +1,678 @@
-import { useState, useEffect, useRef } from 'react';
-import { Trash2, Search, Loader2, ExternalLink, Edit, Plus, X, Upload } from 'lucide-react';
-import { message } from 'antd';
-import axios from '../../utils/axiosConfig';
-import { getImageUrl } from '../../utils/imageUtils';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { 
+  Table, 
+  Button, 
+  Modal, 
+  Form, 
+  Input, 
+  Upload, 
+  message, 
+  Space, 
+  Tag, 
+  Tooltip, 
+  Image, 
+  Popconfirm,
+  Select,
+  Card,
+  Empty,
+} from 'antd';
+import { 
+  PlusOutlined, 
+  GithubOutlined, 
+  LinkOutlined, 
+  EditOutlined, 
+  DeleteOutlined,
+  MenuOutlined,
+  DownloadOutlined,
+  AppstoreOutlined,
+  BarsOutlined
+} from '@ant-design/icons';
+import SimpleMDE from "react-simplemde-editor";
+import "easymde/dist/easymde.min.css";
+import type { UploadFile, UploadProps } from 'antd/es/upload/interface';
+import type { ColumnsType } from 'antd/es/table';
+import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface Project {
   id: number;
   title: string;
   description: string;
-  intro?: string;
-  technologies: string;
-  responsibilities?: string;
-  challengesProblem?: string;
-  challengesSolution?: string;
+  technologies: string | string[]; 
   githubUrl?: string;
   demoUrl?: string;
-  imageUrl?: string;
-  isFeatured?: boolean;
+  imageUrl?: string; // Main image
+  images?: string; // JSON string of all images
+  orderIndex: number;
   createdAt: string;
+  updatedAt: string;
 }
 
-const initialFormData = {
-  title: '',
-  description: '',
-  intro: '',
-  technologies: '',
-  responsibilities: '',
-  challengesProblem: '',
-  challengesSolution: '',
-  githubUrl: '',
-  demoUrl: '',
-  imageUrl: '',
-  isFeatured: false,
+// Sortable Row Component
+const SortableRow = ({ children, ...props }: any) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: props['data-row-key'],
+  });
+
+  const style: React.CSSProperties = {
+    ...props.style,
+    transform: CSS.Transform.toString(transform && { ...transform, scaleY: 1 }),
+    transition,
+    cursor: 'move',
+    ...(isDragging ? { position: 'relative', zIndex: 9999 } : {}),
+  };
+
+  return (
+    <tr {...props} ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      {children}
+    </tr>
+  );
 };
 
-const ProjectsManagement = () => {
+const TECH_OPTIONS = [
+  { value: 'React', label: 'React', color: 'blue' },
+  { value: 'Vue', label: 'Vue', color: 'green' },
+  { value: 'TypeScript', label: 'TypeScript', color: 'blue' },
+  { value: 'JavaScript', label: 'JavaScript', color: 'yellow' },
+  { value: 'Node.js', label: 'Node.js', color: 'green' },
+  { value: 'Express', label: 'Express', color: 'gray' },
+  { value: 'NestJS', label: 'NestJS', color: 'red' },
+  { value: 'Python', label: 'Python', color: 'blue' },
+  { value: 'Java', label: 'Java', color: 'red' },
+  { value: 'Go', label: 'Go', color: 'cyan' },
+  { value: 'Docker', label: 'Docker', color: 'blue' },
+  { value: 'AWS', label: 'AWS', color: 'orange' },
+  { value: 'AI', label: 'AI', color: 'purple' },
+  { value: 'Figma', label: 'Figma', color: 'pink' },
+  { value: 'TailwindCSS', label: 'TailwindCSS', color: 'cyan' },
+  { value: 'Ant Design', label: 'Ant Design', color: 'blue' },
+];
+
+const ProjectsManagement: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showModal, setShowModal] = useState(false);
+  const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
-  const [formData, setFormData] = useState(initialFormData);
-  const [submitting, setSubmitting] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string>('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [fileList, setFileList] = useState<UploadFile[]>([]);
+  const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+  
+  const [form] = Form.useForm();
+  
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
 
   useEffect(() => {
-    fetchProjects();
+    const handleResize = () => {
+        const mobile = window.innerWidth < 768;
+        setIsMobile(mobile);
+        if (mobile) setViewMode('grid');
+    };
+    window.addEventListener('resize', handleResize);
+    handleResize();
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const fetchProjects = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/api/projects');
-      const data = Array.isArray(response.data) ? response.data : (response.data?.data || []);
-      setProjects(data);
+      const response = await axios.get('/projects?limit=100'); // Get all for sorting
+      const data = response.data.data || response.data;
+      
+      const parsedData = Array.isArray(data) ? data.map((p: any) => ({
+        ...p,
+        technologies: typeof p.technologies === 'string' && p.technologies.startsWith('[') 
+          ? JSON.parse(p.technologies) 
+          : (typeof p.technologies === 'string' ? p.technologies.split(',') : p.technologies)
+      })) : [];
+      
+      // Sort by orderIndex
+      parsedData.sort((a: Project, b: Project) => (a.orderIndex || 0) - (b.orderIndex || 0));
+      
+      setProjects(parsedData);
     } catch (error) {
       console.error('Failed to fetch projects:', error);
-      message.error('获取项目失败，请重试');
+      message.error('加载项目失败');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleOpenModal = (project?: Project) => {
-    if (project) {
-      setEditingProject(project);
-      setFormData({
-        title: project.title,
-        description: project.description,
-        intro: project.intro || '',
-        technologies: Array.isArray(project.technologies) 
-          ? project.technologies.join(', ') 
-          : (project.technologies.startsWith('[') ? JSON.parse(project.technologies).join(', ') : project.technologies),
-        responsibilities: project.responsibilities || '',
-        challengesProblem: project.challengesProblem || '',
-        challengesSolution: project.challengesSolution || '',
-        githubUrl: project.githubUrl || '',
-        demoUrl: project.demoUrl || '',
-        imageUrl: project.imageUrl || '',
-        isFeatured: project.isFeatured || false,
-      });
-      setPreviewUrl(project.imageUrl ? getImageUrl(project.imageUrl) : '');
-    } else {
-      setEditingProject(null);
-      setFormData(initialFormData);
-      setPreviewUrl('');
-    }
-    setSelectedFile(null);
-    setShowModal(true);
-  };
+  useEffect(() => {
+    fetchProjects();
+  }, []);
 
-  const handleCloseModal = () => {
-    setShowModal(false);
-    setEditingProject(null);
-    setFormData(initialFormData);
-    setPreviewUrl('');
-    setSelectedFile(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      message.warning('请选择图片文件');
-      return;
-    }
-
-    const objectUrl = URL.createObjectURL(file);
-    setPreviewUrl(objectUrl);
-    setSelectedFile(file);
-    // 当选择文件时，清除imageUrl字段，避免浏览器验证
-    setFormData(prev => ({ ...prev, imageUrl: '' }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formData.title.trim() || !formData.description.trim() || !formData.technologies.trim()) {
-      message.warning('请填写标题、描述和技术栈');
-      return;
-    }
-
+  const handleSave = async () => {
     try {
-      setSubmitting(true);
+      const values = await form.validateFields();
+      const formData = new FormData();
       
-      const payloadData = new FormData();
-      if (selectedFile) {
-        payloadData.append('demoFile', selectedFile);
-      }
+      formData.append('userId', '1');
+      formData.append('title', values.title);
+      formData.append('description', values.description); // Markdown content
+      formData.append('startDate', new Date().toISOString());
       
-      payloadData.append('title', formData.title.trim());
-      payloadData.append('description', formData.description.trim());
-      if (formData.intro.trim()) payloadData.append('intro', formData.intro.trim());
-      payloadData.append('technologies', formData.technologies.trim());
-      if (formData.responsibilities.trim()) payloadData.append('responsibilities', formData.responsibilities.trim());
-      if (formData.challengesProblem.trim()) payloadData.append('challengesProblem', formData.challengesProblem.trim());
-      if (formData.challengesSolution.trim()) payloadData.append('challengesSolution', formData.challengesSolution.trim());
-      if (formData.githubUrl.trim()) payloadData.append('githubUrl', formData.githubUrl.trim());
-      if (formData.demoUrl.trim()) payloadData.append('demoUrl', formData.demoUrl.trim());
-      payloadData.append('isFeatured', formData.isFeatured.toString());
+      // Handle technologies (array -> JSON string)
+      formData.append('technologies', JSON.stringify(values.technologies));
       
-      // If user typed a URL manually and didn't select a file, use it
-      if (formData.imageUrl.trim() && !selectedFile) {
-         payloadData.append('imageUrl', formData.imageUrl.trim());
-      }
+      if (values.githubUrl) formData.append('githubUrl', values.githubUrl);
+      if (values.demoUrl) formData.append('demoUrl', values.demoUrl);
 
-      const config = {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      };
+      // Handle Images
+      // 1. New files
+      const newFiles = fileList.filter(f => f.originFileObj);
+      newFiles.forEach(file => {
+        if (file.originFileObj) {
+            formData.append('images', file.originFileObj);
+        }
+      });
+
+      // 2. Existing images (send as JSON string)
+      const existingImages = fileList.filter(f => !f.originFileObj).map(f => f.url);
+      formData.append('existingImages', JSON.stringify(existingImages));
 
       if (editingProject) {
-        await axios.put(`/api/projects/${editingProject.id}`, payloadData, config);
+        await axios.put(`/projects/${editingProject.id}`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        message.success('更新成功');
       } else {
-        await axios.post('/api/projects', payloadData, config);
+        // For new project, orderIndex is max + 1 (backend can handle or we send it)
+        await axios.post('/projects', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        message.success('创建成功');
       }
 
-      await fetchProjects();
-      handleCloseModal();
-      
-      // 更新localStorage，触发首页数据刷新
-      localStorage.setItem('projectUpdated', Date.now().toString());
+      setIsModalVisible(false);
+      form.resetFields();
+      setFileList([]);
+      setEditingProject(null);
+      fetchProjects();
     } catch (error) {
       console.error('Failed to save project:', error);
-      message.error('保存失败，请重试');
-    } finally {
-      setSubmitting(false);
+      message.error('保存失败');
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('确定要删除这个项目吗？')) return;
-    
     try {
-      setDeletingId(id);
-      await axios.delete(`/api/projects/${id}`);
-      setProjects(projects.filter(p => p.id !== id));
+      await axios.delete(`/projects/${id}`);
+      message.success('删除成功');
+      fetchProjects();
     } catch (error) {
-      console.error('Failed to delete project:', error);
-      message.error('删除失败，请重试');
-    } finally {
-      setDeletingId(null);
+      message.error('删除失败');
+    }
+  };
+  
+  const handleBatchDelete = async () => {
+    if (selectedRowKeys.length === 0) return;
+    Modal.confirm({
+        title: '确认批量删除',
+        content: `确定要删除选中�?${selectedRowKeys.length} 个项目吗？此操作不可恢复。`,
+        okText: '删除',
+        okType: 'danger',
+        cancelText: '取消',
+        onOk: async () => {
+            try {
+                await axios.post('/projects/bulk-delete', { ids: selectedRowKeys });
+                message.success(`成功删除 ${selectedRowKeys.length} 个项目`);
+                setSelectedRowKeys([]);
+                fetchProjects();
+            } catch (error) {
+                message.error('批量删除失败');
+            }
+        }
+    });
+  };
+  
+  const handleExport = () => {
+      if (projects.length === 0) {
+            message.warning('没有数据可导出');
+            return;
+        }
+      try {
+          const headers = ['ID', '标题', '描述', 'GitHub', 'Demo', '创建时间'];
+          const csvContent = [
+            headers.join(','),
+            ...projects.map(p => [
+                p.id,
+                `"${(p.title || '').replace(/"/g, '""')}"`,
+                `"${(p.description || '').replace(/"/g, '""')}"`,
+                p.githubUrl || '',
+                p.demoUrl || '',
+                p.createdAt
+            ].join(','))
+          ].join('\n');
+          
+          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.setAttribute('download', `projects_export_${new Date().toISOString().slice(0,10)}.csv`);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+      } catch (err) {
+          message.error('导出失败');
+      }
+  };
+
+  const handleEdit = (record: Project) => {
+    setEditingProject(record);
+    
+    // Parse technologies
+    let techs: string[] = [];
+    if (Array.isArray(record.technologies)) {
+        techs = record.technologies;
+    } else if (typeof record.technologies === 'string') {
+        try {
+            const parsed = JSON.parse(record.technologies);
+            if (Array.isArray(parsed)) techs = parsed;
+            else techs = record.technologies.split(',');
+        } catch {
+            techs = record.technologies.split(',');
+        }
+    }
+
+    form.setFieldsValue({
+      title: record.title,
+      description: record.description,
+      technologies: techs,
+      githubUrl: record.githubUrl,
+      demoUrl: record.demoUrl
+    });
+    
+    // Setup fileList
+    const images: UploadFile[] = [];
+    
+    // Check 'images' JSON first
+    if (record.images) {
+        try {
+            const urls = JSON.parse(record.images);
+            if (Array.isArray(urls)) {
+                urls.forEach((url, index) => {
+                    images.push({
+                        uid: `-${index}`,
+                        name: `image-${index}`,
+                        status: 'done',
+                        url: url
+                    });
+                });
+            }
+        } catch (e) {}
+    } 
+    // Fallback to imageUrl if images is empty/invalid
+    if (images.length === 0 && record.imageUrl) {
+        images.push({
+            uid: '-1',
+            name: 'cover.png',
+            status: 'done',
+            url: record.imageUrl,
+        });
+    }
+
+    setFileList(images);
+    setIsModalVisible(true);
+  };
+
+  const uploadProps: UploadProps = {
+    onRemove: (file) => {
+      const index = fileList.indexOf(file);
+      const newFileList = fileList.slice();
+      newFileList.splice(index, 1);
+      setFileList(newFileList);
+    },
+    beforeUpload: (file) => {
+      const isImage = file.type.startsWith('image/');
+      if (!isImage) {
+        message.error(`${file.name} 不是图片文件`);
+        return Upload.LIST_IGNORE;
+      }
+      setFileList([...fileList, file]);
+      return false;
+    },
+    fileList,
+    listType: 'picture-card',
+    multiple: true
+  };
+
+  // Drag and Drop
+  const onDragEnd = async ({ active, over }: DragEndEvent) => {
+    if (active.id !== over?.id) {
+      setProjects((previous) => {
+        const activeIndex = previous.findIndex((i) => i.id === active.id);
+        const overIndex = previous.findIndex((i) => i.id === over?.id);
+        
+        const newProjects = [...previous];
+        const [movedItem] = newProjects.splice(activeIndex, 1);
+        newProjects.splice(overIndex, 0, movedItem);
+        
+        // Update orderIndex locally
+        const updatedProjects = newProjects.map((p, i) => ({ ...p, orderIndex: i }));
+        
+        updatedProjects.forEach(p => {
+             axios.put(`/projects/${p.id}`, { orderIndex: p.orderIndex }).catch(console.error);
+        });
+
+        return updatedProjects;
+      });
     }
   };
 
-  const filteredProjects = projects.filter(project =>
-    project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    project.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-96">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-      </div>
-    );
-  }
+  const columns: ColumnsType<Project> = [
+    {
+      title: '排序',
+      key: 'sort',
+      width: 50,
+      render: () => <MenuOutlined className="cursor-grab text-gray-400" />,
+    },
+    {
+        title: '截图',
+        key: 'images',
+        width: 150,
+        render: (_, record) => {
+            let urls: string[] = [];
+            if (record.images) {
+                try { urls = JSON.parse(record.images); } catch {}
+            }
+            if (urls.length === 0 && record.imageUrl) urls = [record.imageUrl];
+            
+            return urls.length > 0 ? (
+                <div className="flex -space-x-4 overflow-hidden py-1">
+                    <Image.PreviewGroup>
+                        {urls.slice(0, 3).map((url, idx) => (
+                            <Image 
+                                key={idx} 
+                                src={url} 
+                                width={60} 
+                                height={40} 
+                                className="rounded shadow-sm border border-white"
+                                style={{ objectFit: 'cover' }} 
+                            />
+                        ))}
+                    </Image.PreviewGroup>
+                    {urls.length > 3 && (
+                        <div className="w-[60px] h-[40px] rounded bg-transparent flex items-center justify-center text-xs text-gray-500 border border-white shadow-sm z-10">
+                            +{urls.length - 3}
+                        </div>
+                    )}
+                </div>
+            ) : <div className="text-gray-400 text-xs">无图片</div>;
+        }
+    },
+    {
+      title: '标题',
+      dataIndex: 'title',
+      key: 'title',
+      width: 150,
+      render: (text) => <span className="font-medium">{text}</span>,
+    },
+    {
+      title: '描述',
+      dataIndex: 'description',
+      key: 'description',
+      ellipsis: true,
+      render: (description) => (
+        <div className="max-w-md truncate text-gray-500">
+            {description}
+        </div>
+      ),
+    },
+    {
+      title: '技术栈',
+      dataIndex: 'technologies',
+      key: 'technologies',
+      render: (technologies) => {
+        let techs: string[] = [];
+        if (Array.isArray(technologies)) techs = technologies;
+        else if (typeof technologies === 'string') {
+            try {
+                const parsed = JSON.parse(technologies);
+                if (Array.isArray(parsed)) techs = parsed;
+                else techs = technologies.split(',');
+            } catch {
+                techs = technologies.split(',');
+            }
+        }
+        
+        return (
+            <Space size={[0, 4]} wrap>
+            {techs.map((tech) => {
+                const option = TECH_OPTIONS.find(o => o.value === tech.trim());
+                return (
+                    <Tag key={tech} color={option?.color || 'default'}>{tech}</Tag>
+                );
+            })}
+            </Space>
+        );
+      },
+    },
+    {
+      title: '链接',
+      key: 'links',
+      render: (_, record) => (
+        <Space>
+          {record.githubUrl && (
+            <Tooltip title="GitHub">
+              <a href={record.githubUrl} target="_blank" rel="noopener noreferrer">
+                <GithubOutlined style={{ fontSize: '18px', color: '#333' }} />
+              </a>
+            </Tooltip>
+          )}
+          {record.demoUrl && (
+            <Tooltip title="Demo">
+              <a href={record.demoUrl} target="_blank" rel="noopener noreferrer">
+                <LinkOutlined style={{ fontSize: '18px', color: '#1890ff' }} />
+              </a>
+            </Tooltip>
+          )}
+        </Space>
+      ),
+    },
+    {
+      title: '操作',
+      key: 'action',
+      width: 120,
+      render: (_, record) => (
+        <Space size="small">
+          <Button 
+            type="text" 
+            icon={<EditOutlined />}
+            onClick={() => handleEdit(record)}
+          />
+          <Popconfirm title="确定删除�?" onConfirm={() => handleDelete(record.id)}>
+            <Button type="text" danger icon={<DeleteOutlined />} />
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-white">项目管理</h2>
-          <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm sm:text-base">管理您的项目和作品</p>
-        </div>
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full sm:w-auto">
-          <span className="text-sm text-gray-500">共 {projects.length} 个项目</span>
-          <button 
-            onClick={() => handleOpenModal()}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors w-full sm:w-auto"
-          >
-            <Plus size={20} />
-            <span className="hidden sm:inline">添加项目</span>
-            <span className="sm:hidden">添加</span>
-          </button>
-        </div>
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-          <input
-            type="text"
-            placeholder="搜索项目名称或描述..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
-        {filteredProjects.map((project) => (
-          <div key={project.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-all border border-gray-100 dark:border-gray-700 overflow-hidden">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 line-clamp-2">
-                {project.title}
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 line-clamp-3">
-                {project.intro || project.description}
-              </p>
-              
-              <div className="mb-4">
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">技术栈：</p>
-                <div className="flex flex-wrap gap-2">
-                  {(Array.isArray(project.technologies) 
-                    ? project.technologies 
-                    : (project.technologies?.startsWith('[') 
-                        ? JSON.parse(project.technologies) 
-                        : project.technologies?.split(',') || [])
-                   ).map((tech: string, i: number) => (
-                    <span key={i} className="px-2 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-xs rounded-full">
-                      {tech.trim()}
-                    </span>
-                  ))}
-                </div>
+    <div className="p-4 md:p-6">
+      <Card className="mb-6" bodyStyle={{ padding: '12px 16px' }}>
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+              <div className="flex-1 w-full md:w-auto">
+                  <h2 className="text-xl font-bold mb-1">项目管理</h2>
+                  <p className="text-gray-500 text-sm">管理您的项目作品</p>
               </div>
-
-              {project.responsibilities && (
-                <div className="mb-4">
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">职责：</p>
-                  <p className="text-xs text-gray-600 dark:text-gray-300 line-clamp-2">{project.responsibilities}</p>
-                </div>
-              )}
-
-              <div className="text-xs text-gray-400 mb-4">
-                {new Date(project.createdAt).toLocaleDateString('zh-CN')}
-              </div>
-
-              <div className="flex items-center gap-2 flex-wrap">
-                {project.githubUrl && (
-                  <a
-                    href={project.githubUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                  >
-                    <ExternalLink size={16} /> GitHub
-                  </a>
-                )}
-                {project.demoUrl && (
-                  <a
-                    href={project.demoUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-sm text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
-                  >
-                    <ExternalLink size={16} /> 演示
-                  </a>
-                )}
-                <button
-                  onClick={() => handleOpenModal(project)}
-                  className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
-                  title="编辑项目"
-                >
-                  <Edit className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => handleDelete(project.id)}
-                  disabled={deletingId === project.id}
-                  className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors disabled:opacity-50"
-                  title="删除项目"
-                >
-                  {deletingId === project.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {filteredProjects.length === 0 && (
-        <div className="text-center py-20 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
-          <p>暂无项目</p>
-        </div>
-      )}
-
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                {editingProject ? '编辑项目' : '添加项目'}
-              </h3>
-              <button
-                onClick={handleCloseModal}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
-              >
-                <X size={20} className="text-gray-500" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  项目名称 *
-                </label>
-                <input
-                  type="text"
-                  value={formData.title}
-                  onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                  className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="输入项目名称"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  项目简介（用于卡片展示）
-                </label>
-                <textarea
-                  value={formData.intro}
-                  onChange={(e) => setFormData(prev => ({ ...prev, intro: e.target.value }))}
-                  className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="简短的项目介绍，用于卡片展示"
-                  rows={2}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  项目详细描述 *
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="输入项目详细描述"
-                  rows={4}
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  技术栈 * (逗号分隔)
-                </label>
-                <input
-                  type="text"
-                  value={formData.technologies}
-                  onChange={(e) => setFormData(prev => ({ ...prev, technologies: e.target.value }))}
-                  className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="例如: React, Node.js, MongoDB"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  我的职责（每行一条）
-                </label>
-                <textarea
-                  value={formData.responsibilities}
-                  onChange={(e) => setFormData(prev => ({ ...prev, responsibilities: e.target.value }))}
-                  className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="负责前端开发&#10;设计数据库结构&#10;实现用户认证"
-                  rows={3}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    难点/问题
-                  </label>
-                  <textarea
-                    value={formData.challengesProblem}
-                    onChange={(e) => setFormData(prev => ({ ...prev, challengesProblem: e.target.value }))}
-                    className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="项目中遇到的主要问题"
-                    rows={2}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    解决方案
-                  </label>
-                  <textarea
-                    value={formData.challengesSolution}
-                    onChange={(e) => setFormData(prev => ({ ...prev, challengesSolution: e.target.value }))}
-                    className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="如何解决这个问题"
-                    rows={2}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    GitHub 链接
-                  </label>
-                  <input
-                    type="url"
-                    value={formData.githubUrl}
-                    onChange={(e) => setFormData(prev => ({ ...prev, githubUrl: e.target.value }))}
-                    className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="https://github.com/username/repo"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    演示链接
-                  </label>
-                  <input
-                    type="url"
-                    value={formData.demoUrl}
-                    onChange={(e) => setFormData(prev => ({ ...prev, demoUrl: e.target.value }))}
-                    className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="https://demo.example.com"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  <input
-                    type="checkbox"
-                    checked={formData.isFeatured}
-                    onChange={(e) => setFormData(prev => ({ ...prev, isFeatured: e.target.checked }))}
-                    className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
-                  />
-                  作为精选项目展示
-                </label>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">选中后，该项目将在首页的精选项目预览中显示</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  项目展示图
-                </label>
-                <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-lg hover:border-blue-500 dark:hover:border-blue-400 transition-colors">
-                  <div className="space-y-1 text-center w-full">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileSelect}
-                      className="hidden"
-                    />
-                    {previewUrl ? (
-                      <div className="relative">
-                        <img src={previewUrl} alt="预览" className="mx-auto max-h-64 object-contain rounded-lg" />
-                        <div className="mt-4 flex justify-center">
-                          <button
-                            type="button"
-                            onClick={() => fileInputRef.current?.click()}
-                            className="text-sm text-blue-600 hover:text-blue-500"
-                          >
-                            更换图片
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div onClick={() => fileInputRef.current?.click()} className="cursor-pointer">
-                        <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                        <div className="flex text-sm text-gray-600 dark:text-gray-400 mt-4 justify-center">
-                          <span className="relative cursor-pointer bg-white dark:bg-gray-800 rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
-                            上传图片
-                          </span>
-                          <p className="pl-1">或拖拽文件到此处</p>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-2">支持 PNG, JPG, GIF 等格式</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="mt-3">
-                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">或者输入网络图片链接：</label>
-                  <input
-                    type="url"
-                    value={formData.imageUrl}
-                    onChange={(e) => {
-                      setFormData(prev => ({ ...prev, imageUrl: e.target.value }));
-                      setSelectedFile(null);
-                      setPreviewUrl(e.target.value);
+              <div className="flex gap-2 w-full md:w-auto">
+                  <Button icon={<DownloadOutlined />} onClick={handleExport}>导出</Button>
+                  <Button 
+                    type="primary" 
+                    icon={<PlusOutlined />} 
+                    onClick={() => {
+                        setEditingProject(null);
+                        form.resetFields();
+                        setFileList([]);
+                        setIsModalVisible(true);
                     }}
-                    className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    placeholder="https://example.com/image.jpg"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={handleCloseModal}
-                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                >
-                  取消
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      保存中...
-                    </>
-                  ) : (
-                    editingProject ? '保存修改' : '添加项目'
+                  >
+                    创建项目
+                  </Button>
+                  {isMobile && (
+                      <Button 
+                        icon={viewMode === 'grid' ? <BarsOutlined /> : <AppstoreOutlined />} 
+                        onClick={() => setViewMode(viewMode === 'grid' ? 'table' : 'grid')}
+                      />
                   )}
-                </button>
               </div>
-            </form>
           </div>
+      </Card>
+
+      {selectedRowKeys.length > 0 && (
+        <div className="mb-4 bg-blue-50 p-3 rounded-lg flex justify-between items-center shadow-sm">
+          <span className="text-blue-700 font-medium">已选择 {selectedRowKeys.length} 项</span>
+          <Space>
+            <Button size="small" danger onClick={handleBatchDelete} icon={<DeleteOutlined />}>{!isMobile && '批量删除'}</Button>
+          </Space>
         </div>
       )}
+
+      {viewMode === 'grid' ? (
+          <div className="bg-white/5 rounded-lg shadow overflow-hidden">
+              {projects.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
+                      {projects.map(project => (
+                          <Card
+                              key={project.id}
+                              hoverable
+                              actions={[
+                                  <Button type="text" icon={<EditOutlined />} onClick={() => handleEdit(project)}>编辑</Button>,
+                                  <Popconfirm title="确定删除�?" onConfirm={() => handleDelete(project.id)}>
+                                    <Button type="text" danger icon={<DeleteOutlined />}>删除</Button>
+                                  </Popconfirm>
+                              ]}
+                          >
+                              <Card.Meta 
+                                  title={project.title}
+                                  description={
+                                      <div className="line-clamp-2 text-gray-500 text-xs mb-2">
+                                          {project.description}
+                                      </div>
+                                  }
+                              />
+                              <div className="mt-2">
+                                  {/* Render Tech Tags (Limit to 3) */}
+                                  {Array.isArray(project.technologies) ? project.technologies.slice(0, 3).map((tech: string) => {
+                                      const option = TECH_OPTIONS.find(o => o.value === tech.trim());
+                                      return (
+                                          <Tag key={tech} color={option?.color || 'default'} className="text-xs mr-1 mb-1">{tech}</Tag>
+                                      );
+                                  }) : null}
+                              </div>
+                          </Card>
+                      ))}
+                  </div>
+              ) : (
+                  <div className="py-12">
+                      <Empty description="暂无项目数据" />
+                  </div>
+              )}
+          </div>
+      ) : (
+          <div className="bg-white/5 rounded-lg shadow overflow-hidden">
+            <DndContext 
+                collisionDetection={closestCenter}
+                onDragEnd={onDragEnd}
+            >
+                <SortableContext 
+                    items={projects.map(i => i.id)}
+                    strategy={verticalListSortingStrategy}
+                >
+                    <Table
+                        components={{
+                            body: {
+                                row: SortableRow,
+                            },
+                        }}
+                        columns={columns}
+                        dataSource={projects}
+                        rowKey="id"
+                        loading={loading}
+                        pagination={{ defaultPageSize: 10 }}
+                        scroll={{ x: 800 }}
+                        rowSelection={{
+                            selectedRowKeys,
+                            onChange: (keys) => setSelectedRowKeys(keys),
+                        }}
+                    />
+                </SortableContext>
+            </DndContext>
+          </div>
+      )}
+
+      {/* Create/Edit Modal */}
+      <Modal
+        title={editingProject ? "编辑项目" : "创建新项目"}
+        open={isModalVisible}
+        onOk={handleSave}
+        onCancel={() => setIsModalVisible(false)}
+        width={800}
+        style={{ top: 20 }}
+        bodyStyle={{ maxHeight: '70vh', overflowY: 'auto' }}
+      >
+        <Form form={form} layout="vertical">
+          <Form.Item label="项目截图 (支持多图)">
+             <Upload {...uploadProps}>
+                <div>
+                    <PlusOutlined />
+                    <div style={{ marginTop: 8 }}>点击上传</div>
+                </div>
+             </Upload>
+          </Form.Item>
+
+          <Form.Item
+              name="title"
+              label="标题"
+              rules={[{ required: true, message: '请输入标题' }]}
+            >
+              <Input placeholder="输入项目标题" />
+            </Form.Item>
+          
+          <Form.Item name="technologies" label="技术栈">
+            <Select 
+                mode="tags" 
+                placeholder="选择或输入技术栈" 
+                options={TECH_OPTIONS}
+                style={{ width: '100%' }}
+            />
+          </Form.Item>
+
+          <Form.Item name="description" label="详细描述 (Markdown)">
+            <SimpleMDE 
+                options={{
+                    spellChecker: false,
+                    placeholder: "支持 Markdown 格式..."
+                }}
+            />
+          </Form.Item>
+          
+          <div className="grid grid-cols-2 gap-4">
+              <Form.Item name="githubUrl" label="GitHub链接">
+                <Input prefix={<GithubOutlined />} placeholder="https://github.com/..." />
+              </Form.Item>
+              
+              <Form.Item name="demoUrl" label="Demo/预览链接">
+                <Input prefix={<LinkOutlined />} placeholder="https://..." />
+              </Form.Item>
+          </div>
+        </Form>
+      </Modal>
     </div>
   );
 };
 
 export default ProjectsManagement;
+
+
+

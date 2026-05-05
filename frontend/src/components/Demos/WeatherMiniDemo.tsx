@@ -69,7 +69,7 @@ const WeatherMiniDemo = () => {
         <input 
           value={city}
           onChange={(e) => setCity(e.target.value)}
-          className="w-full pl-8 pr-2 py-1 text-sm rounded-lg border-none bg-white dark:bg-gray-700 focus:ring-1 focus:ring-blue-500"
+          className="w-full pl-8 pr-2 py-1 text-sm rounded-lg border-none bg-white/5 dark:bg-gray-700 focus:ring-1 focus:ring-blue-500"
           placeholder="Search..."
         />
         <Search className="absolute left-2 top-1.5 w-4 h-4 text-gray-400" />
@@ -106,3 +106,6 @@ const WeatherMiniDemo = () => {
 };
 
 export default WeatherMiniDemo;
+
+
+

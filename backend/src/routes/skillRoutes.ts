@@ -1,30 +1,13 @@
 import express from 'express';
 import { getAllSkills, getSkillById, createSkill, updateSkill, deleteSkill } from '../controllers/skillController';
-import { cacheMiddleware, clearCache } from '../middleware/cache';
-import { protect } from '../middleware/authMiddleware';
 
 const router = express.Router();
 
-// Skill routes with cache
-router.get('/', cacheMiddleware(300), getAllSkills);
-router.get('/:id', cacheMiddleware(600), getSkillById);
-
-// Create, update, delete operations with cache clearing
-router.post('/', protect, async (req, res, next) => {
-  await createSkill(req, res, next);
-  clearCache('/api/skills');
-});
-
-router.put('/:id', protect, async (req, res, next) => {
-  await updateSkill(req, res, next);
-  clearCache('/api/skills');
-  clearCache(`/api/skills/${req.params.id}`);
-});
-
-router.delete('/:id', protect, async (req, res, next) => {
-  await deleteSkill(req, res, next);
-  clearCache('/api/skills');
-  clearCache(`/api/skills/${req.params.id}`);
-});
+// Skill routes
+router.get('/', getAllSkills);
+router.get('/:id', getSkillById);
+router.post('/', createSkill);
+router.put('/:id', updateSkill);
+router.delete('/:id', deleteSkill);
 
 export default router;

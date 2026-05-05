@@ -78,7 +78,7 @@ const PomodoroDemo = () => {
 
   return (
     <div className={`min-h-screen transition-colors duration-700 ${MODES[mode].color} flex items-center justify-center p-4 md:p-8 font-sans`}>
-      <div className="w-full max-w-lg bg-white/95 backdrop-blur-xl rounded-[2rem] shadow-2xl p-8 relative overflow-hidden">
+      <div className="w-full max-w-lg bg-white/5/95 backdrop-blur-xl rounded-[2rem] shadow-2xl p-8 relative overflow-hidden">
          <Link to="/" className="absolute top-6 left-6 text-gray-400 hover:text-gray-800 transition-colors z-10">
             <ArrowLeft className="w-6 h-6" />
         </Link>
@@ -92,7 +92,7 @@ const PomodoroDemo = () => {
 
         {/* Mode Selector */}
         <div className="flex justify-center space-x-2 mb-12 mt-4 relative z-0">
-          <div className="bg-gray-100 p-1.5 rounded-full flex relative">
+          <div className="bg-transparent p-1.5 rounded-full flex relative">
             {Object.keys(MODES).map((m) => (
               <button
                 key={m}
@@ -107,7 +107,7 @@ const PomodoroDemo = () => {
                 {mode === m && (
                    <motion.div 
                      layoutId="activeMode"
-                     className="absolute inset-0 bg-white rounded-full shadow-sm -z-10"
+                     className="absolute inset-0 bg-white/5 rounded-full shadow-sm -z-10"
                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
                    />
                 )}
@@ -150,8 +150,8 @@ const PomodoroDemo = () => {
               {formatTime(timeLeft)}
             </motion.h1>
             <p className="text-gray-400 font-medium mt-2 uppercase tracking-[0.2em] text-sm">
-              {isActive ? '专注中...' : '已暂停'}
-            </p>
+                {isActive ? '专注中..' : '已暂停'}
+              </p>
           </div>
         </div>
 
@@ -165,7 +165,7 @@ const PomodoroDemo = () => {
           </button>
           <button
             onClick={resetTimer}
-            className="h-20 w-20 rounded-3xl bg-gray-100 text-gray-500 shadow-lg hover:bg-gray-200 active:scale-95 transition-all flex items-center justify-center"
+            className="h-20 w-20 rounded-3xl bg-transparent text-gray-500 shadow-lg hover:bg-gray-200 active:scale-95 transition-all flex items-center justify-center"
           >
             <RotateCcw className="w-8 h-8" />
           </button>
@@ -184,7 +184,7 @@ const PomodoroDemo = () => {
                  className={`flex items-center p-4 rounded-2xl border transition-all cursor-pointer ${
                     task.completed 
                       ? 'bg-gray-50 border-gray-100 opacity-60' 
-                      : `bg-white border-gray-100 shadow-sm hover:border-${MODES[mode].text.split('-')[1]}-200`
+                      : `bg-white/5 border-gray-100 shadow-sm hover:border-${MODES[mode].text.split('-')[1]}-200`
                  }`}
                  onClick={() => toggleTask(task.id)}
                >
@@ -207,7 +207,7 @@ const PomodoroDemo = () => {
                type="text"
                value={newTask}
                onChange={(e) => setNewTask(e.target.value)}
-               placeholder="添加新任务..."
+               placeholder="添加新任�?.."
                className="w-full pl-4 pr-12 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-200 transition-all"
              />
              <button type="submit" className="absolute right-2 top-2 p-1.5 bg-gray-900 text-white rounded-lg hover:bg-black transition-colors">
@@ -223,11 +223,11 @@ const PomodoroDemo = () => {
                initial={{ opacity: 0 }}
                animate={{ opacity: 1 }}
                exit={{ opacity: 0 }}
-               className="absolute inset-0 bg-white/95 backdrop-blur-sm z-50 flex flex-col p-8"
+               className="absolute inset-0 bg-white/5/95 backdrop-blur-sm z-50 flex flex-col p-8"
              >
                 <div className="flex justify-between items-center mb-8">
                    <h2 className="text-2xl font-bold text-gray-800">设置</h2>
-                   <button onClick={() => setShowSettings(false)} className="p-2 hover:bg-gray-100 rounded-full">
+                   <button onClick={() => setShowSettings(false)} className="p-2 hover:bg-transparent rounded-full">
                       <X className="w-6 h-6 text-gray-500" />
                    </button>
                 </div>
@@ -254,14 +254,14 @@ const PomodoroDemo = () => {
                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                       <span className="font-medium text-gray-700">自动开始休息</span>
                       <div className="w-12 h-6 bg-gray-200 rounded-full relative cursor-pointer">
-                         <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full shadow-sm"></div>
+                         <div className="absolute left-1 top-1 w-4 h-4 bg-white/5 rounded-full shadow-sm"></div>
                       </div>
                    </div>
                    
                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                       <span className="font-medium text-gray-700">音效</span>
                       <div className="w-12 h-6 bg-green-500 rounded-full relative cursor-pointer">
-                         <div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full shadow-sm"></div>
+                         <div className="absolute right-1 top-1 w-4 h-4 bg-white/5 rounded-full shadow-sm"></div>
                       </div>
                    </div>
                 </div>
@@ -274,3 +274,5 @@ const PomodoroDemo = () => {
 };
 
 export default PomodoroDemo;
+
+

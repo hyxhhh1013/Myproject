@@ -1,535 +1,353 @@
-import { useState, useEffect, useRef } from 'react';
-import { Trash2, Search, Loader2, Edit, Plus, X, Eye, EyeOff, Building2, Calendar, Upload } from 'lucide-react';
-import { message } from 'antd';
-import axios from '../../utils/axiosConfig';
-import { getImageUrl } from '../../utils/imageUtils';
+import React, { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
 
 interface Experience {
   id: number;
   company: string;
   position: string;
   startDate: string;
-  endDate?: string | null;
-  description?: string;
-  images?: string[];
-  isVisible?: boolean;
-  orderIndex?: number;
-  createdAt?: string;
+  endDate?: string;
+  description: string;
+  userId: number;
+  createdAt: string;
+  updatedAt: string;
+  user?: {
+    id: number;
+    name: string;
+    email: string;
+  };
 }
 
-const initialFormData = {
-  company: '',
-  position: '',
-  startDate: '',
-  endDate: '',
-  description: '',
-  images: [] as string[],
-  isVisible: true,
-};
-
-const ExperienceManagement = () => {
+const ExperienceManagement: React.FC = () => {
   const [experiences, setExperiences] = useState<Experience[]>([]);
   const [loading, setLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
-  const [editingExperience, setEditingExperience] = useState<Experience | null>(null);
-  const [formData, setFormData] = useState(initialFormData);
-  const [submitting, setSubmitting] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isEditing, setIsEditing] = useState<number | null>(null);
+  const [formData, setFormData] = useState({
+    company: '',
+    position: '',
+    startDate: '',
+    endDate: '',
+    description: '',
+    userId: 1, // 默认用户ID，实际应从认证信息获�?  });
+  const [formError, setFormError] = useState<string>('');
 
-  useEffect(() => {
-    fetchExperiences();
-  }, []);
-
-  const fetchExperiences = async () => {
+  // 加载工作经历数据
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       const response = await axios.get('/api/experience');
-      const data = Array.isArray(response.data) ? response.data : response.data?.data || [];
-      setExperiences(data.sort((a: Experience, b: Experience) => 
-        new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
-      ));
+      // 处理日期格式
+      const formattedData = response.data.map((item: any) => ({
+        ...item,
+        startDate: item.startDate ? new Date(item.startDate).toISOString().split('T')[0] : '',
+        endDate: item.endDate ? new Date(item.endDate).toISOString().split('T')[0] : ''
+      }));
+      setExperiences(formattedData);
     } catch (error) {
       console.error('Failed to fetch experiences:', error);
-      message.error('获取经历失败，请重试');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handleOpenModal = (experience?: Experience) => {
-    if (experience) {
-      setEditingExperience(experience);
-      setFormData({
-        company: experience.company,
-        position: experience.position,
-        startDate: experience.startDate.split('T')[0],
-        endDate: experience.endDate ? experience.endDate.split('T')[0] : '',
-        description: experience.description || '',
-        images: experience.images || [],
-        isVisible: experience.isVisible ?? true,
-      });
-      setPreviewUrls(experience.images?.map(img => getImageUrl(img)) || []);
-    } else {
-      setEditingExperience(null);
-      setFormData(initialFormData);
-      setPreviewUrls([]);
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // 表单验证
+  const validateForm = () => {
+    if (!formData.company.trim()) {
+      setFormError('请输入公司名�?);
+      return false;
     }
-    setSelectedFiles([]);
-    setShowModal(true);
-  };
-
-  const handleCloseModal = () => {
-    setShowModal(false);
-    setEditingExperience(null);
-    setFormData(initialFormData);
-    setSelectedFiles([]);
-    setPreviewUrls([]);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+    if (!formData.position.trim()) {
+      setFormError('请输入职�?);
+      return false;
     }
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
-
-    const validFiles = files.filter(file => file.type.startsWith('image/'));
-    if (validFiles.length !== files.length) {
-      message.warning('部分文件不是图片格式，已被忽略');
+    if (!formData.startDate) {
+      setFormError('请选择开始时�?);
+      return false;
     }
-
-    const newPreviewUrls = validFiles.map(file => URL.createObjectURL(file));
-    
-    setSelectedFiles(prev => [...prev, ...validFiles]);
-    setPreviewUrls(prev => [...prev, ...newPreviewUrls]);
-  };
-
-  const removeImage = (index: number, isExisting: boolean) => {
-    if (isExisting) {
-      const newImages = [...formData.images];
-      newImages.splice(index, 1);
-      setFormData(prev => ({ ...prev, images: newImages }));
-      
-      const newPreviewUrls = [...previewUrls];
-      newPreviewUrls.splice(index, 1);
-      setPreviewUrls(newPreviewUrls);
-    } else {
-      // Adjust index for new files since they come after existing images in the preview array
-      const existingCount = formData.images.length;
-      const fileIndex = index - existingCount;
-      
-      const newFiles = [...selectedFiles];
-      newFiles.splice(fileIndex, 1);
-      setSelectedFiles(newFiles);
-      
-      const newPreviewUrls = [...previewUrls];
-      newPreviewUrls.splice(index, 1);
-      setPreviewUrls(newPreviewUrls);
+    if (formData.endDate && formData.endDate < formData.startDate) {
+      setFormError('结束时间不能早于开始时�?);
+      return false;
     }
+    if (!formData.description.trim()) {
+      setFormError('请输入工作描�?);
+      return false;
+    }
+    return true;
   };
 
+  // 处理表单输入变化
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    setFormError('');
+  };
+
+  // 处理新增/编辑
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.company.trim() || !formData.position.trim() || !formData.startDate) {
-      message.warning('请填写公司名称、职位和开始日期');
+    if (!validateForm()) {
       return;
     }
 
     try {
-      setSubmitting(true);
-      const payloadData = new FormData();
-      payloadData.append('company', formData.company.trim());
-      payloadData.append('position', formData.position.trim());
-      payloadData.append('startDate', new Date(formData.startDate).toISOString());
-      if (formData.endDate) {
-        payloadData.append('endDate', new Date(formData.endDate).toISOString());
-      }
-      if (formData.description.trim()) {
-        payloadData.append('description', formData.description.trim());
-      }
-      payloadData.append('isVisible', formData.isVisible.toString());
-
-      // Append existing images that weren't removed
-      payloadData.append('existingImages', JSON.stringify(formData.images));
-
-      // Append new files
-      selectedFiles.forEach(file => {
-        payloadData.append('images', file);
-      });
-
-      const config = {
-        headers: { 'Content-Type': 'multipart/form-data' },
+      const dataToSubmit = {
+        ...formData,
+        startDate: new Date(formData.startDate).toISOString(),
+        endDate: formData.endDate ? new Date(formData.endDate).toISOString() : null,
       };
 
-      if (editingExperience) {
-        await axios.put(`/api/experience/${editingExperience.id}`, payloadData, config);
+      if (isEditing) {
+        // 更新现有经历
+        await axios.put(`/api/experience/${isEditing}`, dataToSubmit);
+        alert('工作经历更新成功�?);
       } else {
-        await axios.post('/api/experience', payloadData, config);
+        // 创建新经�?        await axios.post('/api/experience', dataToSubmit);
+        alert('工作经历创建成功�?);
       }
-
-      await fetchExperiences();
-      handleCloseModal();
       
-      // 更新localStorage，触发前端展示部分刷新
-      localStorage.setItem('experienceUpdated', Date.now().toString());
-    } catch (error) {
+      // 重置表单和状�?      setShowModal(false);
+      resetForm();
+      
+      // 重新获取数据
+      await fetchData();
+    } catch (error: any) {
       console.error('Failed to save experience:', error);
-      message.error('保存失败，请重试');
-    } finally {
-      setSubmitting(false);
+      setFormError(error.response?.data?.message || '保存失败，请重试');
     }
   };
 
+  // 处理编辑
+  const handleEdit = (experience: Experience) => {
+    setIsEditing(experience.id);
+    setFormData({
+      company: experience.company,
+      position: experience.position,
+      startDate: experience.startDate,
+      endDate: experience.endDate || '',
+      description: experience.description,
+      userId: experience.userId,
+    });
+    setShowModal(true);
+    setFormError('');
+  };
+
+  // 处理删除
   const handleDelete = async (id: number) => {
-    if (!window.confirm('确定要删除这段经历吗？')) return;
-    
-    try {
-      setDeletingId(id);
-      await axios.delete(`/api/experience/${id}`);
-      setExperiences(experiences.filter(e => e.id !== id));
-      
-      // 更新localStorage，触发前端展示部分刷新
-      localStorage.setItem('experienceUpdated', Date.now().toString());
-    } catch (error) {
-      console.error('Failed to delete experience:', error);
-      message.error('删除失败，请重试');
-    } finally {
-      setDeletingId(null);
+    if (window.confirm('确定要删除这个工作经历吗�?)) {
+      try {
+        await axios.delete(`/experience/${id}`);
+        alert('工作经历删除成功�?);
+        await fetchData();
+      } catch (error) {
+        console.error('Failed to delete experience:', error);
+        alert('删除失败，请重试');
+      }
     }
   };
 
-  const handleToggleVisible = async (id: number, currentState: boolean) => {
-    try {
-      await axios.put(`/api/experience/${id}`, { isVisible: !currentState });
-      setExperiences(experiences.map(e => e.id === id ? { ...e, isVisible: !currentState } : e));
-      
-      // 更新localStorage，触发前端展示部分刷新
-      localStorage.setItem('experienceUpdated', Date.now().toString());
-    } catch (error) {
-      console.error('Failed to update experience:', error);
-      message.error('更新失败，请重试');
-    }
-  };
-
-  const filteredExperiences = experiences.filter(exp =>
-    exp.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    exp.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (exp.description || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long' });
-  };
-
-  const calculateDuration = (startDate: string, endDate?: string | null) => {
-    const start = new Date(startDate);
-    const end = endDate ? new Date(endDate) : new Date();
-    const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
-    const years = Math.floor(months / 12);
-    const remainingMonths = months % 12;
-    
-    if (years > 0 && remainingMonths > 0) {
-      return `${years}年${remainingMonths}个月`;
-    } else if (years > 0) {
-      return `${years}年`;
-    } else {
-      return `${remainingMonths}个月`;
-    }
+  // 重置表单
+  const resetForm = () => {
+    setIsEditing(null);
+    setFormData({
+      company: '',
+      position: '',
+      startDate: '',
+      endDate: '',
+      description: '',
+      userId: 1,
+    });
+    setFormError('');
   };
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-96">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      <div className="flex justify-center items-center h-64">
+        <div className="text-xl text-gray-500">加载�?..</div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="flex justify-between items-center flex-wrap gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-white">工作经历</h2>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">管理您的工作经历</p>
+          <h2 className="text-3xl font-bold text-gray-900">工作经历管理</h2>
+          <p className="text-gray-500 mt-1">管理您的工作经历，包括新增、编辑和删除</p>
         </div>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-gray-500">共 {experiences.length} 段经历</span>
-          <button 
-            onClick={() => handleOpenModal()}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+        <button
+          onClick={() => {
+            resetForm();
+            setShowModal(true);
+          }}
+          className="bg-[#0071e3] text-white px-6 py-2 rounded-full hover:bg-[#0077ed] transition-colors font-medium"
+        >
+          新增经历
+        </button>
+      </div>
+
+      {/* Experiences List */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {experiences.map((experience) => (
+          <div 
+            key={experience.id} 
+            className="bg-white/5 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300"
           >
-            <Plus size={20} />
-            <span>添加经历</span>
-          </button>
-        </div>
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-          <input
-            type="text"
-            placeholder="搜索公司、职位或描述..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-          />
-        </div>
-      </div>
-
-      <div className="relative">
-        <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gray-200 dark:bg-gray-700" />
-        
-        <div className="space-y-6">
-          {filteredExperiences.map((exp) => (
-            <div key={exp.id} className="relative pl-12">
-              <div className="absolute left-4 top-6 w-4 h-4 rounded-full bg-blue-500 border-4 border-white dark:border-gray-900 z-10" />
-              
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-all border border-gray-100 dark:border-gray-700 p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                      <Building2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        {exp.position}
-                      </h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {exp.company}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleToggleVisible(exp.id, exp.isVisible ?? true)}
-                    className={`p-2 rounded-full transition-colors ${
-                      exp.isVisible !== false
-                        ? 'bg-green-50 dark:bg-green-900/20 text-green-600'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-400'
-                    }`}
-                    title={exp.isVisible !== false ? '点击隐藏' : '点击显示'}
-                  >
-                    {exp.isVisible !== false ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                  </button>
+            <div className="p-5">
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <h3 className="text-lg font-semibold text-white">{experience.company}</h3>
+                  <p className="text-[#0071e3] font-medium mt-1">{experience.position}</p>
                 </div>
-
-                <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400 mb-4">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="w-4 h-4" />
-                    <span>{formatDate(exp.startDate)} - {exp.endDate ? formatDate(exp.endDate) : '至今'}</span>
-                  </div>
-                  <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs">
-                    {calculateDuration(exp.startDate, exp.endDate)}
-                  </span>
-                </div>
-
-                {exp.description && (
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 whitespace-pre-line">
-                    {exp.description}
-                  </p>
-                )}
-
-                <div className="flex gap-2 pt-4 border-t border-gray-100 dark:border-gray-700">
+                <div className="flex space-x-2">
                   <button
-                    onClick={() => handleOpenModal(exp)}
-                    className="flex-1 p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors text-sm"
+                    onClick={() => handleEdit(experience)}
+                    className="p-2 text-gray-500 hover:text-[#0071e3] transition-colors"
+                    title="编辑"
                   >
-                    <Edit className="w-4 h-4 inline mr-1" /> 编辑
+                    ✏️
                   </button>
                   <button
-                    onClick={() => handleDelete(exp.id)}
-                    disabled={deletingId === exp.id}
-                    className="flex-1 p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors disabled:opacity-50 text-sm"
+                    onClick={() => handleDelete(experience.id)}
+                    className="p-2 text-gray-500 hover:text-red-500 transition-colors"
+                    title="删除"
                   >
-                    {deletingId === exp.id ? <Loader2 className="w-4 h-4 animate-spin inline mr-1" /> : <Trash2 className="w-4 h-4 inline mr-1" />}
-                    删除
-                  </button>
+                    🗑�?                  </button>
                 </div>
               </div>
+
+              <div className="flex flex-wrap gap-2 mb-3">
+                <span className="inline-block bg-transparent text-gray-600 text-xs font-medium px-3 py-1 rounded-full">
+                  {experience.startDate}
+                  {experience.endDate ? ` - ${experience.endDate}` : ' - 至今'}
+                </span>
+              </div>
+
+              <p className="text-gray-600 text-sm line-clamp-3">{experience.description}</p>
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
       </div>
 
-      {filteredExperiences.length === 0 && (
-        <div className="text-center py-20 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
-          <p>暂无工作经历</p>
+      {/* No Experiences */}
+      {experiences.length === 0 && (
+        <div className="text-center py-12">
+          <p className="text-gray-500">暂无工作经历</p>
         </div>
       )}
 
+      {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                {editingExperience ? '编辑工作经历' : '添加工作经历'}
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white/5 rounded-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-gray-900">
+                {isEditing ? '编辑工作经历' : '新增工作经历'}
               </h3>
               <button
-                onClick={handleCloseModal}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                onClick={() => {
+                  setShowModal(false);
+                  resetForm();
+                }}
+                className="text-gray-500 hover:text-gray-700"
               >
-                <X size={20} className="text-gray-500" />
-              </button>
+                �?              </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  公司名称 *
-                </label>
-                <input
-                  type="text"
-                  value={formData.company}
-                  onChange={(e) => setFormData(prev => ({ ...prev, company: e.target.value }))}
-                  className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="例如：阿里巴巴"
-                  required
-                />
-              </div>
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {formError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <p className="text-sm text-red-700">{formError}</p>
+                </div>
+              )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  职位名称 *
-                </label>
-                <input
-                  type="text"
-                  value={formData.position}
-                  onChange={(e) => setFormData(prev => ({ ...prev, position: e.target.value }))}
-                  className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="例如：高级前端工程师"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    开始日期 *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">公司名称 *</label>
+                  <input
+                    type="text"
+                    name="company"
+                    value={formData.company}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent transition-colors"
+                    placeholder="输入公司名称"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">职位 *</label>
+                  <input
+                    type="text"
+                    name="position"
+                    value={formData.position}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent transition-colors"
+                    placeholder="输入职位"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">开始时�?*</label>
                   <input
                     type="date"
+                    name="startDate"
                     value={formData.startDate}
-                    onChange={(e) => setFormData(prev => ({ ...prev, startDate: e.target.value }))}
-                    className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent transition-colors"
                   />
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    结束日期
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">结束时间</label>
                   <input
                     type="date"
+                    name="endDate"
                     value={formData.endDate}
-                    onChange={(e) => setFormData(prev => ({ ...prev, endDate: e.target.value }))}
-                    className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent transition-colors"
+                    placeholder="可选，留空表示至今"
                   />
-                  <p className="text-xs text-gray-400 mt-1">留空表示至今</p>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  工作描述
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">工作描述 *</label>
                 <textarea
+                  name="description"
                   value={formData.description}
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="描述您的工作内容和成就（每行一条）"
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent transition-colors"
                   rows={4}
-                />
+                  placeholder="输入工作描述，介绍您的工作职责和成就"
+                ></textarea>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  相关图片
-                </label>
-                <div className="space-y-4">
-                  {previewUrls.length > 0 && (
-                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
-                      {previewUrls.map((url, index) => {
-                        const isExisting = index < formData.images.length;
-                        return (
-                          <div key={index} className="relative aspect-video rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 group">
-                            <img src={url} alt={`Preview ${index + 1}`} className="w-full h-full object-cover" />
-                            <button
-                              type="button"
-                              onClick={() => removeImage(index, isExisting)}
-                              className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                            {isExisting && (
-                              <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[10px] text-center py-0.5">
-                                已上传
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                  
-                  <div
-                    onClick={() => fileInputRef.current?.click()}
-                    className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-blue-500 dark:hover:border-blue-400 transition-colors cursor-pointer"
-                  >
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={handleFileSelect}
-                      className="hidden"
-                    />
-                    <Upload className="w-8 h-8 mx-auto text-gray-400 mb-2" />
-                    <p className="text-sm text-gray-600 dark:text-gray-400">点击上传更多图片</p>
-                    <p className="text-xs text-gray-400 mt-1">支持多选</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="expIsVisible"
-                  checked={formData.isVisible}
-                  onChange={(e) => setFormData(prev => ({ ...prev, isVisible: e.target.checked }))}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                />
-                <label htmlFor="expIsVisible" className="text-sm text-gray-700 dark:text-gray-300">
-                  在前端显示
-                </label>
-              </div>
-
-              <div className="flex gap-3 pt-4">
+              <div className="flex justify-end gap-3 mt-6">
                 <button
                   type="button"
-                  onClick={handleCloseModal}
-                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  onClick={() => {
+                    setShowModal(false);
+                    resetForm();
+                  }}
+                  className="px-6 py-2 border border-white/30 rounded-full text-white/80 hover:bg-white/5 transition-colors font-medium"
                 >
                   取消
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="px-6 py-2 bg-[#0071e3] text-white rounded-full hover:bg-[#0077ed] transition-colors font-medium"
                 >
-                  {submitting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      保存中...
-                    </>
-                  ) : (
-                    editingExperience ? '保存修改' : '添加经历'
-                  )}
+                  {isEditing ? '保存修改' : '创建经历'}
                 </button>
               </div>
             </form>
@@ -541,3 +359,5 @@ const ExperienceManagement = () => {
 };
 
 export default ExperienceManagement;
+
+

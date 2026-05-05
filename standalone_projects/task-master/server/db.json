@@ -1,0 +1,7 @@
+{
+  "tasks": [
+    { "id": "1", "content": "设计系统架构图 (来自后端)", "status": "todo" },
+    { "id": "2", "content": "实现 API 接口", "status": "inProgress" },
+    { "id": "3", "content": "数据库选型", "status": "done" }
+  ]
+}

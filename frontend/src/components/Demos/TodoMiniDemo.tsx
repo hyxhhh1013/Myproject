@@ -33,7 +33,7 @@ const TodoMiniDemo = () => {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, x: -10 }}
-              className="flex items-center bg-white dark:bg-gray-700 p-2 rounded-lg shadow-sm border border-gray-100 dark:border-gray-600"
+              className="flex items-center bg-white/5 dark:bg-gray-700 p-2 rounded-lg shadow-sm border border-gray-100 dark:border-gray-600"
             >
               <input 
                 type="checkbox" 
@@ -71,3 +71,6 @@ const TodoMiniDemo = () => {
 };
 
 export default TodoMiniDemo;
+
+
+

@@ -61,16 +61,12 @@
 }
 
 @keyframes float {
-
-  0%,
-  100% {
+  0%, 100% {
     transform: translateY(0px) translateX(0px);
   }
-
   33% {
     transform: translateY(-30px) translateX(20px);
   }
-
   66% {
     transform: translateY(20px) translateX(-10px);
   }
@@ -123,12 +119,12 @@
   height: 180px;
   margin: 0 auto 60px;
   border-radius: 50%;
-  background:
-    radial-gradient(circle at 30% 30%, rgba(59, 130, 246, 0.3), transparent 70%);
-
+  background: 
+    radial-gradient(circle at 30% 30%, rgba(59, 130, 246, 0.3), transparent 70%),
+    url('../assets/images/e8f47feeab5afd0a0fce8ab4f9373d09.jpg') center/cover;
   backdrop-filter: blur(8px);
   border: 4px solid rgba(59, 130, 246, 0.3);
-  box-shadow:
+  box-shadow: 
     0 0 0 8px rgba(59, 130, 246, 0.1),
     0 10px 40px rgba(59, 130, 246, 0.2),
     inset 0 0 20px rgba(0, 0, 0, 0.2);
@@ -138,7 +134,7 @@
 
 .hero-photo:hover {
   transform: scale(1.05);
-  box-shadow:
+  box-shadow: 
     0 0 0 8px rgba(59, 130, 246, 0.15),
     0 15px 50px rgba(59, 130, 246, 0.3),
     inset 0 0 20px rgba(0, 0, 0, 0.3);
@@ -154,7 +150,7 @@
 }
 
 /* Section Spacing */
-.main-content>* {
+.main-content > * {
   margin-bottom: 80px;
 }
 
@@ -600,221 +596,218 @@
 
 /* Responsive Styles */
 @media (max-width: 1024px) {
-
   /* Hero Section */
   .hero-section {
     padding: 40px 20px 30px;
     min-height: 70vh;
   }
-
+  
   .hero-title {
     font-size: 48px;
     margin-bottom: 20px;
   }
-
+  
   .hero-subtitle {
     margin-bottom: 40px;
   }
-
+  
   .hero-photo {
     width: 150px;
     height: 150px;
     margin-bottom: 48px;
   }
-
+  
   /* Main Content */
   .main-content {
     padding: 0 20px 60px;
   }
-
-  .main-content>* {
+  
+  .main-content > * {
     margin-bottom: 60px;
   }
-
+  
   /* Card Styles */
   .interest-card {
     padding: 32px 24px;
     border-radius: 16px;
   }
-
+  
   /* Movie Section */
   .movie-widget .movies-scroll {
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: 24px;
   }
-
+  
   /* Travel Section */
   .travel-widget .map-container {
     height: 450px;
   }
-
+  
   /* Footer */
   .interests-footer {
     padding: 40px 20px 30px;
   }
-
+  
   .footer-stats {
     gap: 30px;
   }
 }
 
 @media (max-width: 768px) {
-
   /* Hero Section */
   .hero-title {
     font-size: 36px;
     margin-bottom: 16px;
   }
-
+  
   .hero-subtitle {
     margin-bottom: 32px;
     font-size: 16px;
   }
-
+  
   .hero-photo {
     width: 120px;
     height: 120px;
     margin-bottom: 40px;
   }
-
+  
   /* Main Content */
-  .main-content>* {
+  .main-content > * {
     margin-bottom: 50px;
   }
-
+  
   /* Card Styles */
   .interest-card {
     padding: 24px 20px;
   }
-
+  
   /* Movie Section - 优化手机端布局 */
   .movie-widget .movies-scroll {
     grid-template-columns: 1fr 1fr;
     gap: 20px;
     padding: 16px 0;
   }
-
+  
   .movie-widget .movie-card {
     border-radius: 14px;
     box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1);
   }
-
+  
   .movie-widget .movie-card img {
     height: 280px;
   }
-
+  
   .movie-widget .info {
     padding: 20px;
   }
-
+  
   .movie-widget .info h4 {
     font-size: 18px;
     margin-bottom: 6px;
   }
-
+  
   /* Travel Section */
   .travel-widget .map-container {
     height: 380px;
     border-radius: 12px;
   }
-
+  
   .travel-widget .city-list {
     grid-template-columns: 1fr 1fr;
     gap: 16px;
   }
-
+  
   /* Footer */
   .footer-content {
     padding: 24px 20px;
   }
-
+  
   .footer-stats {
     flex-direction: column;
     gap: 16px;
   }
-
+  
   .footer-stats span {
     justify-content: center;
   }
 }
 
 @media (max-width: 480px) {
-
   /* Hero Section */
   .hero-section {
     padding: 30px 16px 20px;
     min-height: 60vh;
   }
-
+  
   .hero-title {
     font-size: 28px;
   }
-
+  
   .hero-subtitle {
     margin-bottom: 24px;
     font-size: 15px;
   }
-
+  
   /* Main Content */
   .main-content {
     padding: 0 16px 50px;
   }
-
+  
   /* Card Styles */
   .interest-card {
     padding: 20px 16px;
     border-radius: 12px;
   }
-
+  
   /* Music Widget */
   .music-widget .player-container {
     height: 320px;
   }
-
+  
   /* Movie Section - 优化小屏手机布局 */
   .movie-widget .movies-scroll {
     grid-template-columns: 1fr;
     gap: 20px;
     padding: 16px 0;
   }
-
+  
   .movie-widget .movie-card img {
     height: 320px;
     border-radius: 12px 12px 0 0;
   }
-
+  
   .movie-widget .info {
     padding: 18px;
   }
-
+  
   .movie-widget .info h4 {
     font-size: 17px;
   }
-
+  
   /* 优化点赞按钮 */
   .movie-widget .info button {
     width: 100%;
     padding: 10px;
     font-size: 14px;
   }
-
+  
   /* Travel Section */
   .travel-widget .map-container {
     height: 320px;
     border-radius: 10px;
   }
-
+  
   .travel-widget .city-list {
     grid-template-columns: 1fr;
     gap: 14px;
   }
-
+  
   /* 优化城市卡片 */
   .travel-widget .city-card {
     padding: 16px;
     border-radius: 10px;
   }
-
+  
   .travel-widget .city-card h4 {
     font-size: 16px;
   }
@@ -830,7 +823,6 @@
     opacity: 0;
     transform: translateY(20px);
   }
-
   to {
     opacity: 1;
     transform: translateY(0);
@@ -870,4 +862,224 @@ html {
 
 .dark ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
+}
+
+/* 动态流体背景 */
+.blob {
+  position: absolute;
+  filter: blur(80px);
+  border-radius: 50%;
+  opacity: 0.6;
+  animation: float 10s infinite ease-in-out;
+  mix-blend-mode: soft-light;
+  z-index: 1;
+}
+
+.blob-1 {
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(255,105,180,0.8) 0%, rgba(255,20,147,0.6) 100%);
+  top: -100px;
+  left: -100px;
+  animation-delay: 0s;
+}
+
+.blob-2 {
+  width: 800px;
+  height: 800px;
+  background: radial-gradient(circle, rgba(70,130,180,0.8) 0%, rgba(30,144,255,0.6) 100%);
+  bottom: -200px;
+  right: -200px;
+  animation-delay: -3s;
+}
+
+.blob-3 {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(144,238,144,0.8) 0%, rgba(152,251,152,0.6) 100%);
+  top: 50%;
+  right: 10%;
+  animation-delay: -6s;
+}
+
+.blob-4 {
+  width: 700px;
+  height: 700px;
+  background: radial-gradient(circle, rgba(255,165,0,0.8) 0%, rgba(255,215,0,0.6) 100%);
+  bottom: 10%;
+  left: 10%;
+  animation-delay: -9s;
+}
+
+@keyframes float {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  25% {
+    transform: translate(100px, -50px) rotate(15deg);
+  }
+  50% {
+    transform: translate(50px, 100px) rotate(0deg);
+  }
+  75% {
+    transform: translate(-100px, -20px) rotate(-15deg);
+  }
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+}
+
+/* 噪点质感 */
+.glass-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0.5;
+}
+
+/* 毛玻璃效果增强 */
+.glass-panel {
+  position: relative;
+  overflow: hidden;
+}
+
+/* 光标跟随聚光灯效果 */
+.cursor-spotlight {
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.15) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1;
+  transform: translate(-50%, -50%);
+  left: var(--mouse-x);
+  top: var(--mouse-y);
+  transition: left 0.1s ease, top 0.1s ease;
+  mix-blend-mode: screen;
+}
+
+/* 磁吸效果 - 光标跟随窗口 */
+.cursor-follow {
+  transition: transform 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* 按钮磁吸效果 */
+button {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+button:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+}
+
+button:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* 卡片磁吸效果 */
+.media-card {
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.media-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+}
+
+/* 标签磁吸效果 */
+.interest-card .tag {
+  transition: all 0.2s ease;
+}
+
+.interest-card .tag:hover {
+  transform: translateY(-2px) scale(1.05);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* 平滑滚动条 */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* 窗口拖拽反馈 */
+.window-header {
+  transition: background-color 0.2s ease;
+}
+
+.window-header:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* 动态背景增强 */
+.blob {
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 移动端响应式设计 */
+@media (max-width: 768px) {
+  /* 调整移动端窗口大小 */
+  .glass-panel {
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: 80vh;
+  }
+  
+  /* 简化移动端导航 */
+  .window-header {
+    padding: 0 16px;
+    height: 48px;
+  }
+  
+  /* 调整移动端卡片布局 */
+  .grid {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important;
+    gap: 12px !important;
+  }
+  
+  /* 简化移动端搜索框 */
+  .glass-panel.rounded-full {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  /* 隐藏移动端浮动效果 */
+  .blob {
+    opacity: 0.3 !important;
+    filter: blur(60px) !important;
+  }
+  
+  /* 简化移动端光标效果 */
+  .cursor-spotlight {
+    width: 200px !important;
+    height: 200px !important;
+    opacity: 0.6 !important;
+  }
 }

@@ -20,7 +20,7 @@ const Login = () => {
     try {
       // In development, use full URL if proxy isn't set up for this path yet, or relative if proxy works.
       // Assuming vite proxy is set up or we use the baseURL from AuthContext
-      const response = await axios.post('/api/auth/login', {
+      const response = await axios.post('/auth/login', {
         email,
         password,
       });
@@ -46,7 +46,7 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 px-4">
-      <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8">
+      <div className="max-w-md w-full bg-white/5 dark:bg-gray-800 rounded-lg shadow-lg p-8">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">后台管理系统</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-2">请登录以继续</p>
@@ -72,7 +72,7 @@ const Login = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white/5 dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 placeholder="admin@example.com"
               />
             </div>
@@ -91,7 +91,7 @@ const Login = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white/5 dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 placeholder="••••••••"
               />
             </div>
@@ -105,7 +105,7 @@ const Login = () => {
             {loading ? (
               <>
                 <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
-                登录中...
+                登录�?..
               </>
             ) : (
               '登录'
@@ -118,3 +118,5 @@ const Login = () => {
 };
 
 export default Login;
+
+

@@ -7,7 +7,9 @@ import {
   useSensor, 
   useSensors, 
   DragOverlay,
-  defaultDropAnimationSideEffects
+  defaultDropAnimationSideEffects,
+  DragStartEvent,
+  DragOverEvent
 } from '@dnd-kit/core';
 import { 
   arrayMove, 
@@ -68,7 +70,7 @@ const SortableItem = ({ id, task }: { id: string; task: Task }) => {
       style={style}
       {...attributes}
       {...listeners}
-      className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 mb-3 group hover:shadow-md transition-all cursor-grab active:cursor-grabbing"
+      className="bg-white/5 dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 mb-3 group hover:shadow-md transition-all cursor-grab active:cursor-grabbing"
     >
       <div className="flex justify-between items-start">
          <p className="text-gray-700 dark:text-gray-200 font-medium text-sm leading-relaxed">{task.content}</p>
@@ -78,13 +80,13 @@ const SortableItem = ({ id, task }: { id: string; task: Task }) => {
       </div>
       <div className="mt-3 flex items-center justify-between">
          <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider ${
-            task.status === 'todo' ? 'bg-gray-100 text-gray-500' :
+            task.status === 'todo' ? 'bg-transparent text-gray-500' :
             task.status === 'in-progress' ? 'bg-blue-100 text-blue-600' :
             'bg-green-100 text-green-600'
          }`}>
             {getStatusLabel(task.status)}
          </span>
-         <div className="w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-500">
+         <div className="w-6 h-6 rounded-full bg-transparent dark:bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-500">
             {task.content.charAt(0)}
          </div>
       </div>
@@ -137,7 +139,7 @@ const TodoDemo = () => {
     { id: '1', content: '竞品调研分析', status: 'todo' },
     { id: '2', content: '设计系统初稿', status: 'todo' },
     { id: '3', content: '客户会议准备', status: 'in-progress' },
-    { id: '4', content: '修复导航栏 Bug', status: 'in-progress' },
+    { id: '4', content: '修复导航�?Bug', status: 'in-progress' },
     { id: '5', content: '发布 v1.0.0 版本', status: 'done' },
   ]);
   
@@ -154,11 +156,11 @@ const TodoDemo = () => {
     })
   );
 
-  const handleDragStart = (event: any) => {
+  const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
   };
 
-  const handleDragOver = (event: any) => {
+  const handleDragOver = (event: DragOverEvent) => {
     const { active, over } = event;
     if (!over) return;
 
@@ -219,8 +221,8 @@ const TodoDemo = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-900 p-8 pt-24 overflow-x-auto">
-       <Link to="/" className="fixed top-6 left-6 z-50 p-2 bg-white dark:bg-gray-800 rounded-full shadow-md text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white transition-colors">
+    <div className="min-h-screen bg-white/5 dark:bg-gray-900 p-8 pt-24 overflow-x-auto">
+       <Link to="/" className="fixed top-6 left-6 z-50 p-2 bg-white/5 dark:bg-gray-800 rounded-full shadow-md text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white transition-colors">
           <ArrowLeft className="w-5 h-5" />
       </Link>
 
@@ -246,7 +248,7 @@ const TodoDemo = () => {
 
         <DragOverlay dropAnimation={dropAnimation}>
           {activeId ? (
-             <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-2xl border-2 border-blue-500 w-full cursor-grabbing rotate-3">
+             <div className="bg-white/5 dark:bg-gray-800 p-4 rounded-xl shadow-2xl border-2 border-blue-500 w-full cursor-grabbing rotate-3">
                 <p className="text-gray-800 dark:text-white font-medium">{tasks.find(t => t.id === activeId)?.content}</p>
              </div>
           ) : null}
@@ -257,3 +259,5 @@ const TodoDemo = () => {
 };
 
 export default TodoDemo;
+
+
