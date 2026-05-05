@@ -15,8 +15,8 @@ const router = Router();
 router.get('/', cacheMiddleware(600), getAllCategories);
 
 // 创建分类
-router.post('/', protect, async (req, res) => {
-  await createCategory(req, res);
+router.post('/', protect, async (req, res, next) => {
+  await createCategory(req, res, next);
   // 清除分类相关缓存
   clearCache('/api/photo-categories');
 });
@@ -25,16 +25,16 @@ router.post('/', protect, async (req, res) => {
 router.get('/:id', cacheMiddleware(900), getCategory);
 
 // 更新分类
-router.put('/:id', protect, async (req, res) => {
-  await updateCategory(req, res);
+router.put('/:id', protect, async (req, res, next) => {
+  await updateCategory(req, res, next);
   // 清除分类相关缓存
   clearCache('/api/photo-categories');
   clearCache(`/api/photo-categories/${req.params.id}`);
 });
 
 // 删除分类
-router.delete('/:id', protect, async (req, res) => {
-  await deleteCategory(req, res);
+router.delete('/:id', protect, async (req, res, next) => {
+  await deleteCategory(req, res, next);
   // 清除分类相关缓存
   clearCache('/api/photo-categories');
   clearCache(`/api/photo-categories/${req.params.id}`);

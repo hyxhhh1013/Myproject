@@ -30,7 +30,6 @@ import uploadRoutes from './routes/uploadRoutes';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { initData } from './utils/initData';
 import { rateLimit } from 'express-rate-limit';
-import { serveFileFromDb } from './controllers/dbUploadController';
 
 // Load environment variables
 dotenv.config();
@@ -48,7 +47,7 @@ export const prisma = new PrismaClient({
 // Create Express app
 const app = express();
 
-// Trust proxy for express-rate-limit
+// Trust proxy for express-rate-limit (works behind nginx)
 app.set('trust proxy', true);
 
 // Rate limiting middleware
@@ -83,7 +82,16 @@ app.use((req, res, next) => {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-  // Removed CSP for now to fix access issues
+  res.setHeader('Content-Security-Policy', 
+    "default-src 'self'; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; " +
+    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
+    "img-src 'self' data: https://* http://localhost:3001; " +
+    "font-src 'self' https://cdn.jsdelivr.net; " +
+    "connect-src 'self' http://localhost:3001 https://api.example.com https://open.bigmodel.cn https://api.vvhan.com https://api.yyua.com; " +
+    "frame-src 'none'; " +
+    "object-src 'none'"
+  );
   res.setHeader('Permissions-Policy', 
     "geolocation=(self), " +
     "camera=(), " +
@@ -124,8 +132,19 @@ app.use(express.urlencoded({
 // 5. Rate limiting for API routes
 app.use('/api', apiLimiter);
 
-// 6. Static file serving from Database
-app.get('/uploads/:filename', serveFileFromDb);
+// 6. Static file serving with caching
+app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
+  maxAge: '1y',
+  etag: true,
+  lastModified: true,
+}));
+
+// Fallback for missing uploads to prevent broken images
+app.use('/uploads', (req, res) => {
+  const fileName = path.basename(req.path);
+  // Redirect to a placeholder service based on the filename to keep it consistent
+  res.redirect(`https://picsum.photos/seed/${encodeURIComponent(fileName)}/800/600`);
+});
 
 // Health check route
 app.get('/health', (req, res) => {
@@ -140,8 +159,8 @@ app.get('/health', (req, res) => {
 // API Routes
 app.use('/api/users', userRoutes);
 app.use('/api/education', educationRoutes);
-app.use('/api/experiences', experienceRoutes); // fixed plural
-app.use('/api/experience', experienceRoutes); // keep original just in case
+app.use('/api/experience', experienceRoutes);
+app.use('/api/experiences', experienceRoutes);
 app.use('/api/skills', skillRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/contacts', contactRoutes);
@@ -154,11 +173,10 @@ app.use('/api', hobbyRoutes);
 app.use('/api/music', musicRoutes);
 app.use('/api/movies', movieRoutes);
 app.use('/api/travel-cities', travelCityRoutes);
-app.use('/api/travel/cities', travelCityRoutes); // fixed path
-app.use('/api/travels', travelCityRoutes); // fixed path
+app.use('/api/travel/cities', travelCityRoutes);
+app.use('/api/travels', travelCityRoutes);
 app.use('/api/travel/footprints', travelFootprintRoutes);
-app.use('/api/site-config', siteConfigRoutes);
-app.use('/api/siteConfig', siteConfigRoutes); // fixed path
+app.use('/api/siteConfig', siteConfigRoutes);
 app.use('/api/news', newsRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/danmaku', danmakuRoutes);

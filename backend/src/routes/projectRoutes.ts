@@ -9,36 +9,36 @@ import {
   upload
 } from '../controllers/projectController';
 import { protect } from '../middleware/authMiddleware';
-import { clearCache } from '../middleware/cache';
+import { clearCache, cacheMiddleware } from '../middleware/cache';
 
 const router = Router();
 
 // Get all projects
-router.get('/', getAllProjects);
+router.get('/', cacheMiddleware(300), getAllProjects);
 
 // Get project by ID
-router.get('/:id', getProjectById);
+router.get('/:id', cacheMiddleware(600), getProjectById);
 
 // Create, update, delete operations with cache clearing
-router.post('/', protect, upload.array('demoFile', 5), async (req, res) => {
-  await createProject(req as any, res);
+router.post('/', protect, upload.array('demoFile', 5), async (req, res, next) => {
+  await createProject(req as any, res, next);
   clearCache('/api/projects');
 });
 
-router.put('/:id', protect, upload.array('demoFile', 5), async (req, res) => {
-  await updateProject(req, res);
-  clearCache('/api/projects');
-  clearCache(`/api/projects/${req.params.id}`);
-});
-
-router.delete('/:id', protect, async (req, res) => {
-  await deleteProject(req, res);
+router.put('/:id', protect, upload.array('demoFile', 5), async (req, res, next) => {
+  await updateProject(req, res, next);
   clearCache('/api/projects');
   clearCache(`/api/projects/${req.params.id}`);
 });
 
-router.post('/:id/upload-demo', protect, upload.single('demoFile'), async (req, res) => {
-  await uploadProjectDemo(req, res);
+router.delete('/:id', protect, async (req, res, next) => {
+  await deleteProject(req, res, next);
+  clearCache('/api/projects');
+  clearCache(`/api/projects/${req.params.id}`);
+});
+
+router.post('/:id/upload-demo', protect, upload.single('demoFile'), async (req, res, next) => {
+  await uploadProjectDemo(req, res, next);
   clearCache('/api/projects');
   clearCache(`/api/projects/${req.params.id}`);
 });

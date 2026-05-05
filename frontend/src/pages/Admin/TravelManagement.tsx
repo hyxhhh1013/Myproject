@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Trash2, Search, Loader2, Edit, Plus, X, Star, Eye, EyeOff, Upload } from 'lucide-react';
+import { message } from 'antd';
 import axios from '../../utils/axiosConfig';
+import { getImageUrl } from '../../utils/imageUtils';
 
 interface Travel {
   id: number;
@@ -66,7 +68,7 @@ const TravelManagement = () => {
       setTravels(data);
     } catch (error) {
       console.error('Failed to fetch travels:', error);
-      alert('获取旅行记录失败，请重试');
+      message.error('获取旅行记录失败，请重试');
     } finally {
       setLoading(false);
     }
@@ -90,8 +92,8 @@ const TravelManagement = () => {
         longitude: travel.longitude?.toString() || '',
         isVisible: travel.isVisible,
       });
-      setPreviewUrls(travel.photos?.map(img => img.startsWith('http') ? img : `${img}`) || []);
-      setCoverPreview(travel.imageUrl ? (travel.imageUrl.startsWith('http') ? travel.imageUrl : `${travel.imageUrl}`) : '');
+      setPreviewUrls(travel.photos?.map(img => getImageUrl(img)) || []);
+      setCoverPreview(travel.imageUrl ? getImageUrl(travel.imageUrl) : '');
     } else {
       setEditingTravel(null);
       setFormData(initialFormData);
@@ -125,7 +127,7 @@ const TravelManagement = () => {
 
     const validFiles = files.filter(file => file.type.startsWith('image/'));
     if (validFiles.length !== files.length) {
-      alert('部分文件不是图片格式，已被忽略');
+      message.warning('部分文件不是图片格式，已被忽略');
     }
 
     const newPreviewUrls = validFiles.map(file => URL.createObjectURL(file));
@@ -139,7 +141,7 @@ const TravelManagement = () => {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      alert('请选择图片文件');
+      message.warning('请选择图片文件');
       return;
     }
 
@@ -176,7 +178,7 @@ const TravelManagement = () => {
     e.preventDefault();
     
     if (!formData.city.trim() || !formData.country.trim()) {
-      alert('请填写城市和国家');
+      message.warning('请填写城市和国家');
       return;
     }
 
@@ -223,7 +225,7 @@ const TravelManagement = () => {
       handleCloseModal();
     } catch (error) {
       console.error('Failed to save travel:', error);
-      alert('保存失败，请重试');
+      message.error('保存失败，请重试');
     } finally {
       setSubmitting(false);
     }
@@ -238,7 +240,7 @@ const TravelManagement = () => {
       setTravels(travels.filter(t => t.id !== id));
     } catch (error) {
       console.error('Failed to delete travel:', error);
-      alert('删除失败，请重试');
+      message.error('删除失败，请重试');
     } finally {
       setDeletingId(null);
     }
@@ -250,7 +252,7 @@ const TravelManagement = () => {
       setTravels(travels.map(t => t.id === id ? { ...t, isVisible: !currentState } : t));
     } catch (error) {
       console.error('Failed to update travel:', error);
-      alert('更新失败，请重试');
+      message.error('更新失败，请重试');
     }
   };
 

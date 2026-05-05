@@ -1,20 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Pause, SkipBack, SkipForward, ListMusic, Disc, X } from 'lucide-react';
 import { useMusic } from '../../context/MusicContext';
-import axios from '../../utils/axiosConfig';
+import { getImageUrl } from '../../utils/imageUtils';
+import { ImageWithFallback } from '../UI/ImageWithFallback';
 
 // Ensure useMusic imports type if needed, otherwise removed the duplicate interface
 
-const getImageUrl = (url: string) => {
-  if (!url) return '';
-  if (url.startsWith('http://') || url.startsWith('https://')) {
-    return url;
-  }
-  // Use relative path or dynamic base URL
-  const baseUrl = axios.defaults.baseURL || '';
-  return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
-};
+// Using centralized getImageUrl from utils
 
 interface ParsedLyric {
   time: number;
@@ -69,7 +63,7 @@ const parseLyrics = (lrcString: string): ParsedLyric[] => {
 // Removed local FloatingPlayer components as we'll use a global one
 // This file only contains the MusicSection layout and logic now
 
-export const MusicSection = () => {
+export const MusicSection = ({ onPlaylistToggle }: { onPlaylistToggle?: (isOpen: boolean) => void }) => {
   const {
     musicList,
     currentMusicIndex,
@@ -86,6 +80,10 @@ export const MusicSection = () => {
   } = useMusic();
 
   const [showPlaylist, setShowPlaylist] = useState(false);
+
+  useEffect(() => {
+    onPlaylistToggle?.(showPlaylist);
+  }, [showPlaylist, onPlaylistToggle]);
   const [parsedLyrics, setParsedLyrics] = useState<ParsedLyric[]>([]);
   const [currentLyricIndex, setCurrentLyricIndex] = useState(-1);
   const progressRef = useRef<HTMLDivElement>(null);
@@ -282,7 +280,11 @@ export const MusicSection = () => {
                         className="w-full h-full rounded-2xl shadow-2xl overflow-hidden ring-4 ring-blue-100 dark:ring-blue-900"
                       >
                         {currentMusic && currentMusic.coverUrl ? (
-                          <img src={getImageUrl(currentMusic.coverUrl)} alt={currentMusic.title} className="w-full h-full object-cover" />
+                          <ImageWithFallback 
+                            src={getImageUrl(currentMusic.coverUrl)} 
+                            alt={currentMusic.title} 
+                            className="w-full h-full object-cover" 
+                          />
                         ) : (
                           <div className="w-full h-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center">
                             <Disc className="w-20 h-20 text-white/50" />
@@ -391,58 +393,81 @@ export const MusicSection = () => {
               </div>
 
               {/* Playlist Modal */}
-              <AnimatePresence>
-                {showPlaylist && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-                    onClick={() => setShowPlaylist(false)}
-                  >
+              {typeof document !== 'undefined' && createPortal(
+                <AnimatePresence>
+                  {showPlaylist && (
                     <motion.div
-                      initial={{ scale: 0.9, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      exit={{ scale: 0.9, opacity: 0 }}
-                      className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md max-h-[70vh] overflow-hidden"
-                      onClick={e => e.stopPropagation()}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center z-[1000] p-4"
+                      onClick={() => setShowPlaylist(false)}
                     >
-                      <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
-                        <h3 className="font-bold text-gray-900 dark:text-white">播放列表</h3>
-                        <button onClick={() => setShowPlaylist(false)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
-                          <X className="w-5 h-5" />
-                        </button>
-                      </div>
-                      <div className="max-h-96 overflow-y-auto">
-                        {musicList.map((music, index) => (
-                          <div
-                            key={music.id}
-                            onClick={() => selectMusic(index)}
-                            className={`flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 ${
-                              index === currentMusicIndex ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-                            }`}
-                          >
-                            <div className="w-10 h-10 rounded bg-gray-200 dark:bg-gray-600 flex-shrink-0 overflow-hidden">
-                              {music.coverUrl && (
-                                <img src={getImageUrl(music.coverUrl)} alt="" className="w-full h-full object-cover" />
+                      <motion.div
+                        initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                        animate={{ scale: 1, opacity: 1, y: 0 }}
+                        exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                        transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                        className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl rounded-3xl w-full max-w-md max-h-[70vh] overflow-hidden shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] ring-1 ring-black/5 dark:ring-white/10"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <div className="p-5 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
+                          <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                            <ListMusic className="w-5 h-5 text-blue-500" />
+                            播放列表
+                          </h3>
+                          <button onClick={() => setShowPlaylist(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors text-gray-500">
+                            <X className="w-5 h-5" />
+                          </button>
+                        </div>
+                        <div className="max-h-[50vh] overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700">
+                          {musicList.map((music, index) => (
+                            <motion.div
+                              key={music.id}
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => selectMusic(index)}
+                              className={`flex items-center gap-4 p-3 rounded-2xl cursor-pointer transition-all ${
+                                index === currentMusicIndex 
+                                  ? 'bg-blue-50 dark:bg-blue-900/30 shadow-sm border border-blue-100 dark:border-blue-800/50' 
+                                  : 'hover:bg-gray-50 dark:hover:bg-gray-800/50 border border-transparent'
+                              }`}
+                            >
+                              <div className={`w-12 h-12 rounded-xl flex-shrink-0 overflow-hidden shadow-sm ${index === currentMusicIndex ? 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900' : ''}`}>
+                                {music.coverUrl ? (
+                                  <ImageWithFallback 
+                                    src={getImageUrl(music.coverUrl)} 
+                                    alt="" 
+                                    className="w-full h-full object-cover" 
+                                  />
+                                ) : (
+                                  <div className="w-full h-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center">
+                                    <Disc className="w-6 h-6 text-white/50" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className={`font-bold truncate text-sm md:text-base ${index === currentMusicIndex ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-white'}`}>
+                                  {music.title}
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">{music.artist}</p>
+                              </div>
+                              {index === currentMusicIndex && isPlaying && (
+                                <div className="flex items-center gap-1">
+                                  <div className="w-1.5 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                                  <div className="w-1.5 h-4 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                                  <div className="w-1.5 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                                </div>
                               )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className={`font-medium truncate ${index === currentMusicIndex ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-white'}`}>
-                                {music.title}
-                              </p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{music.artist}</p>
-                            </div>
-                            {index === currentMusicIndex && isPlaying && (
-                              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                            )}
-                          </div>
-                        ))}
-                      </div>
+                            </motion.div>
+                          ))}
+                        </div>
+                      </motion.div>
                     </motion.div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                  )}
+                </AnimatePresence>,
+                document.body
+              )}
             </div>
           </div>
         </motion.div>

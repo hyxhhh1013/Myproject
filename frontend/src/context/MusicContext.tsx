@@ -158,8 +158,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setAudioError(null);
       
       if (isPlaying) {
-        audio.play().catch(e => {
-          console.log('Audio play failed:', e);
+        audio.play().catch(() => {
           // 很多浏览器会因为未交互而拒绝自动播放，如果报错则停止播放状态
           setIsPlaying(false);
         });

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, Edit2, Trash2, Search, MapPin, Upload, X, Loader2 } from 'lucide-react';
+import { message } from 'antd';
 import axios from '../../utils/axiosConfig';
 
 interface Moment {
@@ -148,7 +149,7 @@ export default function MomentsManagement() {
       setIsModalOpen(false);
       fetchMoments();
     } catch (err: any) {
-      alert(err.response?.data?.message || '保存失败');
+      message.error(err.response?.data?.message || '保存失败');
     } finally {
       setIsSubmitting(false);
     }
@@ -160,7 +161,7 @@ export default function MomentsManagement() {
       await axios.delete(`/api/moments/${id}`);
       fetchMoments();
     } catch (err: any) {
-      alert(err.response?.data?.message || '删除失败');
+      message.error(err.response?.data?.message || '删除失败');
     }
   };
 
@@ -172,7 +173,7 @@ export default function MomentsManagement() {
       });
       fetchMoments();
     } catch (err: any) {
-      alert(err.response?.data?.message || '更新失败');
+      message.error(err.response?.data?.message || '更新失败');
     }
   };
 

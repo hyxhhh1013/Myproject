@@ -3,6 +3,7 @@ import axios from '../../utils/axiosConfig';
 import { motion } from 'framer-motion';
 import { User, Mail, MapPin, Calendar, ExternalLink } from 'lucide-react';
 import { ImageWithFallback } from '../UI/ImageWithFallback';
+import { getImageUrl } from '../../utils/imageUtils';
 
 
 const InfoItem = ({ icon: Icon, label, value, href }: any) => (
@@ -85,8 +86,8 @@ export const About = () => {
             <div className="relative mb-10 group">
               <div className="w-64 h-64 rounded-full overflow-hidden border-4 border-white dark:border-gray-800 shadow-2xl relative z-10">
                 <ImageWithFallback
-                  src={profile?.avatar ? (profile.avatar.startsWith('http') ? profile.avatar : `${axios.defaults.baseURL || ''}${profile.avatar.startsWith('/') ? '' : '/'}${profile.avatar}`) : ""}
-                  thumbnailSrc={profile?.avatarThumbnail ? (profile.avatarThumbnail.startsWith('http') ? profile.avatarThumbnail : `${axios.defaults.baseURL || ''}${profile.avatarThumbnail.startsWith('/') ? '' : '/'}${profile.avatarThumbnail}`) : (profile?.avatar ? (profile.avatar.startsWith('http') ? profile.avatar : `${axios.defaults.baseURL || ''}${profile.avatar.startsWith('/') ? '' : '/'}${profile.avatar}`) : "")}
+                  src={getImageUrl(profile?.avatar)}
+                  thumbnailSrc={getImageUrl(profile?.avatarThumbnail || profile?.avatar)}
                   alt="Avatar"
                   className="transition-transform duration-700 group-hover:scale-110"
                 />

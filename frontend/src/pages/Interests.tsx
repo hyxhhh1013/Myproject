@@ -7,6 +7,8 @@ import { MomentsSection } from '../components/Sections/MomentsSection';
 import { TravelMap } from '../components/Sections/TravelMap';
 import WeatherCastMiniDemo from '../components/Demos/WeatherCastMiniDemo';
 import { Sparkles, Send, Flame, ChevronDown } from 'lucide-react';
+import { ImageWithFallback } from '../components/UI/ImageWithFallback';
+import clsx from 'clsx';
 import './Interests.css';
 
 interface DanmakuItem {
@@ -62,16 +64,36 @@ const DanmakuSystem = () => {
     }
   };
 
+  // Using a more robust system for danmaku positioning to avoid overlap
+  const [lanes, setLanes] = useState<{ id: number; items: DanmakuItem[] }[]>([]);
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      // Divide messages into 6 lanes
+      const laneCount = 6;
+      const newLanes = Array.from({ length: laneCount }, (_, i) => ({
+        id: i,
+        items: [] as DanmakuItem[]
+      }));
+
+      messages.forEach((msg, index) => {
+        const laneIndex = index % laneCount;
+        newLanes[laneIndex].items.push(msg);
+      });
+      setLanes(newLanes);
+    }
+  }, [messages]);
+
   const getColorStyle = (color: string) => {
     const colorMap: Record<string, string> = {
-      'blue': 'rgba(59, 130, 246, 0.8)',
-      'gray': 'rgba(107, 114, 128, 0.8)',
-      'darkblue': 'rgba(29, 78, 216, 0.8)',
-      'slate': 'rgba(75, 85, 99, 0.8)',
-      'primary': 'rgba(37, 99, 235, 0.8)',
-      'pink': 'rgba(236, 72, 153, 0.8)',
+      'blue': 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+      'gray': 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)',
+      'darkblue': 'linear-gradient(135deg, #1e3a8a 0%, #172554 100%)',
+      'slate': 'linear-gradient(135deg, #475569 0%, #334155 100%)',
+      'primary': 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+      'pink': 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)',
     };
-    return colorMap[color] || 'rgba(59, 130, 246, 0.8)';
+    return colorMap[color] || 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)';
   };
 
   return (
@@ -92,49 +114,66 @@ const DanmakuSystem = () => {
       </div>
       
       {/* 弹幕显示区域 */}
-      <div className="relative overflow-hidden border border-gray-300/50 dark:border-gray-700/50 rounded-2xl bg-gray-50 dark:bg-gray-800/50 backdrop-blur-sm mb-6 h-[280px] shadow-inner">
+      <div className="relative overflow-hidden border border-gray-300/50 dark:border-gray-700/50 rounded-2xl bg-gray-50 dark:bg-gray-800/50 backdrop-blur-sm mb-6 h-[320px] shadow-inner">
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-blue-500/5" />
         
-        {messages.map((msg, index) => (
-          <motion.div 
-            key={msg.id}
-            initial={{ opacity: 0, x: '100%', scale: 0.8 }}
-            animate={{ 
-              opacity: 1, 
-              x: 0,
-              scale: 1,
-              transition: {
-                duration: 0.5,
-                delay: index * 0.1
-              }
-            }}
-            whileHover={{ 
-              scale: 1.05,
-              boxShadow: '0 8px 16px rgba(0, 0, 0, 0.2)',
-              transition: { duration: 0.2 }
-            }}
-            className="absolute whitespace-nowrap text-sm font-medium px-4 py-2 rounded-full backdrop-blur-sm cursor-pointer"
-            style={{
-              top: `${(index % 5) * 20 + 10}%`,
-              right: '-100%',
-              animation: 'danmakuMove 15s linear infinite',
-              animationDelay: `${index * 3}s`,
-              background: getColorStyle(msg.color),
-              color: 'white',
-              backdropFilter: 'blur(8px)',
-              border: '1px solid rgba(255, 255, 255, 0.3)',
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-              transformOrigin: 'right center'
-            }}
-          >
-            {msg.content}
-          </motion.div>
+        {lanes.map((lane) => (
+          <div key={lane.id} className="absolute w-full" style={{ top: `${(lane.id * 15) + 5}%`, height: '40px' }}>
+            {lane.items.map((msg, index) => {
+              const animDuration = 24; // Constant duration for all items in lane
+              const delay = -(index * (animDuration / Math.max(1, lane.items.length)));
+              return (
+                <div 
+                  key={`${lane.id}-${msg.id}-${index}`}
+                  className={clsx(
+                    "absolute whitespace-nowrap text-sm font-bold px-6 py-2.5 rounded-full cursor-pointer danmaku-item select-none shadow-premium",
+                    msg.color === 'pink' && "danmaku-item-pink"
+                  )}
+                  style={{
+                    background: getColorStyle(msg.color),
+                    color: 'white',
+                    backdropFilter: 'blur(12px)',
+                    border: '1px solid rgba(255, 255, 255, 0.4)',
+                    textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
+                    animationDuration: `${animDuration}s`,
+                    animationDelay: `${delay}s`,
+                  }}
+                >
+                  {msg.content}
+                </div>
+              );
+            })}
+          </div>
         ))}
         
         <style>{`
-          @keyframes danmakuMove {
-            from { transform: translateX(0); }
+          .danmaku-item {
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            animation-name: danmaku-scroll;
+            animation-timing-function: linear;
+            animation-iteration-count: infinite;
+            will-change: transform;
+            transform: translateX(110vw);
+          }
+          .danmaku-item:hover {
+            z-index: 100;
+            animation-play-state: paused;
+            transform: scale(1.1) !important;
+          }
+          @keyframes danmaku-scroll {
+            from { transform: translateX(110vw); }
             to { transform: translateX(-150vw); }
+          }
+          .danmaku-item-pink {
+            animation: danmaku-scroll linear infinite, pinkGlow 2s ease-in-out infinite alternate;
+          }
+          .danmaku-item-pink:hover {
+            animation-play-state: paused, paused;
+          }
+          @keyframes pinkGlow {
+            from { box-shadow: 0 0 5px rgba(236, 72, 153, 0.2); }
+            to { box-shadow: 0 0 20px rgba(236, 72, 153, 0.6); }
           }
         `}</style>
       </div>
@@ -340,9 +379,9 @@ const HotNews = () => {
   );
 };
 
-
-
 export default function Interests() {
+  const [isPlaylistOpen, setIsPlaylistOpen] = useState(false);
+
   useEffect(() => {
     // Simple visitor counter
     const visited = sessionStorage.getItem('visited_interests');
@@ -353,7 +392,10 @@ export default function Interests() {
   }, []);
 
   return (
-    <div className="interests-page overflow-x-hidden">
+    <div className={clsx(
+      "interests-page overflow-x-hidden transition-all duration-500",
+      isPlaylistOpen && "scale-[0.98] blur-xl opacity-80 pointer-events-none"
+    )}>
       {/* Background with Texture */}
       <div className="background-texture"></div>
       
@@ -377,11 +419,19 @@ export default function Interests() {
             生活碎片：最近在听的歌、看过的电影、去过的地方
           </motion.p>
           <motion.div 
-            className="hero-photo"
+            className="hero-photo-container"
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.8, delay: 0.4, ease: "easeOut" }}
-          />
+            transition={{ duration: 1, delay: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          >
+             <ImageWithFallback 
+                src="" // Placeholder for missing avatar in interests
+                alt="Profile"
+                className="hero-photo"
+                containerClassName="hero-photo-inner"
+             />
+             <div className="hero-photo-glow" />
+          </motion.div>
         </div>
       </section>
       
@@ -393,9 +443,9 @@ export default function Interests() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-80px" }}
           transition={{ duration: 0.8, ease: "easeOut" }}
-          className="col-span-12 relative z-10"
+          className="col-span-12 relative z-[60]" // Higher Z to stay above everything but affected by container blur if needed
         >
-          <MusicSection />
+          <MusicSection onPlaylistToggle={setIsPlaylistOpen} />
         </motion.div>
         
         {/* Weather Section */}

@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import axios from '../utils/axiosConfig';
+import { getImageUrl } from '../utils/imageUtils';
 
 // 定义Photo类型
 export interface Photo {
@@ -126,20 +127,11 @@ export const PhotoProvider: React.FC<PhotoProviderProps> = ({ children }) => {
         
         // 确保照片 URL 是完整的，包含后端服务器地址
         apiPhotos = apiPhotos.map(photo => {
-          // 检查 imageUrl 是否已经是完整的 URL
           if (photo.imageUrl) {
-            if (!photo.imageUrl.startsWith('http')) {
-              // 确保 URL 以 / 开头
-              const imagePath = photo.imageUrl.startsWith('/') ? photo.imageUrl : `/${photo.imageUrl}`;
-              photo.imageUrl = `${axios.defaults.baseURL || ''}${imagePath}`;
-            }
+            photo.imageUrl = getImageUrl(photo.imageUrl);
           }
           if (photo.thumbnailUrl) {
-            if (!photo.thumbnailUrl.startsWith('http')) {
-              // 确保 URL 以 / 开头
-              const thumbnailPath = photo.thumbnailUrl.startsWith('/') ? photo.thumbnailUrl : `/${photo.thumbnailUrl}`;
-              photo.thumbnailUrl = `${axios.defaults.baseURL || ''}${thumbnailPath}`;
-            }
+            photo.thumbnailUrl = getImageUrl(photo.thumbnailUrl);
           }
           return photo;
         });

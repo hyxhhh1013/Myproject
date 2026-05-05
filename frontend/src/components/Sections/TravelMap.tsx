@@ -9,6 +9,7 @@ import "yet-another-react-lightbox/styles.css";
 import "yet-another-react-lightbox/plugins/captions.css";
 import { ImageWithFallback } from '../UI/ImageWithFallback';
 import { Modal } from '../Modal';
+import { getImageUrl } from '../../utils/imageUtils';
 
 // 城市数据接口定义
 interface CityData {
@@ -92,33 +93,7 @@ export const TravelMap: React.FC = () => {
     }
   };
 
-  const getMediaUrl = (p: string) => {
-    if (!p) return '';
-    let path = p;
-    
-    // 处理旧服务器的完整 URL 或错误的域名
-    if (path.includes('42.194.162.51') || path.includes('localhost:3001')) {
-      try {
-        const urlObj = new URL(path.startsWith('http') ? path : `http://localhost${path.startsWith('/') ? '' : '/'}${path}`);
-        path = urlObj.pathname;
-      } catch (e) {
-        console.error('URL parse error:', e);
-      }
-    }
-    
-    if (path.startsWith('http')) return path;
-    
-    // 确保路径以 / 开头
-    path = path.startsWith('/') ? path : `/${path}`;
-    
-    // 移除重复的 /api 前缀，统一指向 /uploads
-    if (path.startsWith('/api/uploads')) {
-      path = path.replace('/api/uploads', '/uploads');
-    }
-    
-    const baseUrl = axios.defaults.baseURL || '';
-    return `${baseUrl}${path}`;
-  };
+  // Using centralized getImageUrl from utils
 
   // 从后端获取城市数据
   useEffect(() => {
@@ -141,13 +116,13 @@ export const TravelMap: React.FC = () => {
           const formattedData: CityData[] = data.map((city: any) => {
             // 处理封面照片 URL
             let photoUrl = city.imageUrl || (city.photos && city.photos.length > 0 ? (typeof city.photos === 'string' ? JSON.parse(city.photos)[0] : city.photos[0]) : 'https://picsum.photos/seed/default/300/200');
-            photoUrl = getMediaUrl(photoUrl);
+            photoUrl = getImageUrl(photoUrl);
             
             // 处理照片数组 URL
             let photosArray: string[] = [];
             if (city.photos) {
               photosArray = typeof city.photos === 'string' ? JSON.parse(city.photos) : city.photos;
-              photosArray = photosArray.map((img: string) => getMediaUrl(img));
+              photosArray = photosArray.map((img: string) => getImageUrl(img));
             }
             
             return {
@@ -159,9 +134,9 @@ export const TravelMap: React.FC = () => {
               visitedAt: city.visitedAt,
               note: city.description || city.note || '',
               photo: photoUrl,
-              photoThumbnail: getMediaUrl(city.thumbnailUrl || city.photoThumbnail),
+              photoThumbnail: getImageUrl(city.thumbnailUrl || city.photoThumbnail),
               photos: photosArray,
-              thumbnailPhotos: city.thumbnailPhotos && city.thumbnailPhotos.length > 0 ? city.thumbnailPhotos.map((img: string) => getMediaUrl(img)) : [],
+              thumbnailPhotos: city.thumbnailPhotos && city.thumbnailPhotos.length > 0 ? city.thumbnailPhotos.map((img: string) => getImageUrl(img)) : [],
               highlights: city.highlights,
               tips: city.tips,
               rating: city.rating || 5
@@ -212,8 +187,8 @@ export const TravelMap: React.FC = () => {
   const optimizedCityData = useMemo(() => {
     return cityData.map(city => ({
       ...city,
-      photo: getMediaUrl(city.photo),
-      photos: city.photos?.map((img: string) => getMediaUrl(img)) || []
+      photo: getImageUrl(city.photo),
+      photos: city.photos?.map((img: string) => getImageUrl(img)) || []
     }));
   }, [cityData]);
 
@@ -412,7 +387,6 @@ export const TravelMap: React.FC = () => {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => {
-              console.log('Switching to map mode');
               setViewMode('map');
             }}
             className={`cursor-pointer px-4 md:px-6 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-bold transition-all duration-300 flex items-center gap-2 border-2 ${
@@ -428,7 +402,6 @@ export const TravelMap: React.FC = () => {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => {
-              console.log('Switching to photo mode');
               setViewMode('photos');
             }}
             className={`cursor-pointer px-4 md:px-6 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-bold transition-all duration-300 flex items-center gap-2 border-2 ${

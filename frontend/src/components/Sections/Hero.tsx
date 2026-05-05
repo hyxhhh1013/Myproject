@@ -3,6 +3,7 @@ import { Link as ScrollLink } from 'react-scroll';
 import { ChevronDown, ArrowRight, Mail, FileText } from 'lucide-react';
 import { ParticleBackground } from '../UI/ParticleBackground';
 import { ImageWithFallback } from '../UI/ImageWithFallback';
+import { getImageUrl } from '../../utils/imageUtils';
 import axios from '../../utils/axiosConfig';
 import { useState, useEffect } from 'react';
 
@@ -160,8 +161,8 @@ export const Hero = () => {
           >
             <div className="w-32 h-32 md:w-40 md:h-40 rounded-full overflow-hidden border-4 border-white/20 shadow-2xl relative z-10 ring-4 ring-blue-500/30">
               <ImageWithFallback
-                src={heroData.avatar ? (heroData.avatar.startsWith('http') ? heroData.avatar : `${axios.defaults.baseURL || ''}${heroData.avatar.startsWith('/') ? '' : '/'}${heroData.avatar}`) : ""}
-                thumbnailSrc={heroData.avatarThumbnail ? (heroData.avatarThumbnail.startsWith('http') ? heroData.avatarThumbnail : `${axios.defaults.baseURL || ''}${heroData.avatarThumbnail.startsWith('/') ? '' : '/'}${heroData.avatarThumbnail}`) : (heroData.avatar ? (heroData.avatar.startsWith('http') ? heroData.avatar : `${axios.defaults.baseURL || ''}${heroData.avatar.startsWith('/') ? '' : '/'}${heroData.avatar}`) : "")}
+                src={getImageUrl(heroData.avatar)}
+                thumbnailSrc={getImageUrl(heroData.avatarThumbnail || heroData.avatar)}
                 alt="Avatar"
                 className="transition-transform duration-700 group-hover:scale-110"
               />
@@ -220,7 +221,7 @@ export const Hero = () => {
                     <div className="h-24 sm:h-32 overflow-hidden relative pointer-events-none bg-gray-800">
                       {project.imageUrl ? (
                         <img 
-                          src={(project.thumbnailUrl || project.imageUrl).startsWith('http') ? (project.thumbnailUrl || project.imageUrl) : `${axios.defaults.baseURL || ''}${(project.thumbnailUrl || project.imageUrl).startsWith('/') ? '' : '/'}${project.thumbnailUrl || project.imageUrl}`} 
+                          src={getImageUrl(project.thumbnailUrl || project.imageUrl)} 
                           alt={project.title} 
                           className="w-full h-full object-cover"
                         />

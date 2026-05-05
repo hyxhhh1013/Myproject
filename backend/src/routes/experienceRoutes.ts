@@ -11,19 +11,19 @@ router.get('/', cacheMiddleware(300), getAllExperience);
 router.get('/:id', cacheMiddleware(600), getExperienceById);
 
 // Create, update, delete operations with cache clearing
-router.post('/', protect, upload.array('images', 10), async (req, res) => {
-  await createExperience(req, res);
+router.post('/', protect, upload.array('images', 10), async (req, res, next) => {
+  await createExperience(req, res, next);
   clearCache('/api/experience');
 });
 
-router.put('/:id', protect, upload.array('images', 10), async (req, res) => {
-  await updateExperience(req, res);
+router.put('/:id', protect, upload.array('images', 10), async (req, res, next) => {
+  await updateExperience(req, res, next);
   clearCache('/api/experience');
   clearCache(`/api/experience/${req.params.id}`);
 });
 
-router.delete('/:id', protect, async (req, res) => {
-  await deleteExperience(req, res);
+router.delete('/:id', protect, async (req, res, next) => {
+  await deleteExperience(req, res, next);
   clearCache('/api/experience');
   clearCache(`/api/experience/${req.params.id}`);
 });

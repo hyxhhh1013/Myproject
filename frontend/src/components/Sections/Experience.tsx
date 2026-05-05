@@ -6,6 +6,7 @@ import Lightbox from 'yet-another-react-lightbox';
 import Captions from "yet-another-react-lightbox/plugins/captions";
 import "yet-another-react-lightbox/styles.css";
 import "yet-another-react-lightbox/plugins/captions.css";
+import { getImageUrl } from '../../utils/imageUtils';
 
 const formatDate = (dateStr: string) => {
   const date = new Date(dateStr);
@@ -51,12 +52,8 @@ export const Experience = () => {
           .filter((exp: any) => exp.isVisible !== false)
           .map((exp: any) => ({
             ...exp,
-            images: exp.images && exp.images.length > 0 ? exp.images.map((img: string) => 
-              img.startsWith('http') ? img : `${img}`
-            ) : [],
-            thumbnailImages: exp.thumbnailImages && exp.thumbnailImages.length > 0 ? exp.thumbnailImages.map((img: string) => 
-              img.startsWith('http') ? img : `${img}`
-            ) : []
+            images: exp.images && exp.images.length > 0 ? exp.images.map((img: string) => getImageUrl(img)) : [],
+            thumbnailImages: exp.thumbnailImages && exp.thumbnailImages.length > 0 ? exp.thumbnailImages.map((img: string) => getImageUrl(img)) : []
           }))
           .sort((a: any, b: any) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
       

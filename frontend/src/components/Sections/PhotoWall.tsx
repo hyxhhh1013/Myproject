@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { ImageWithFallback } from '../UI/ImageWithFallback';
 
 // Define interface locally to avoid circular dependencies or complex refactoring
 interface PhotoData {
@@ -126,14 +127,12 @@ export const PhotoWall: React.FC<PhotoWallProps> = ({ photos }) => {
 
               {/* Polaroid Frame */}
               <div className="bg-white p-3 pb-8 shadow-lg transform transition-transform duration-300 w-36 sm:w-48 md:w-56">
-                <div className="overflow-hidden bg-gray-100 mb-2">
-                  <img 
-                    src={photo.photoThumbnail || photo.photo} 
+                <div className="overflow-hidden bg-gray-50 mb-2 rounded shadow-inner">
+                  <ImageWithFallback 
+                    src={photo.photo} 
+                    thumbnailSrc={photo.photoThumbnail}
                     alt={photo?.name || '照片'}
-                    className="w-full h-auto object-contain sepia-[0.2]"
-                    onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=300&q=80';
-                    }}
+                    className="w-full aspect-[4/5] object-cover filter contrast-[1.1] saturate-[0.8] brightness-[1.05]"
                   />
                 </div>
                 <div className="text-center">
@@ -179,10 +178,10 @@ export const PhotoWall: React.FC<PhotoWallProps> = ({ photos }) => {
             >
               ✕
             </button>
-            <img 
+            <ImageWithFallback 
               src={selectedPhoto?.photo || ''} 
               alt={selectedPhoto?.name || '照片'}
-              className="w-full h-auto max-h-[70vh] object-contain rounded"
+              className="w-full h-auto max-h-[70vh] object-contain rounded-xl shadow-inner bg-gray-50"
             />
             <div className="mt-4 text-center">
               <h3 className="text-2xl font-bold text-gray-800">{selectedPhoto?.name || '未命名'}</h3>

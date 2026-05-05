@@ -8,14 +8,15 @@ import {
   resolveNeteaseMusic
 } from '../controllers/musicController';
 import { protect } from '../middleware/authMiddleware';
+import { cacheMiddleware, clearCache } from '../middleware/cache';
 
 const router = Router();
 
 router.get('/resolve', resolveNeteaseMusic);
-router.get('/', getMusic);
-router.post('/', protect, createMusic);
-router.put('/:id', protect, updateMusic);
-router.delete('/:id', protect, deleteMusic);
-router.put('/order', protect, updateMusicOrder);
+router.get('/', cacheMiddleware(300), getMusic);
+router.post('/', protect, (req, res, next) => { createMusic(req, res, next); clearCache('/api/music'); });
+router.put('/:id', protect, (req, res, next) => { updateMusic(req, res, next); clearCache('/api/music'); });
+router.delete('/:id', protect, (req, res, next) => { deleteMusic(req, res, next); clearCache('/api/music'); });
+router.put('/order', protect, (req, res, next) => { updateMusicOrder(req, res, next); clearCache('/api/music'); });
 
 export default router;

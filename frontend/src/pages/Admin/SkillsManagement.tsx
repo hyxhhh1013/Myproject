@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Trash2, Search, Loader2, Edit, Plus, X, Eye, EyeOff } from 'lucide-react';
+import { message } from 'antd';
 import axios from '../../utils/axiosConfig';
-import { useAuth } from '../../context/AuthContext';
 
 interface Skill {
   id: number;
@@ -31,7 +31,6 @@ const categories = [
 ];
 
 const SkillsManagement = () => {
-  const { isAuthenticated, token } = useAuth();
   const [skills, setSkills] = useState<Skill[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -41,16 +40,6 @@ const SkillsManagement = () => {
   const [editingSkill, setEditingSkill] = useState<Skill | null>(null);
   const [formData, setFormData] = useState(initialFormData);
   const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    console.log('Auth status:', { isAuthenticated, token });
-    console.log('Local storage token:', localStorage.getItem('token'));
-    // Set axios base URL and headers
-    axios.defaults.baseURL = '';
-    if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    }
-  }, [isAuthenticated, token]);
 
   useEffect(() => {
     fetchSkills();
@@ -64,7 +53,7 @@ const SkillsManagement = () => {
       setSkills(data);
     } catch (error) {
       console.error('Failed to fetch skills:', error);
-      alert('获取技能失败，请重试');
+      message.error('获取技能失败，请重试');
     } finally {
       setLoading(false);
     }
@@ -96,7 +85,7 @@ const SkillsManagement = () => {
     e.preventDefault();
     
     if (!formData.name.trim()) {
-      alert('请填写技能名称');
+      message.warning('请填写技能名称');
       return;
     }
 
@@ -109,21 +98,18 @@ const SkillsManagement = () => {
         isVisible: formData.isVisible,
       };
 
-      let response;
       if (editingSkill) {
-        response = await axios.put(`/api/skills/${editingSkill.id}`, payload);
+        await axios.put(`/api/skills/${editingSkill.id}`, payload);
       } else {
-        response = await axios.post('/api/skills', payload);
+        await axios.post('/api/skills', payload);
       }
-      console.log('Response:', response.data);
-
       await fetchSkills();
       handleCloseModal();
     } catch (error: any) {
       console.error('Failed to save skill:', error);
       console.error('Error response:', error.response?.data);
       console.error('Error status:', error.response?.status);
-      alert(`保存失败: ${error.response?.data?.message || '未知错误'}`);
+      message.error(`保存失败: ${error.response?.data?.message || '未知错误'}`);
     } finally {
       setSubmitting(false);
     }
@@ -138,7 +124,7 @@ const SkillsManagement = () => {
       setSkills(skills.filter(s => s.id !== id));
     } catch (error) {
       console.error('Failed to delete skill:', error);
-      alert('删除失败，请重试');
+      message.error('删除失败，请重试');
     } finally {
       setDeletingId(null);
     }
@@ -150,7 +136,7 @@ const SkillsManagement = () => {
       setSkills(skills.map(s => s.id === id ? { ...s, isVisible: !currentState } : s));
     } catch (error) {
       console.error('Failed to update skill:', error);
-      alert('更新失败，请重试');
+      message.error('更新失败，请重试');
     }
   };
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Loader2, Save, Plus, Trash2, Edit, X, User, Mail, Phone, MapPin } from 'lucide-react';
+import { message } from 'antd';
 import axios from '../../utils/axiosConfig';
 
 interface UserInfo {
@@ -109,10 +110,10 @@ const ProfileManagement = () => {
         phone: userInfo.phone,
         location: userInfo.location,
       });
-      alert('保存成功！');
+      message.success('保存成功！');
     } catch (error) {
       console.error('Failed to save user info:', error);
-      alert('保存失败，请重试');
+      message.error('保存失败，请重试');
     } finally {
       setSaving(false);
     }
@@ -142,7 +143,7 @@ const ProfileManagement = () => {
 
   const handleSaveContact = async () => {
     if (!contactForm.value.trim()) {
-      alert('请填写联系方式');
+      message.warning('请填写联系方式');
       return;
     }
 
@@ -157,7 +158,7 @@ const ProfileManagement = () => {
       setShowContactModal(false);
     } catch (error) {
       console.error('Failed to save contact:', error);
-      alert('保存失败，请重试');
+      message.error('保存失败，请重试');
     } finally {
       setSubmitting(false);
     }
@@ -165,7 +166,7 @@ const ProfileManagement = () => {
 
   const handleSaveSocial = async () => {
     if (!socialForm.url.trim()) {
-      alert('请填写链接地址');
+      message.warning('请填写链接地址');
       return;
     }
 
@@ -180,7 +181,7 @@ const ProfileManagement = () => {
       setShowSocialModal(false);
     } catch (error) {
       console.error('Failed to save social media:', error);
-      alert('保存失败，请重试');
+      message.error('保存失败，请重试');
     } finally {
       setSubmitting(false);
     }
@@ -193,7 +194,7 @@ const ProfileManagement = () => {
       setContacts(contacts.filter(c => c.id !== id));
     } catch (error) {
       console.error('Failed to delete contact:', error);
-      alert('删除失败，请重试');
+      message.error('删除失败，请重试');
     }
   };
 
@@ -204,7 +205,7 @@ const ProfileManagement = () => {
       setSocialMedia(socialMedia.filter(s => s.id !== id));
     } catch (error) {
       console.error('Failed to delete social media:', error);
-      alert('删除失败，请重试');
+      message.error('删除失败，请重试');
     }
   };
 
@@ -215,13 +216,13 @@ const ProfileManagement = () => {
     // 检查文件类型
     const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
     if (!validTypes.includes(file.type)) {
-      alert('请上传有效的图片文件（JPG、PNG、WebP、GIF）');
+      message.warning('请上传有效的图片文件（JPG、PNG、WebP、GIF）');
       return;
     }
 
     // 检查文件大小（限制为2MB）
     if (file.size > 2 * 1024 * 1024) {
-      alert('图片大小不能超过2MB');
+      message.warning('图片大小不能超过2MB');
       return;
     }
 
@@ -247,11 +248,11 @@ const ProfileManagement = () => {
       if (response.data?.url) {
         setUserInfo(prev => prev ? { ...prev, avatar: response.data.url } : null);
         setAvatarPreview(response.data.url);
-        alert('头像上传成功！');
+        message.success('头像上传成功！');
       }
     } catch (error) {
       console.error('Failed to upload avatar:', error);
-      alert('头像上传失败，请重试');
+      message.error('头像上传失败，请重试');
     } finally {
       setUploading(false);
       setUploadProgress(0);

@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Trash2, Search, Loader2, Edit, Plus, X, Eye, EyeOff, Building2, Calendar, Upload } from 'lucide-react';
+import { message } from 'antd';
 import axios from '../../utils/axiosConfig';
+import { getImageUrl } from '../../utils/imageUtils';
 
 interface Experience {
   id: number;
@@ -52,7 +54,7 @@ const ExperienceManagement = () => {
       ));
     } catch (error) {
       console.error('Failed to fetch experiences:', error);
-      alert('获取经历失败，请重试');
+      message.error('获取经历失败，请重试');
     } finally {
       setLoading(false);
     }
@@ -70,7 +72,7 @@ const ExperienceManagement = () => {
         images: experience.images || [],
         isVisible: experience.isVisible ?? true,
       });
-      setPreviewUrls(experience.images?.map(img => img.startsWith('http') ? img : `${img}`) || []);
+      setPreviewUrls(experience.images?.map(img => getImageUrl(img)) || []);
     } else {
       setEditingExperience(null);
       setFormData(initialFormData);
@@ -97,7 +99,7 @@ const ExperienceManagement = () => {
 
     const validFiles = files.filter(file => file.type.startsWith('image/'));
     if (validFiles.length !== files.length) {
-      alert('部分文件不是图片格式，已被忽略');
+      message.warning('部分文件不是图片格式，已被忽略');
     }
 
     const newPreviewUrls = validFiles.map(file => URL.createObjectURL(file));
@@ -134,7 +136,7 @@ const ExperienceManagement = () => {
     e.preventDefault();
     
     if (!formData.company.trim() || !formData.position.trim() || !formData.startDate) {
-      alert('请填写公司名称、职位和开始日期');
+      message.warning('请填写公司名称、职位和开始日期');
       return;
     }
 
@@ -177,7 +179,7 @@ const ExperienceManagement = () => {
       localStorage.setItem('experienceUpdated', Date.now().toString());
     } catch (error) {
       console.error('Failed to save experience:', error);
-      alert('保存失败，请重试');
+      message.error('保存失败，请重试');
     } finally {
       setSubmitting(false);
     }
@@ -195,7 +197,7 @@ const ExperienceManagement = () => {
       localStorage.setItem('experienceUpdated', Date.now().toString());
     } catch (error) {
       console.error('Failed to delete experience:', error);
-      alert('删除失败，请重试');
+      message.error('删除失败，请重试');
     } finally {
       setDeletingId(null);
     }
@@ -210,7 +212,7 @@ const ExperienceManagement = () => {
       localStorage.setItem('experienceUpdated', Date.now().toString());
     } catch (error) {
       console.error('Failed to update experience:', error);
-      alert('更新失败，请重试');
+      message.error('更新失败，请重试');
     }
   };
 

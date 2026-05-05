@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Trash2, Search, Loader2, Edit, Plus, X, Eye, EyeOff, Upload } from 'lucide-react';
+import { message } from 'antd';
 import axios from '../../utils/axiosConfig';
+import { getImageUrl } from '../../utils/imageUtils';
 import exifr from 'exifr';
 
 interface PhotoCategory {
@@ -51,14 +53,6 @@ const initialFormData = {
   isVisible: true,
 };
 
-const getImageUrl = (url: string) => {
-  if (!url) return '';
-  if (url.startsWith('http://') || url.startsWith('https://')) {
-    return url;
-  }
-  return `${url}`;
-};
-
 const PhotosManagement = () => {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [categories, setCategories] = useState<PhotoCategory[]>([]);
@@ -86,7 +80,7 @@ const PhotosManagement = () => {
       setPhotos(data);
     } catch (error) {
       console.error('Failed to fetch photos:', error);
-      alert('获取照片失败，请重试');
+      message.error('获取照片失败，请重试');
     } finally {
       setLoading(false);
     }
@@ -123,7 +117,7 @@ const PhotosManagement = () => {
         iso: photo.iso || '',
         isVisible: photo.isVisible,
       });
-      setPreviewUrl(photo.imageUrl ? `${photo.imageUrl}` : '');
+      setPreviewUrl(photo.imageUrl ? getImageUrl(photo.imageUrl) : '');
     } else {
       setEditingPhoto(null);
       setFormData(initialFormData);
@@ -149,7 +143,7 @@ const PhotosManagement = () => {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      alert('请选择图片文件');
+      message.warning('请选择图片文件');
       return;
     }
 
@@ -188,12 +182,12 @@ const PhotosManagement = () => {
     e.preventDefault();
 
     if (!formData.title.trim()) {
-      alert('请填写标题');
+      message.warning('请填写标题');
       return;
     }
 
     if (!editingPhoto && !selectedFile) {
-      alert('请上传照片');
+      message.warning('请上传照片');
       return;
     }
 
@@ -233,11 +227,11 @@ const PhotosManagement = () => {
       // 更新localStorage，触发前端展示部分刷新
       localStorage.setItem('photosUpdated', Date.now().toString());
       
-      alert('保存成功！');
+      message.success('保存成功！');
     } catch (error: any) {
       console.error('Failed to save photo:', error);
       const errorMessage = error.response?.data?.error || error.response?.data?.message || '保存失败，请重试';
-      alert(errorMessage);
+      message.error(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -255,7 +249,7 @@ const PhotosManagement = () => {
       localStorage.setItem('photosUpdated', Date.now().toString());
     } catch (error) {
       console.error('Failed to delete photo:', error);
-      alert('删除失败，请重试');
+      message.error('删除失败，请重试');
     } finally {
       setDeletingId(null);
     }
@@ -270,7 +264,7 @@ const PhotosManagement = () => {
       localStorage.setItem('photosUpdated', Date.now().toString());
     } catch (error) {
       console.error('Failed to update photo:', error);
-      alert('更新失败，请重试');
+      message.error('更新失败，请重试');
     }
   };
 

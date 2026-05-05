@@ -42,7 +42,7 @@ export function Modal({ isOpen, onClose, children, maxWidth = 'max-w-2xl' }: Mod
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className={`bg-white dark:bg-gray-800 rounded-2xl w-full ${maxWidth} max-h-[90vh] overflow-auto shadow-2xl border border-gray-200 dark:border-gray-700 relative`}
+            className={`bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl rounded-[2rem] w-full ${maxWidth} max-h-[90vh] overflow-auto shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)] border border-white/20 dark:border-white/10 relative ring-1 ring-black/5`}
             onClick={(e) => e.stopPropagation()}
           >
             {children}

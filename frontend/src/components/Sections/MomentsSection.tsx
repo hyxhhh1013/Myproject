@@ -6,6 +6,7 @@ import { MessageSquare, Heart, MapPin, X } from 'lucide-react';
 import axios from '../../utils/axiosConfig';
 import { Modal } from '../Modal';
 import { ImageWithFallback } from '../UI/ImageWithFallback';
+import { getImageUrl } from '../../utils/imageUtils';
 
 interface Moment {
   id: number;
@@ -27,38 +28,9 @@ export function MomentsSection() {
   const [likingId, setLikingId] = useState<number | null>(null);
   const isMobile = useMediaQuery({ maxWidth: 767 });
 
-  const getMediaUrl = (p: string) => {
-    if (!p) return '';
-    let path = p;
-    
-    // 处理旧服务器的完整 URL 或错误的域名
-    if (path.includes('42.194.162.51') || path.includes('localhost:3001')) {
-      try {
-        const urlObj = new URL(path.startsWith('http') ? path : `http://localhost${path.startsWith('/') ? '' : '/'}${path}`);
-        path = urlObj.pathname;
-      } catch (e) {
-        console.error('URL parse error:', e);
-      }
-    }
-    
-    if (path.startsWith('http')) return path;
-    
-    // 确保路径以 / 开头
-    path = path.startsWith('/') ? path : `/${path}`;
-    
-    // 移除重复的 /api 前缀，统一指向 /uploads
-    if (path.startsWith('/api/uploads')) {
-      path = path.replace('/api/uploads', '/uploads');
-    }
-    
-    const baseUrl = axios.defaults.baseURL || '';
-    // 如果 baseUrl 已经包含了 /api，而我们的 path 是 /uploads，这没问题
-    // 因为 /uploads 不应该走 /api 代理，除非后端特殊配置了
-    return `${baseUrl}${path}`;
-  };
+  // Using centralized getImageUrl from utils
 
   const handleCardClick = (moment: Moment) => {
-    console.log('Opening moment modal:', moment.id);
     setSelectedMoment(moment);
     setShowModal(true);
   };
@@ -121,13 +93,11 @@ export function MomentsSection() {
     }
     
     if (userLikes[id] || likingId === id) {
-      console.log('Already liked or liking moment:', id);
       return;
     }
 
     setLikingId(id);
     try {
-      console.log('Attempting to like moment:', id);
       const url = `/api/moments/${id}/likes`;
       const response = await axios.post(url);
       
@@ -205,7 +175,7 @@ export function MomentsSection() {
                   <div className="flex items-start gap-3 mb-4">
                     {profile?.avatar ? (
                       <ImageWithFallback 
-                        src={getMediaUrl(profile.avatar)} 
+                        src={getImageUrl(profile.avatar)} 
                         alt="avatar" 
                         className="w-10 h-10 rounded-full object-cover border border-gray-100 dark:border-gray-700"
                         containerClassName="w-10 h-10 rounded-full flex-shrink-0"
@@ -246,9 +216,9 @@ export function MomentsSection() {
                           images.length === 2 ? 'grid-cols-2' : 'grid-cols-3'
                         }`}>
                           {images.slice(0, 3).map((img: string, idx: number) => {
-                              const fullImageUrl = getMediaUrl(img);
+                              const fullImageUrl = getImageUrl(img);
                               const thumbnailUrl = img.replace(/(\.[^.]+)$/, '-thumbnail$1');
-                              const fullThumbnailUrl = getMediaUrl(thumbnailUrl);
+                              const fullThumbnailUrl = getImageUrl(thumbnailUrl);
                               
                               return (
                                 <div key={idx} className="aspect-square relative overflow-hidden">
@@ -320,7 +290,7 @@ export function MomentsSection() {
               <div className="flex items-center gap-3">
                 {profile?.avatar ? (
                   <ImageWithFallback 
-                    src={getMediaUrl(profile.avatar)} 
+                    src={getImageUrl(profile.avatar)} 
                     alt="avatar" 
                     className="w-10 h-10 rounded-full object-cover border border-gray-100 dark:border-gray-600"
                     containerClassName="w-10 h-10 rounded-full"
@@ -358,7 +328,7 @@ export function MomentsSection() {
                   JSON.parse(selectedMoment.images).length === 2 ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3'
                 }`}>
                   {JSON.parse(selectedMoment.images).map((img: string, idx: number) => {
-                    const fullImageUrl = getMediaUrl(img);
+                    const fullImageUrl = getImageUrl(img);
                     return (
                       <motion.div 
                         key={idx}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Trash2, Search, Filter, Loader2, Eye, EyeOff, Plus, Edit2, X, Check, Sparkles } from 'lucide-react';
+import { message } from 'antd';
 import axios from '../../utils/axiosConfig';
 
 interface Danmaku {
@@ -46,7 +47,7 @@ const DanmakuManagement = () => {
       setDanmakuList(data);
     } catch (error) {
       console.error('Failed to fetch danmaku:', error);
-      alert('获取弹幕失败，请重试');
+      message.error('获取弹幕失败，请重试');
     } finally {
       setLoading(false);
     }
@@ -61,7 +62,7 @@ const DanmakuManagement = () => {
       setDanmakuList(danmakuList.filter(d => d.id !== id));
     } catch (error) {
       console.error('Failed to delete danmaku:', error);
-      alert('删除失败，请重试');
+      message.error('删除失败，请重试');
     } finally {
       setDeletingId(null);
     }
@@ -73,13 +74,13 @@ const DanmakuManagement = () => {
       setDanmakuList(danmakuList.map(d => d.id === id ? { ...d, isVisible: !currentState } : d));
     } catch (error) {
       console.error('Failed to update danmaku:', error);
-      alert('更新失败，请重试');
+      message.error('更新失败，请重试');
     }
   };
 
   const handleAddDanmaku = async () => {
     if (!formData.content.trim()) {
-      alert('请输入弹幕内容');
+      message.warning('请输入弹幕内容');
       return;
     }
 
@@ -91,7 +92,7 @@ const DanmakuManagement = () => {
       setFormData({ content: '', color: 'blue' });
     } catch (error) {
       console.error('Failed to add danmaku:', error);
-      alert('添加失败，请重试');
+      message.error('添加失败，请重试');
     } finally {
       setSubmitting(false);
     }
@@ -99,7 +100,7 @@ const DanmakuManagement = () => {
 
   const handleEditDanmaku = async () => {
     if (!editingId || !formData.content.trim()) {
-      alert('请输入弹幕内容');
+      message.warning('请输入弹幕内容');
       return;
     }
 
@@ -115,7 +116,7 @@ const DanmakuManagement = () => {
       setFormData({ content: '', color: 'blue' });
     } catch (error) {
       console.error('Failed to edit danmaku:', error);
-      alert('编辑失败，请重试');
+      message.error('编辑失败，请重试');
     } finally {
       setSubmitting(false);
     }

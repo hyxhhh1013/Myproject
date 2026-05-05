@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from '../../utils/axiosConfig';
 import { message } from 'antd';
-import { Star, Film, ChevronLeft, ChevronRight, Heart, Calendar, User } from 'lucide-react';
+import { Star, Film, ChevronLeft, ChevronRight, Heart, Calendar, User, Clapperboard } from 'lucide-react';
+import { ImageWithFallback } from '../UI/ImageWithFallback';
 
 interface Movie {
   id: number;
@@ -28,8 +29,7 @@ export const MovieSection = () => {
     try {
       const response = await axios.get('/api/movies?isVisible=true&sort=orderIndex_asc');
       const data = Array.isArray(response.data) ? response.data : (response.data?.data || []);
-      console.log('MovieSection fetched movies:', data);
-      
+
       const backendMovies = data.map((m: any) => ({
         id: m.id,
         title: m.title,
@@ -124,18 +124,28 @@ export const MovieSection = () => {
       className="interest-card movie-widget h-full flex flex-col relative overflow-hidden group border-2 border-gray-200/50 dark:border-gray-700/30 hover:border-gray-300/80 dark:hover:border-gray-600/50 transition-all pb-6 sm:pb-8"
     >
       {/* Background Ambience */}
-      <div 
-        className="absolute inset-0 bg-cover bg-center blur-3xl opacity-20 scale-125 transition-all duration-1000"
-        style={{ backgroundImage: `url(${currentMovie.poster})` }}
-      />
-      <div className="absolute inset-0 bg-gradient-to-br from-white/80 via-white/95 to-white dark:from-black/60 dark:via-black/90 dark:to-black opacity-90" />
+      <AnimatePresence mode='wait'>
+        <motion.div 
+          key={currentMovie.id}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 0.2 }}
+          exit={{ opacity: 0 }}
+          className="absolute inset-0 overflow-hidden"
+        >
+          <ImageWithFallback 
+            src={currentMovie.poster} 
+            className="w-full h-full object-cover blur-3xl scale-125" 
+          />
+        </motion.div>
+      </AnimatePresence>
+      <div className="absolute inset-0 bg-gradient-to-br from-white/95 via-white/80 to-transparent dark:from-black/90 dark:via-black/70 dark:to-transparent" />
 
       {/* Header */}
       <div className="relative z-10 flex justify-between items-start mb-6 px-2">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-            <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
-              <Film className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+            <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg shadow-lg">
+              <Clapperboard className="w-5 h-5 text-white" />
             </div>
             经典观影
           </h2>
@@ -188,10 +198,10 @@ export const MovieSection = () => {
             transition={{ duration: 0.4 }}
             className="relative w-[180px] sm:w-[200px] md:w-[220px] h-[260px] sm:h-[290px] md:h-[320px] rounded-xl overflow-hidden shadow-2xl group/card"
           >
-            <img 
+            <ImageWithFallback 
               src={currentMovie.poster} 
               alt={currentMovie.title} 
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover transition-transform duration-700 group-hover/card:scale-110"
             />
             
             {/* Info Overlay */}

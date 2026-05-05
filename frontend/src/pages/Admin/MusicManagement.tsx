@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Trash2, Search, Filter, Loader2, ExternalLink, Edit, Plus, X, Eye, EyeOff } from 'lucide-react';
+import { message } from 'antd';
 import axios from '../../utils/axiosConfig';
 
 const getImageUrl = (url: string) => {
@@ -62,16 +63,12 @@ const MusicManagement = () => {
   const fetchMusics = async () => {
     try {
       setLoading(true);
-      console.log('Fetching music list...');
       const response = await axios.get('/api/music');
-      console.log('Music list response:', response.data);
       const data = Array.isArray(response.data) ? response.data : (response.data?.data || []);
-      console.log('Music list data:', data);
       setMusics(data);
-      console.log('Musics state updated:', data);
     } catch (error) {
       console.error('Failed to fetch musics:', error);
-      alert('获取音乐失败，请重试');
+      message.error('获取音乐失败，请重试');
     } finally {
       setLoading(false);
     }
@@ -107,13 +104,12 @@ const MusicManagement = () => {
     e.preventDefault();
     
     if (!formData.title.trim()) {
-      alert('请填写音乐标题');
+      message.warning('请填写音乐标题');
       return;
     }
 
     try {
       setSubmitting(true);
-      console.log('Submitting music form...', formData);
       const payload = {
         platform: formData.platform,
         title: formData.title.trim(),
@@ -124,23 +120,19 @@ const MusicManagement = () => {
         description: formData.description.trim() || undefined,
         isVisible: formData.isVisible,
       };
-      console.log('Payload to send:', payload);
 
       if (editingMusic) {
-        console.log('Updating existing music with ID:', editingMusic.id);
         await axios.put(`/api/music/${editingMusic.id}`, payload);
       } else {
-        console.log('Creating new music...');
-        const response = await axios.post('/api/music', payload);
-        console.log('Create music response:', response.data);
+        await axios.post('/api/music', payload);
       }
 
       await fetchMusics();
       handleCloseModal();
-      alert('音乐添加成功！');
+      message.success('音乐添加成功！');
     } catch (error) {
       console.error('Failed to save music:', error);
-      alert('保存失败: ' + JSON.stringify(error) + '\n请查看控制台获取详细信息');
+      message.error('保存失败：' + JSON.stringify(error) + '，请查看控制台获取详细信息');
     } finally {
       setSubmitting(false);
     }
@@ -155,7 +147,7 @@ const MusicManagement = () => {
       setMusics(musics.filter(m => m.id !== id));
     } catch (error) {
       console.error('Failed to delete music:', error);
-      alert('删除失败，请重试');
+      message.error('删除失败，请重试');
     } finally {
       setDeletingId(null);
     }
@@ -167,7 +159,7 @@ const MusicManagement = () => {
       setMusics(musics.map(m => m.id === id ? { ...m, isVisible: !currentState } : m));
     } catch (error) {
       console.error('Failed to update music:', error);
-      alert('更新失败，请重试');
+      message.error('更新失败，请重试');
     }
   };
 
@@ -428,7 +420,7 @@ const MusicManagement = () => {
                     type="button"
                     onClick={async () => {
                       if (!formData.url || (!formData.url.includes('music.163.com') && !formData.url.includes('qq.com'))) {
-                        alert('请先输入有效的网易云音乐或QQ音乐链接');
+                        message.warning('请先输入有效的网易云音乐或QQ音乐链接');
                         return;
                       }
                       try {
@@ -443,10 +435,10 @@ const MusicManagement = () => {
                             coverUrl: res.data.cover || prev.coverUrl,
                             lyrics: res.data.lyrics || prev.lyrics
                           }));
-                          alert('解析成功！已自动填充信息。');
+                          message.success('解析成功！已自动填充信息。');
                         }
                       } catch (error) {
-                        alert('解析失败，请检查链接是否正确或手动填写信息');
+                        message.error('解析失败，请检查链接是否正确或手动填写信息');
                       }
                     }}
                     className="px-4 py-2 bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors whitespace-nowrap w-full sm:w-auto"

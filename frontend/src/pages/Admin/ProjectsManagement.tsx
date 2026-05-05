@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Trash2, Search, Loader2, ExternalLink, Edit, Plus, X, Upload } from 'lucide-react';
+import { message } from 'antd';
 import axios from '../../utils/axiosConfig';
+import { getImageUrl } from '../../utils/imageUtils';
 
 interface Project {
   id: number;
@@ -57,7 +59,7 @@ const ProjectsManagement = () => {
       setProjects(data);
     } catch (error) {
       console.error('Failed to fetch projects:', error);
-      alert('获取项目失败，请重试');
+      message.error('获取项目失败，请重试');
     } finally {
       setLoading(false);
     }
@@ -81,7 +83,7 @@ const ProjectsManagement = () => {
         imageUrl: project.imageUrl || '',
         isFeatured: project.isFeatured || false,
       });
-      setPreviewUrl(project.imageUrl && !project.imageUrl.startsWith('http') ? `${project.imageUrl}` : (project.imageUrl || ''));
+      setPreviewUrl(project.imageUrl ? getImageUrl(project.imageUrl) : '');
     } else {
       setEditingProject(null);
       setFormData(initialFormData);
@@ -107,7 +109,7 @@ const ProjectsManagement = () => {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      alert('请选择图片文件');
+      message.warning('请选择图片文件');
       return;
     }
 
@@ -122,7 +124,7 @@ const ProjectsManagement = () => {
     e.preventDefault();
     
     if (!formData.title.trim() || !formData.description.trim() || !formData.technologies.trim()) {
-      alert('请填写标题、描述和技术栈');
+      message.warning('请填写标题、描述和技术栈');
       return;
     }
 
@@ -167,7 +169,7 @@ const ProjectsManagement = () => {
       localStorage.setItem('projectUpdated', Date.now().toString());
     } catch (error) {
       console.error('Failed to save project:', error);
-      alert('保存失败，请重试');
+      message.error('保存失败，请重试');
     } finally {
       setSubmitting(false);
     }
@@ -182,7 +184,7 @@ const ProjectsManagement = () => {
       setProjects(projects.filter(p => p.id !== id));
     } catch (error) {
       console.error('Failed to delete project:', error);
-      alert('删除失败，请重试');
+      message.error('删除失败，请重试');
     } finally {
       setDeletingId(null);
     }

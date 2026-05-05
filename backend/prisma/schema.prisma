@@ -7,161 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model dream_records {
-  id                                                     String              @id
-  user_id                                                String
-  content                                                String              @db.Text
-  emotion                                                String              @default("NEUTRAL")
-  recorded_at                                            DateTime            @default(now())
-  audio_url                                              String?
-  analysis_result                                        String?             @db.Text
-  cross_analysis                                         String?             @db.Text
-  vividness                                              Int                 @default(0)
-  terror                                                 Int                 @default(0)
-  lucidity                                               Int                 @default(0)
-  content_embedding                                      String?             @db.Text
-  created_at                                             DateTime            @default(now())
-  updated_at                                             DateTime
-  deleted_at                                             DateTime?
-  users                                                  users               @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  dream_to_symbols                                       dream_to_symbols[]
-  physiological_data                                     physiological_data?
-  tarot_readings                                         tarot_readings[]
-  topology_edges_topology_edges_source_idTodream_records topology_edges[]    @relation("topology_edges_source_idTodream_records")
-  topology_edges_topology_edges_target_idTodream_records topology_edges[]    @relation("topology_edges_target_idTodream_records")
-
-  @@index([recorded_at])
-  @@index([user_id])
-}
-
-model dream_symbols {
-  id                String             @id
-  name              String             @unique @db.VarChar(255)
-  universal_meaning String             @db.Text
-  created_at        DateTime           @default(now())
-  updated_at        DateTime
-  dream_to_symbols  dream_to_symbols[]
-}
-
-model dream_to_symbols {
-  id                   String        @id
-  dream_record_id      String
-  dream_symbol_id      String
-  personalized_meaning String        @db.Text
-  created_at           DateTime      @default(now())
-  dream_records        dream_records @relation(fields: [dream_record_id], references: [id], onDelete: Cascade)
-  dream_symbols        dream_symbols @relation(fields: [dream_symbol_id], references: [id], onDelete: Cascade)
-
-  @@unique([dream_record_id, dream_symbol_id])
-  @@index([dream_symbol_id], map: "dream_to_symbols_dream_symbol_id_fkey")
-}
-
-model insight_reports {
-  id                String   @id
-  user_id           String
-  report_type       String
-  period_start      DateTime
-  period_end        DateTime
-  summary           String   @db.Text
-  detailed_analysis String   @db.Text
-  created_at        DateTime @default(now())
-  updated_at        DateTime
-  users             users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
-
-  @@index([user_id, period_start, period_end])
-}
-
-model physiological_data {
-  id               String        @id
-  dream_record_id  String        @unique
-  rem_heart_rate   Int?
-  room_temperature Float?
-  raw_health_data  String?       @db.Text
-  device_source    String?
-  created_at       DateTime      @default(now())
-  updated_at       DateTime
-  dream_records    dream_records @relation(fields: [dream_record_id], references: [id], onDelete: Cascade)
-}
-
-model tarot_favorites {
-  id         String   @id
-  user_id    String
-  card_code  String
-  card_name  String
-  card_emoji String?
-  created_at DateTime @default(now())
-  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
-
-  @@unique([user_id, card_code])
-  @@index([user_id, created_at])
-}
-
-model tarot_reading_cards {
-  id               String         @id
-  tarot_reading_id String
-  position         Int
-  card_code        String
-  card_name        String
-  card_emoji       String?
-  is_reversed      Boolean        @default(false)
-  upright_meaning  String         @db.Text
-  reversed_meaning String         @db.Text
-  created_at       DateTime       @default(now())
-  tarot_readings   tarot_readings @relation(fields: [tarot_reading_id], references: [id], onDelete: Cascade)
-
-  @@index([tarot_reading_id, position])
-}
-
-model tarot_readings {
-  id                  String                @id
-  user_id             String
-  dream_record_id     String?
-  spread_type         String                @default("three_card")
-  question            String?               @db.Text
-  ai_summary          String
-  ai_interpretation   String                @db.Text
-  ai_advice           String?               @db.Text
-  created_at          DateTime              @default(now())
-  tarot_reading_cards tarot_reading_cards[]
-  dream_records       dream_records?        @relation(fields: [dream_record_id], references: [id])
-  users               users                 @relation(fields: [user_id], references: [id], onDelete: Cascade)
-
-  @@index([dream_record_id], map: "tarot_readings_dream_record_id_fkey")
-  @@index([user_id, created_at])
-}
-
-model topology_edges {
-  id                                                    String        @id
-  source_id                                             String
-  target_id                                             String
-  weight                                                Float         @default(1)
-  logic_relation                                        String?
-  created_at                                            DateTime      @default(now())
-  dream_records_topology_edges_source_idTodream_records dream_records @relation("topology_edges_source_idTodream_records", fields: [source_id], references: [id], onDelete: Cascade)
-  dream_records_topology_edges_target_idTodream_records dream_records @relation("topology_edges_target_idTodream_records", fields: [target_id], references: [id], onDelete: Cascade)
-
-  @@index([source_id])
-  @@index([target_id])
-}
-
-model users {
-  id              String            @id
-  email           String            @unique
-  name            String?
-  password_hash   String
-  encryption_key  String
-  preferences     String?           @db.Text
-  created_at      DateTime          @default(now())
-  updated_at      DateTime
-  deleted_at      DateTime?
-  dream_records   dream_records[]
-  insight_reports insight_reports[]
-  tarot_favorites tarot_favorites[]
-  tarot_readings  tarot_readings[]
-
-  @@index([created_at])
-}
-
 model User {
   id          Int           @id @default(autoincrement())
   name        String
@@ -270,9 +115,9 @@ model Project {
   githubUrl          String?   @map("github_url") @db.Text
   demoUrl            String?   @map("demo_url") @db.Text
   isVisible          Boolean   @default(true) @map("is_visible")
-  isFeatured         Boolean   @default(false) @map("is_featured")
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
+  isFeatured         Boolean   @default(false) @map("is_featured")
   user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
@@ -386,11 +231,11 @@ model Message {
   email     String
   subject   String
   content   String   @db.Text
-  reply     String?  @db.Text
   isRead    Boolean  @default(false) @map("is_read")
-  isVisible Boolean  @default(true) @map("is_visible")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+  isVisible Boolean  @default(true) @map("is_visible")
+  reply     String?  @db.Text
 
   @@index([isRead])
   @@index([createdAt])
@@ -561,14 +406,168 @@ model Moment {
   @@map("moment")
 }
 
-model UploadedFile {
-  id        Int      @id @default(autoincrement())
-  filename  String   @unique
-  mimeType  String   @map("mime_type")
-  data      Bytes    @db.LongBlob
-  size      Int
-  createdAt DateTime @default(now()) @map("created_at")
+model dream_records {
+  id                                                     String              @id
+  user_id                                                String
+  content                                                String              @db.Text
+  emotion                                                String              @default("NEUTRAL")
+  recorded_at                                            DateTime            @default(now())
+  audio_url                                              String?
+  analysis_result                                        String?             @db.Text
+  cross_analysis                                         String?             @db.Text
+  vividness                                              Int                 @default(0)
+  terror                                                 Int                 @default(0)
+  lucidity                                               Int                 @default(0)
+  content_embedding                                      String?             @db.Text
+  created_at                                             DateTime            @default(now())
+  updated_at                                             DateTime
+  deleted_at                                             DateTime?
+  users                                                  users               @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  dream_to_symbols                                       dream_to_symbols[]
+  physiological_data                                     physiological_data?
+  tarot_readings                                         tarot_readings[]
+  topology_edges_topology_edges_source_idTodream_records topology_edges[]    @relation("topology_edges_source_idTodream_records")
+  topology_edges_topology_edges_target_idTodream_records topology_edges[]    @relation("topology_edges_target_idTodream_records")
 
-  @@map("uploaded_file")
+  @@index([recorded_at])
+  @@index([user_id])
+}
+
+model dream_symbols {
+  id                String             @id
+  name              String             @unique @db.VarChar(255)
+  universal_meaning String             @db.Text
+  created_at        DateTime           @default(now())
+  updated_at        DateTime
+  dream_to_symbols  dream_to_symbols[]
+}
+
+model dream_to_symbols {
+  id                   String        @id
+  dream_record_id      String
+  dream_symbol_id      String
+  personalized_meaning String        @db.Text
+  created_at           DateTime      @default(now())
+  dream_records        dream_records @relation(fields: [dream_record_id], references: [id], onDelete: Cascade)
+  dream_symbols        dream_symbols @relation(fields: [dream_symbol_id], references: [id], onDelete: Cascade)
+
+  @@unique([dream_record_id, dream_symbol_id])
+  @@index([dream_symbol_id], map: "dream_to_symbols_dream_symbol_id_fkey")
+}
+
+model insight_reports {
+  id                String   @id
+  user_id           String
+  report_type       String
+  period_start      DateTime
+  period_end        DateTime
+  summary           String   @db.Text
+  detailed_analysis String   @db.Text
+  created_at        DateTime @default(now())
+  updated_at        DateTime
+  users             users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, period_start, period_end])
+}
+
+model physiological_data {
+  id               String        @id
+  dream_record_id  String        @unique
+  rem_heart_rate   Int?
+  room_temperature Float?
+  raw_health_data  String?       @db.Text
+  device_source    String?
+  created_at       DateTime      @default(now())
+  updated_at       DateTime
+  dream_records    dream_records @relation(fields: [dream_record_id], references: [id], onDelete: Cascade)
+}
+
+model tarot_favorites {
+  id         String   @id
+  user_id    String
+  card_code  String
+  card_name  String
+  card_emoji String?
+  created_at DateTime @default(now())
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, card_code])
+  @@index([user_id, created_at])
+}
+
+model tarot_reading_cards {
+  id               String         @id
+  tarot_reading_id String
+  position         Int
+  card_code        String
+  card_name        String
+  card_emoji       String?
+  is_reversed      Boolean        @default(false)
+  upright_meaning  String         @db.Text
+  reversed_meaning String         @db.Text
+  created_at       DateTime       @default(now())
+  tarot_readings   tarot_readings @relation(fields: [tarot_reading_id], references: [id], onDelete: Cascade)
+
+  @@index([tarot_reading_id, position])
+}
+
+model tarot_readings {
+  id                  String                @id
+  user_id             String
+  dream_record_id     String?
+  spread_type         String                @default("three_card")
+  question            String?               @db.Text
+  ai_summary          String
+  ai_interpretation   String                @db.Text
+  ai_advice           String?               @db.Text
+  created_at          DateTime              @default(now())
+  tarot_reading_cards tarot_reading_cards[]
+  dream_records       dream_records?        @relation(fields: [dream_record_id], references: [id])
+  users               users                 @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([dream_record_id], map: "tarot_readings_dream_record_id_fkey")
+  @@index([user_id, created_at])
+}
+
+model topology_edges {
+  id                                                    String        @id
+  source_id                                             String
+  target_id                                             String
+  weight                                                Float         @default(1)
+  logic_relation                                        String?
+  created_at                                            DateTime      @default(now())
+  dream_records_topology_edges_source_idTodream_records dream_records @relation("topology_edges_source_idTodream_records", fields: [source_id], references: [id], onDelete: Cascade)
+  dream_records_topology_edges_target_idTodream_records dream_records @relation("topology_edges_target_idTodream_records", fields: [target_id], references: [id], onDelete: Cascade)
+
+  @@index([source_id])
+  @@index([target_id])
+}
+
+model uploaded_file {
+  id         Int      @id @default(autoincrement())
+  filename   String   @unique
+  mime_type  String
+  data       Bytes
+  size       Int
+  created_at DateTime @default(now())
+
   @@index([filename])
+}
+
+model users {
+  id              String            @id
+  email           String            @unique
+  name            String?
+  password_hash   String
+  encryption_key  String
+  preferences     String?           @db.Text
+  created_at      DateTime          @default(now())
+  updated_at      DateTime
+  deleted_at      DateTime?
+  dream_records   dream_records[]
+  insight_reports insight_reports[]
+  tarot_favorites tarot_favorites[]
+  tarot_readings  tarot_readings[]
+
+  @@index([created_at])
 }

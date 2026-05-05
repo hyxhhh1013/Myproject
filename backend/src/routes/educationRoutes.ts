@@ -10,19 +10,19 @@ router.get('/', cacheMiddleware(300), getAllEducation);
 router.get('/:id', cacheMiddleware(600), getEducationById);
 
 // Create, update, delete operations with cache clearing
-router.post('/', protect, async (req, res) => {
-  await createEducation(req, res);
+router.post('/', protect, async (req, res, next) => {
+  await createEducation(req, res, next);
   clearCache('/api/education');
 });
 
-router.put('/:id', protect, async (req, res) => {
-  await updateEducation(req, res);
+router.put('/:id', protect, async (req, res, next) => {
+  await updateEducation(req, res, next);
   clearCache('/api/education');
   clearCache(`/api/education/${req.params.id}`);
 });
 
-router.delete('/:id', protect, async (req, res) => {
-  await deleteEducation(req, res);
+router.delete('/:id', protect, async (req, res, next) => {
+  await deleteEducation(req, res, next);
   clearCache('/api/education');
   clearCache(`/api/education/${req.params.id}`);
 });

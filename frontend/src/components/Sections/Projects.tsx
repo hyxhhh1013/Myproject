@@ -8,6 +8,7 @@ import TaskMasterMiniDemo from '../Demos/TaskMasterMiniDemo';
 import FocusFlowMiniDemo from '../Demos/FocusFlowMiniDemo';
 import LiteNoteMiniDemo from '../Demos/LiteNoteMiniDemo';
 import { ImageWithFallback } from '../UI/ImageWithFallback';
+import { getImageUrl } from '../../utils/imageUtils';
 
 const demoComponentMap: Record<string, React.ComponentType<any>> = {
   'FocusFlow 专注时钟': FocusFlowMiniDemo,
@@ -50,8 +51,8 @@ const ProjectCard: React.FC<ProjectCardProps> = React.memo(({ title, intro, desc
       ) : imageUrl ? (
         <div className="h-48 sm:h-56 md:h-64 bg-gray-100 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 overflow-hidden relative group">
           <ImageWithFallback 
-            src={imageUrl.startsWith('http') ? imageUrl : `${imageUrl}`} 
-            thumbnailSrc={thumbnailUrl ? (thumbnailUrl.startsWith('http') ? thumbnailUrl : `${thumbnailUrl}`) : undefined}
+            src={getImageUrl(imageUrl)} 
+            thumbnailSrc={getImageUrl(thumbnailUrl)}
             alt={title} 
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
           />

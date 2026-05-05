@@ -10,19 +10,19 @@ router.get('/', cacheMiddleware(300), getAllSkills);
 router.get('/:id', cacheMiddleware(600), getSkillById);
 
 // Create, update, delete operations with cache clearing
-router.post('/', protect, async (req, res) => {
-  await createSkill(req, res);
+router.post('/', protect, async (req, res, next) => {
+  await createSkill(req, res, next);
   clearCache('/api/skills');
 });
 
-router.put('/:id', protect, async (req, res) => {
-  await updateSkill(req, res);
+router.put('/:id', protect, async (req, res, next) => {
+  await updateSkill(req, res, next);
   clearCache('/api/skills');
   clearCache(`/api/skills/${req.params.id}`);
 });
 
-router.delete('/:id', protect, async (req, res) => {
-  await deleteSkill(req, res);
+router.delete('/:id', protect, async (req, res, next) => {
+  await deleteSkill(req, res, next);
   clearCache('/api/skills');
   clearCache(`/api/skills/${req.params.id}`);
 });

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Trash2, Search, Filter, Loader2, Eye, EyeOff, X, User, Calendar, EyeOff as EyeOffIcon } from 'lucide-react';
+import { message } from 'antd';
 import axios from '../../utils/axiosConfig';
 
 interface Message {
@@ -32,7 +33,7 @@ const MessagesManagement = () => {
       setMessages(data);
     } catch (error) {
       console.error('Failed to fetch messages:', error);
-      alert('获取留言失败，请重试');
+      message.error('获取留言失败，请重试');
     } finally {
       setLoading(false);
     }
@@ -47,7 +48,7 @@ const MessagesManagement = () => {
       setMessages(messages.filter(m => m.id !== id));
     } catch (error) {
       console.error('Failed to delete message:', error);
-      alert('删除失败，请重试');
+      message.error('删除失败，请重试');
     } finally {
       setDeletingId(null);
     }
@@ -64,7 +65,7 @@ const MessagesManagement = () => {
       }
     } catch (error) {
       console.error('Failed to update message:', error);
-      alert('更新失败，请重试');
+      message.error('更新失败，请重试');
     }
   };
 

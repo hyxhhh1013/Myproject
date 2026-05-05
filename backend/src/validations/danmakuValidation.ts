@@ -6,7 +6,7 @@ export const createDanmakuSchema = z.object({
     .min(1, 'Content is required')
     .max(200, 'Content must be at most 200 characters long'),
   color: z
-    .enum(['blue', 'gray', 'darkblue', 'slate', 'primary', 'pink'], {
+    .enum(['blue', 'gray', 'darkblue', 'slate', 'primary'], {
       errorMap: () => ({ message: 'Invalid color value' })
     })
     .optional()
@@ -20,7 +20,7 @@ export const updateDanmakuSchema = z.object({
     .max(200, 'Content must be at most 200 characters long')
     .optional(),
   color: z
-    .enum(['blue', 'gray', 'darkblue', 'slate', 'primary', 'pink'], {
+    .enum(['blue', 'gray', 'darkblue', 'slate', 'primary'], {
       errorMap: () => ({ message: 'Invalid color value' })
     })
     .optional(),

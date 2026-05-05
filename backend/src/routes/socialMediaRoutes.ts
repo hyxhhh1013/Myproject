@@ -10,19 +10,19 @@ router.get('/', cacheMiddleware(300), getAllSocialMedia);
 router.get('/:id', cacheMiddleware(600), getSocialMediaById);
 
 // Create, update, delete operations with cache clearing
-router.post('/', protect, async (req, res) => {
-  await createSocialMedia(req, res);
+router.post('/', protect, async (req, res, next) => {
+  await createSocialMedia(req, res, next);
   clearCache('/api/social-media');
 });
 
-router.put('/:id', protect, async (req, res) => {
-  await updateSocialMedia(req, res);
+router.put('/:id', protect, async (req, res, next) => {
+  await updateSocialMedia(req, res, next);
   clearCache('/api/social-media');
   clearCache(`/api/social-media/${req.params.id}`);
 });
 
-router.delete('/:id', protect, async (req, res) => {
-  await deleteSocialMedia(req, res);
+router.delete('/:id', protect, async (req, res, next) => {
+  await deleteSocialMedia(req, res, next);
   clearCache('/api/social-media');
   clearCache(`/api/social-media/${req.params.id}`);
 });

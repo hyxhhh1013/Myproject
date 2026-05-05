@@ -121,8 +121,7 @@ const WeatherCastMiniDemo = () => {
             longitude: position.coords.longitude
           });
         },
-        (error) => {
-          console.log('地理位置获取失败:', error);
+        () => {
           resolve(null);
         }
       );
@@ -155,7 +154,6 @@ const WeatherCastMiniDemo = () => {
           }
         }
       } catch (e) {
-        console.log('Failed to get IP location, using auto IP resolution');
       }
 
       // 3. 尝试使用自动IP解析

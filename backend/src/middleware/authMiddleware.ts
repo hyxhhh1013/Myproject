@@ -31,11 +31,11 @@ export const protect = (req: AuthRequest, res: Response, next: NextFunction) => 
       next();
     } catch (error) {
       logger.error('Authentication failed', { error: error instanceof Error ? error.message : 'Unknown error', path: req.path, method: req.method });
-      res.status(401).json({ status: 'fail', message: 'Not authorized, token failed' });
+      return res.status(401).json({ status: 'fail', message: 'Not authorized, token failed' });
     }
   }
 
   if (!token) {
-    res.status(401).json({ status: 'fail', message: 'Not authorized, no token' });
+    return res.status(401).json({ status: 'fail', message: 'Not authorized, no token' });
   }
 };

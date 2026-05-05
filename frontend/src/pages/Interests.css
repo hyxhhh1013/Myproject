@@ -61,12 +61,16 @@
 }
 
 @keyframes float {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(0px) translateX(0px);
   }
+
   33% {
     transform: translateY(-30px) translateX(20px);
   }
+
   66% {
     transform: translateY(20px) translateX(-10px);
   }
@@ -119,12 +123,12 @@
   height: 180px;
   margin: 0 auto 60px;
   border-radius: 50%;
-  background: 
+  background:
     radial-gradient(circle at 30% 30%, rgba(59, 130, 246, 0.3), transparent 70%);
 
   backdrop-filter: blur(8px);
   border: 4px solid rgba(59, 130, 246, 0.3);
-  box-shadow: 
+  box-shadow:
     0 0 0 8px rgba(59, 130, 246, 0.1),
     0 10px 40px rgba(59, 130, 246, 0.2),
     inset 0 0 20px rgba(0, 0, 0, 0.2);
@@ -134,7 +138,7 @@
 
 .hero-photo:hover {
   transform: scale(1.05);
-  box-shadow: 
+  box-shadow:
     0 0 0 8px rgba(59, 130, 246, 0.15),
     0 15px 50px rgba(59, 130, 246, 0.3),
     inset 0 0 20px rgba(0, 0, 0, 0.3);
@@ -150,7 +154,7 @@
 }
 
 /* Section Spacing */
-.main-content > * {
+.main-content>* {
   margin-bottom: 80px;
 }
 
@@ -596,218 +600,221 @@
 
 /* Responsive Styles */
 @media (max-width: 1024px) {
+
   /* Hero Section */
   .hero-section {
     padding: 40px 20px 30px;
     min-height: 70vh;
   }
-  
+
   .hero-title {
     font-size: 48px;
     margin-bottom: 20px;
   }
-  
+
   .hero-subtitle {
     margin-bottom: 40px;
   }
-  
+
   .hero-photo {
     width: 150px;
     height: 150px;
     margin-bottom: 48px;
   }
-  
+
   /* Main Content */
   .main-content {
     padding: 0 20px 60px;
   }
-  
-  .main-content > * {
+
+  .main-content>* {
     margin-bottom: 60px;
   }
-  
+
   /* Card Styles */
   .interest-card {
     padding: 32px 24px;
     border-radius: 16px;
   }
-  
+
   /* Movie Section */
   .movie-widget .movies-scroll {
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: 24px;
   }
-  
+
   /* Travel Section */
   .travel-widget .map-container {
     height: 450px;
   }
-  
+
   /* Footer */
   .interests-footer {
     padding: 40px 20px 30px;
   }
-  
+
   .footer-stats {
     gap: 30px;
   }
 }
 
 @media (max-width: 768px) {
+
   /* Hero Section */
   .hero-title {
     font-size: 36px;
     margin-bottom: 16px;
   }
-  
+
   .hero-subtitle {
     margin-bottom: 32px;
     font-size: 16px;
   }
-  
+
   .hero-photo {
     width: 120px;
     height: 120px;
     margin-bottom: 40px;
   }
-  
+
   /* Main Content */
-  .main-content > * {
+  .main-content>* {
     margin-bottom: 50px;
   }
-  
+
   /* Card Styles */
   .interest-card {
     padding: 24px 20px;
   }
-  
+
   /* Movie Section - 优化手机端布局 */
   .movie-widget .movies-scroll {
     grid-template-columns: 1fr 1fr;
     gap: 20px;
     padding: 16px 0;
   }
-  
+
   .movie-widget .movie-card {
     border-radius: 14px;
     box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1);
   }
-  
+
   .movie-widget .movie-card img {
     height: 280px;
   }
-  
+
   .movie-widget .info {
     padding: 20px;
   }
-  
+
   .movie-widget .info h4 {
     font-size: 18px;
     margin-bottom: 6px;
   }
-  
+
   /* Travel Section */
   .travel-widget .map-container {
     height: 380px;
     border-radius: 12px;
   }
-  
+
   .travel-widget .city-list {
     grid-template-columns: 1fr 1fr;
     gap: 16px;
   }
-  
+
   /* Footer */
   .footer-content {
     padding: 24px 20px;
   }
-  
+
   .footer-stats {
     flex-direction: column;
     gap: 16px;
   }
-  
+
   .footer-stats span {
     justify-content: center;
   }
 }
 
 @media (max-width: 480px) {
+
   /* Hero Section */
   .hero-section {
     padding: 30px 16px 20px;
     min-height: 60vh;
   }
-  
+
   .hero-title {
     font-size: 28px;
   }
-  
+
   .hero-subtitle {
     margin-bottom: 24px;
     font-size: 15px;
   }
-  
+
   /* Main Content */
   .main-content {
     padding: 0 16px 50px;
   }
-  
+
   /* Card Styles */
   .interest-card {
     padding: 20px 16px;
     border-radius: 12px;
   }
-  
+
   /* Music Widget */
   .music-widget .player-container {
     height: 320px;
   }
-  
+
   /* Movie Section - 优化小屏手机布局 */
   .movie-widget .movies-scroll {
     grid-template-columns: 1fr;
     gap: 20px;
     padding: 16px 0;
   }
-  
+
   .movie-widget .movie-card img {
     height: 320px;
     border-radius: 12px 12px 0 0;
   }
-  
+
   .movie-widget .info {
     padding: 18px;
   }
-  
+
   .movie-widget .info h4 {
     font-size: 17px;
   }
-  
+
   /* 优化点赞按钮 */
   .movie-widget .info button {
     width: 100%;
     padding: 10px;
     font-size: 14px;
   }
-  
+
   /* Travel Section */
   .travel-widget .map-container {
     height: 320px;
     border-radius: 10px;
   }
-  
+
   .travel-widget .city-list {
     grid-template-columns: 1fr;
     gap: 14px;
   }
-  
+
   /* 优化城市卡片 */
   .travel-widget .city-card {
     padding: 16px;
     border-radius: 10px;
   }
-  
+
   .travel-widget .city-card h4 {
     font-size: 16px;
   }
@@ -823,6 +830,7 @@
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
