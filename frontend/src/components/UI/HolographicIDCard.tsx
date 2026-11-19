@@ -153,7 +153,12 @@ export const HolographicIDCard: React.FC<HolographicIDCardProps> = ({
                       {td(name && name !== '加载中...' ? name : '黄奕轩', 'Huang Yixuan')}
                     </h2>
                     <p className="text-xs sm:text-[13px] designer-text-secondary truncate mt-0.5">
-                      {td(title && title !== '在读学生' ? title : 'FDE / AI 全栈实习生', 'FDE / AI Full-Stack Intern')}
+                      {td(
+                        title && title !== '在读学生' && !title.includes('前端')
+                          ? title
+                          : 'AI Agent 工程 / FDE 驻场实习生',
+                        'AI Agent & FDE Engineer Intern',
+                      )}
                     </p>
                     <p className="text-[11px] font-mono designer-text-muted mt-1.5 flex items-center gap-1">
                       <MapPin className="w-3 h-3 text-[#8A6F48] shrink-0" />

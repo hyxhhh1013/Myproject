@@ -275,8 +275,8 @@ export const FDE_TELEMETRY_DATA: FdeTelemetryCardData = {
 export function evaluateJdMatch(rawInput: string): JdMatchCardData {
   const q = rawInput.toLowerCase();
   const isFde = q.includes('fde') || q.includes('驻场') || q.includes('解决方案') || q.includes('交付') || q.includes('业务');
-  const isFullstack =
-    (q.includes('全栈') || q.includes('前端') || q.includes('react') || q.includes('next') || q.includes('node')) &&
+  const isBackendOrFullstack =
+    (q.includes('后端') || q.includes('全栈') || q.includes('fastapi') || q.includes('python') || q.includes('node')) &&
     !q.includes('agent');
 
   let roleTitleZh = 'AI Agent 研发 / AI 应用工程实习生';
@@ -287,10 +287,10 @@ export function evaluateJdMatch(rawInput: string): JdMatchCardData {
     roleTitleZh = 'FDE 驻场工程师 / AI 解决方案实习生';
     roleTitleEn = 'Forward-Deployed Engineer (FDE) Intern';
     overallScore = 98;
-  } else if (isFullstack) {
-    roleTitleZh = 'AI 全栈开发工程师实习生 (React 19 / Next.js 16 / Node / Python)';
-    roleTitleEn = 'AI Full-Stack Software Engineer Intern';
-    overallScore = 95;
+  } else if (isBackendOrFullstack) {
+    roleTitleZh = 'AI 后端 & Agent 全栈工程实习生 (Python / FastAPI / LangGraph / PG)';
+    roleTitleEn = 'AI Backend & Agent Systems Engineer Intern';
+    overallScore = 96;
   }
 
   return {
@@ -300,18 +300,18 @@ export function evaluateJdMatch(rawInput: string): JdMatchCardData {
     jdSnippet: rawInput.length > 18 ? rawInput.slice(0, 120) : undefined,
     dimensions: [
       {
-        nameZh: 'Agent 架构与 RAG 工程落地',
-        nameEn: 'Agentic Workflow & Hybrid RAG',
+        nameZh: 'Agent 状态机编排与 RAG 工程落地',
+        nameEn: 'Multi-Agent State Graphs & Hybrid RAG',
         score: 98,
         evidenceZh: '独立构建「禾书耕文」LangGraph 46 工具可恢复循环 + 11 路 SSE + 2,749 篇文献 BM25/向量 RRF 混合检索，已交付 10+ 篇科研初稿。',
         evidenceEn: 'Built HeShu with a 46-tool LangGraph recoverable loop, 11 SSE channels, and 176,230-chunk Hybrid RAG (BM25 + Vector + RRF).',
       },
       {
-        nameZh: '全栈工程化与一线驻场交付',
-        nameEn: 'Full-Stack & On-Site FDE Delivery',
+        nameZh: 'Python/FastAPI 后端中台与 FDE 驻场交付',
+        nameEn: 'FastAPI Middle Platform & On-Site FDE Delivery',
         score: 96,
-        evidenceZh: '洋葱教育连续 15 周 FDE 驻场（35 个只读工具 + FastAPI 100+ 路由 + 19 条巨量 API）；熟练掌握 React 19、Next.js 16、TypeScript、PostgreSQL、2000+ 自动化测试。',
-        evidenceEn: '15 weeks on-site FDE delivery across 8 teams; React 19, Next.js 16, FastAPI, PostgreSQL, Prisma, and 2000+ automated tests.',
+        evidenceZh: '洋葱教育连续 15 周 FDE 驻场（35 个只读工具 + 人工确认写库硬闸 + FastAPI 100+ 路由 + 19 条巨量 API）；PostgreSQL 表前缀隔离、幂等对账与 2000+ 自动化测试。',
+        evidenceEn: '15 weeks on-site FDE delivery across 8 teams; 35 read-only tools with HITL write gates, 100+ FastAPI routes, PostgreSQL, and 2000+ automated tests.',
       },
       {
         nameZh: '到岗时间、出勤率与 AI 原生效率',

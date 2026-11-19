@@ -80,8 +80,18 @@ const localPhotos: Photo[] = Array.from({ length: 12 }, (_, index) => {
   const categoryName = CATEGORY_KEYS[categoryIndex];
   const category = LOCAL_CATEGORY_MAP[categoryName];
 
-  const cameras = ['Sony A7M4', 'Fujifilm X-T4', 'Canon R6 II', 'Nikon Zf'];
-  const lens = ['35mm f/1.4', '50mm f/1.2', '85mm f/1.8', '24-70mm f/2.8'];
+  const cameras = [
+    'Sony Alpha 7C II (ILCE-7CM2)',
+    'Sony ZV-E10',
+    'Xiaomi 14 · Leica Summilux',
+    'Sony ZV-E10',
+  ];
+  const lens = [
+    'FE 28-60mm F4-5.6',
+    'E PZ 16-50mm F3.5-5.6 OSS',
+    '23mm f/1.6 ASPH.',
+    'YN50mm f/1.8',
+  ];
 
   const imageUrl = `https://picsum.photos/seed/hyx-photo-${index + 1}/800/600`;
   const thumbnailUrl = `https://picsum.photos/seed/hyx-photo-${index + 1}/400/300`;

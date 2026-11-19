@@ -853,6 +853,25 @@ export const Projects: React.FC = () => {
       if (highlightedProjectCode && proj.indexCode === highlightedProjectCode) return true;
       if (!activeSkillFilter) return false;
       const filterLower = activeSkillFilter.toLowerCase();
+      if (
+        filterLower.includes('ai-native') ||
+        filterLower.includes('ai 原生') ||
+        filterLower.includes('e2e')
+      ) {
+        return true;
+      }
+      if (
+        (filterLower.includes('mcp') || filterLower.includes('tool')) &&
+        (proj.id === 1 || proj.id === 2)
+      ) {
+        return true;
+      }
+      if (filterLower.includes('fastapi') || filterLower.includes('python')) {
+        return proj.id === 1;
+      }
+      if (filterLower.includes('pg') || filterLower.includes('prisma') || filterLower.includes('postgres')) {
+        return true;
+      }
       return proj.stack.some(
         (s) => s.toLowerCase().includes(filterLower) || filterLower.includes(s.toLowerCase()),
       );

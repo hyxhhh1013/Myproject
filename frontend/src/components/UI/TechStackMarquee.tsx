@@ -13,15 +13,15 @@ interface TechStackMarqueeProps {
 }
 
 const DEFAULT_ITEMS: TechStackItem[] = [
-  { name: 'TypeScript', tag: '01 / CORE' },
-  { name: 'React 18 / Next.js', tag: '02 / UI' },
-  { name: 'LangGraph / RAG', tag: '03 / AGENT' },
-  { name: 'Tailwind CSS', tag: '04 / DESIGN' },
-  { name: 'Node.js / FastAPI', tag: '05 / API' },
-  { name: 'Prisma / PostgreSQL', tag: '06 / DATA' },
-  { name: 'Hybrid Search & Rerank', tag: '07 / AI' },
-  { name: 'Docker / Linux', tag: '08 / INFRA' },
-  { name: 'Framer Motion', tag: '09 / CRAFT' },
+  { name: 'LangGraph / Multi-Agent', tag: '01 / AGENT' },
+  { name: 'Hybrid RAG (BM25 + Vector RRF)', tag: '02 / RAG' },
+  { name: 'Python / FastAPI', tag: '03 / BACKEND' },
+  { name: 'Tool Calling / MCP', tag: '04 / PROTOCOL' },
+  { name: 'PostgreSQL / pgvector / Prisma', tag: '05 / DATA' },
+  { name: '11-Ch SSE Streaming', tag: '06 / STREAM' },
+  { name: 'HITL Approval Hard Gates', tag: '07 / SAFETY' },
+  { name: 'Next.js 16 / TypeScript / Node.js', tag: '08 / FULLSTACK' },
+  { name: 'Playwright / Vitest / Linux PM2', tag: '09 / INFRA' },
 ];
 
 export const TechStackMarquee: React.FC<TechStackMarqueeProps> = ({

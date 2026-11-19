@@ -22,9 +22,16 @@ import {
   Film,
   ArrowUpRight,
   ArrowLeft,
+  Info,
+  Briefcase,
+  Flame,
+  Mail,
+  Music,
 } from 'lucide-react';
 import { usePhotoContext, Photo } from '../context/PhotoContext';
+import { useTheme } from '../context/ThemeContext';
 import { useI18n } from '../i18n/i18nContext';
+import { resolvePhotoExif } from '../components/Sections/Photos';
 
 // ============================================================================
 // Built-in Projects & Procedural Audio Helpers
@@ -1338,16 +1345,19 @@ interface ShutterIsland3DProps {
 
 export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = false, onExit }) => {
   const { photos } = usePhotoContext();
+  const { theme, toggleTheme } = useTheme();
   const { td } = useI18n();
   const navigate = useNavigate();
 
   const mountRef = useRef<HTMLDivElement | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  const filmstripRef = useRef<HTMLDivElement | null>(null);
 
   const [timeOfDay, setTimeOfDay] = useState<number>(17.4);
   const [viewfinderMode, setViewfinderMode] = useState<boolean>(false);
   const [soundMuted, setSoundMuted] = useState<boolean>(false);
   const [activeZoneId, setActiveZoneId] = useState<string>('meadow');
+  const [showControlsHint, setShowControlsHint] = useState<boolean>(false);
 
   const [selectedEasel, setSelectedEasel] = useState<EaselNode | null>(null);
   const [activeStation, setActiveStation] = useState<SpecialStation['id'] | null>(null);
@@ -2634,7 +2644,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
     <div
       className={`relative ${
         embedded ? 'w-full h-[640px] rounded-2xl' : 'w-screen h-screen'
-      } overflow-hidden select-none bg-[#0E1726] font-sans`}
+      } overflow-hidden select-none bg-[#F3F1EC] dark:bg-[#0D0D0C] font-sans`}
     >
       {/* 1. Three.js WebGL 3D Viewport Container */}
       <div
@@ -2650,10 +2660,14 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       {hoveredLabel && !selectedEasel && !activeStation && (
         <div
           style={{ left: hoveredLabel.x + 14, top: hoveredLabel.y - 18 }}
-          className="fixed z-30 pointer-events-none px-3 py-1.5 rounded-xl bg-slate-950/90 text-white border border-amber-400/50 backdrop-blur-md shadow-xl"
+          className="fixed z-30 pointer-events-none px-3.5 py-2 rounded-xl bg-[#FAF9F5]/95 dark:bg-[#141413]/95 text-[#141413] dark:text-[#F0EFEA] border border-[#E6E2D8] dark:border-[#2A2925] backdrop-blur-xl shadow-lg"
         >
-          <div className="text-xs font-bold text-amber-300">{hoveredLabel.title}</div>
-          <div className="text-[10px] text-slate-300">{hoveredLabel.subtitle}</div>
+          <div className="text-xs font-serif font-semibold text-[#141413] dark:text-[#FAF9F5]">
+            {hoveredLabel.title}
+          </div>
+          <div className="text-[10px] font-mono text-[#8A6F48] dark:text-[#C8A97E] mt-0.5">
+            {hoveredLabel.subtitle}
+          </div>
         </div>
       )}
 
@@ -2665,7 +2679,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
             animate={{ opacity: 0 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.25 }}
-            className="absolute inset-0 z-50 bg-white pointer-events-none"
+            className="absolute inset-0 z-50 bg-[#FAF9F5] pointer-events-none"
           />
         )}
       </AnimatePresence>
@@ -2676,41 +2690,72 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
           <button
             type="button"
             onClick={handleBack}
-            className="px-3.5 py-2 rounded-xl bg-[#141413]/90 hover:bg-[#8A6F48] text-[#FAF9F5] border border-white/15 backdrop-blur-xl shadow-xl text-xs font-mono font-bold flex items-center gap-2 transition-colors"
+            className="px-3.5 py-2 rounded-xl bg-[#FAF9F5]/90 dark:bg-[#141413]/90 hover:bg-[#141413] hover:text-[#FAF9F5] dark:hover:bg-[#F0EFEA] dark:hover:text-[#141413] text-[#141413] dark:text-[#F0EFEA] border border-[#E6E2D8] dark:border-[#2A2925] backdrop-blur-xl shadow-sm text-xs font-mono tracking-wide flex items-center gap-2 transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>{embedded ? td('收起 3D 预览', 'Collapse 3D') : td('返回日常与兴趣', 'Back to Digital Garden')}</span>
           </button>
         </div>
 
-        <div className="px-4 py-3 rounded-2xl bg-[#111827]/80 text-[#F8FAFC] backdrop-blur-xl border border-white/15 shadow-2xl">
+        <div className="px-4 py-3 rounded-2xl bg-[#FAF9F5]/90 dark:bg-[#141413]/90 text-[#141413] dark:text-[#F0EFEA] backdrop-blur-xl border border-[#E6E2D8]/90 dark:border-[#2A2925] shadow-lg">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-xs font-mono uppercase tracking-wider text-emerald-300 font-bold">
-                {td('光影拾遗岛 · WebGL 3D', 'THE SHUTTER ISLAND · 3D')}
+              <span className="w-2 h-2 rounded-full bg-[#8A6F48] dark:bg-[#C8A97E] animate-pulse" />
+              <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-[#8A6F48] dark:text-[#C8A97E]">
+                {td('光影拾遗岛 · 3D', 'SHUTTER ISLAND · 3D')}
               </span>
             </div>
-            <span className="px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-300 text-[11px] font-mono font-bold">
-              {discoveredIds.length}/{EASEL_CONFIGS.length} {td('画架', 'Frames')}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="px-2 py-0.5 rounded-full bg-[#F3F1EC] dark:bg-[#1E1D1A] border border-[#E6E2D8] dark:border-[#2C2B27] text-[#8A6F48] dark:text-[#C8A97E] text-[10px] font-mono">
+                {discoveredIds.length}/{EASEL_CONFIGS.length} {td('画架', 'Frames')}
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowControlsHint((v) => !v)}
+                className={`p-1 rounded-full border transition-colors ${
+                  showControlsHint
+                    ? 'bg-[#141413] text-[#FAF9F5] border-[#141413] dark:bg-[#F0EFEA] dark:text-[#141413] dark:border-[#F0EFEA]'
+                    : 'bg-[#F3F1EC] dark:bg-[#1E1D1A] text-[#8C877E] border-[#E6E2D8] dark:border-[#2C2B27] hover:text-[#141413] dark:hover:text-[#FAF9F5]'
+                }`}
+                title={td('操作说明', 'Controls Guide')}
+              >
+                <Info className="w-3 h-3" />
+              </button>
+            </div>
           </div>
 
-          <h1 className="mt-1 text-base font-bold tracking-tight text-white">
+          <h1 className="mt-1.5 font-serif text-base font-medium tracking-tight text-[#141413] dark:text-[#FAF9F5]">
             {ISLAND_ZONES.find((z) => z.id === activeZoneId)?.nameZh || '01 · 拾光主岛'}
           </h1>
-          <p className="text-xs text-slate-300/90 mt-0.5">
+          <p className="text-[11px] text-[#6E6A63] dark:text-[#9E9A92] mt-0.5 leading-relaxed">
             {ISLAND_ZONES.find((z) => z.id === activeZoneId)?.subtitleZh}
           </p>
 
-          <div className="mt-2.5 pt-2.5 border-t border-white/10 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-300 font-mono">
-            <span className="px-1.5 py-0.5 rounded bg-white/10 text-white">WASD / 点击草地</span>
-            <span>漫步</span>
-            <span className="px-1.5 py-0.5 rounded bg-white/10 text-white">拖拽</span>
-            <span>环视</span>
-            <span className="px-1.5 py-0.5 rounded bg-white/10 text-amber-300">点击 3D 画架</span>
-            <span>看展</span>
-          </div>
+          <AnimatePresence>
+            {showControlsHint && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="mt-2.5 pt-2.5 border-t border-[#E6E2D8] dark:border-[#262522] flex flex-wrap items-center gap-1.5 text-[10px] text-[#6E6A63] dark:text-[#9E9A92] font-mono">
+                  <span className="px-1.5 py-0.5 rounded bg-[#F3F1EC] dark:bg-[#1E1D1A] border border-[#E6E2D8] dark:border-[#2C2B27] text-[#141413] dark:text-[#F0EFEA]">
+                    WASD / 点击草地
+                  </span>
+                  <span>漫步</span>
+                  <span className="px-1.5 py-0.5 rounded bg-[#F3F1EC] dark:bg-[#1E1D1A] border border-[#E6E2D8] dark:border-[#2C2B27] text-[#141413] dark:text-[#F0EFEA]">
+                    拖拽
+                  </span>
+                  <span>环视</span>
+                  <span className="px-1.5 py-0.5 rounded bg-[#F3F1EC] dark:bg-[#1E1D1A] border border-[#E6E2D8] dark:border-[#2C2B27] text-[#8A6F48] dark:text-[#C8A97E]">
+                    点击 3D 画架
+                  </span>
+                  <span>看展</span>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         <div className="flex flex-wrap gap-1.5">
@@ -2721,15 +2766,15 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
                 key={zone.id}
                 type="button"
                 onClick={() => teleportToZone(zone, idx)}
-                className={`px-2.5 py-1.5 rounded-xl text-xs font-medium backdrop-blur-md transition-all flex items-center gap-1.5 border ${
+                className={`px-2.5 py-1.5 rounded-xl text-[11px] font-mono backdrop-blur-xl transition-all flex items-center gap-1.5 border ${
                   active
-                    ? 'bg-amber-500 text-slate-950 font-bold border-amber-300 shadow-lg shadow-amber-500/25'
-                    : 'bg-[#111827]/75 text-slate-200 border-white/10 hover:bg-white/15'
+                    ? 'bg-[#141413] text-[#FAF9F5] dark:bg-[#F0EFEA] dark:text-[#141413] border-[#141413] dark:border-[#F0EFEA] shadow-sm'
+                    : 'bg-[#FAF9F5]/85 dark:bg-[#141413]/85 text-[#524E48] dark:text-[#B5B0A6] border-[#E6E2D8] dark:border-[#2A2925] hover:border-[#8A6F48] dark:hover:border-[#C8A97E] hover:text-[#141413] dark:hover:text-[#FAF9F5]'
                 }`}
               >
                 <span
-                  className="w-2 h-2 rounded-full"
-                  style={{ backgroundColor: active ? '#0F172A' : zone.badgeColor }}
+                  className="w-1.5 h-1.5 rounded-full"
+                  style={{ backgroundColor: active ? '#C8A97E' : zone.badgeColor }}
                 />
                 <span>{zone.nameZh.split(' · ')[1]}</span>
               </button>
@@ -2740,13 +2785,13 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
 
       {/* 3. Top-Right Golden Hour Time-of-Day Controller & Viewfinder Toggle */}
       <div className="absolute top-4 right-4 z-30 flex flex-col items-end gap-2.5 pointer-events-auto">
-        <div className="px-4 py-3 rounded-2xl bg-[#111827]/80 text-white backdrop-blur-xl border border-white/15 shadow-2xl w-72">
-          <div className="flex items-center justify-between text-xs mb-1.5">
-            <span className="font-mono text-amber-300 font-bold flex items-center gap-1.5">
+        <div className="px-4 py-3 rounded-2xl bg-[#FAF9F5]/90 dark:bg-[#141413]/90 text-[#141413] dark:text-[#F0EFEA] backdrop-blur-xl border border-[#E6E2D8]/90 dark:border-[#2A2925] shadow-lg w-72">
+          <div className="flex items-center justify-between text-xs mb-2">
+            <span className="font-mono text-[11px] text-[#8A6F48] dark:text-[#C8A97E] flex items-center gap-1.5">
               <Sun className="w-3.5 h-3.5" />
               {currentAtmo.labelZh}
             </span>
-            <span className="font-mono text-slate-300">
+            <span className="font-mono text-[11px] text-[#6E6A63] dark:text-[#9E9A92]">
               {Math.floor(timeOfDay).toString().padStart(2, '0')}:
               {Math.floor((timeOfDay % 1) * 60)
                 .toString()
@@ -2761,10 +2806,10 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
             step={0.1}
             value={timeOfDay}
             onChange={(e) => setTimeOfDay(parseFloat(e.target.value))}
-            className="w-full accent-amber-400 cursor-pointer h-1.5 bg-white/20 rounded-lg"
+            className="w-full accent-[#8A6F48] dark:accent-[#C8A97E] cursor-pointer h-1.5 bg-[#E6E2D8] dark:bg-[#2A2925] rounded-lg"
           />
 
-          <div className="mt-2 grid grid-cols-5 gap-1 text-[11px] font-mono">
+          <div className="mt-2.5 grid grid-cols-5 gap-1 text-[10px] font-mono">
             {[
               { label: '晨雾', hour: 6.5, icon: <CloudSun className="w-3 h-3" /> },
               { label: '晴空', hour: 13.0, icon: <Sun className="w-3 h-3" /> },
@@ -2781,10 +2826,10 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
                     playTactileClick(680);
                     setTimeOfDay(preset.hour);
                   }}
-                  className={`py-1 rounded-lg flex flex-col items-center justify-center gap-0.5 transition-all ${
+                  className={`py-1.5 rounded-lg flex flex-col items-center justify-center gap-0.5 transition-all border ${
                     isCurrent
-                      ? 'bg-amber-500 text-slate-950 font-bold'
-                      : 'bg-white/10 text-slate-300 hover:bg-white/20'
+                      ? 'bg-[#141413] text-[#FAF9F5] border-[#141413] dark:bg-[#F0EFEA] dark:text-[#141413] dark:border-[#F0EFEA]'
+                      : 'bg-[#F3F1EC]/90 dark:bg-[#1C1B18] text-[#6E6A63] dark:text-[#9E9A92] border-transparent hover:border-[#E6E2D8] dark:hover:border-[#2C2B27] hover:text-[#141413] dark:hover:text-[#FAF9F5]'
                   }`}
                 >
                   {preset.icon}
@@ -2802,20 +2847,20 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
               playTactileClick(760);
               setViewfinderMode((v) => !v);
             }}
-            className={`px-3.5 py-2 rounded-xl text-xs font-mono font-bold flex items-center gap-1.5 backdrop-blur-xl border transition-all shadow-lg ${
+            className={`px-3 py-2 rounded-xl text-xs font-mono flex items-center gap-1.5 backdrop-blur-xl border transition-all shadow-sm ${
               viewfinderMode
-                ? 'bg-amber-500 text-slate-950 border-amber-300'
-                : 'bg-[#111827]/80 text-white border-white/15 hover:bg-white/15'
+                ? 'bg-[#8A6F48] text-[#FAF9F5] border-[#8A6F48]'
+                : 'bg-[#FAF9F5]/90 dark:bg-[#141413]/90 text-[#141413] dark:text-[#F0EFEA] border-[#E6E2D8] dark:border-[#2A2925] hover:border-[#8A6F48] dark:hover:border-[#C8A97E]'
             }`}
           >
             <Camera className="w-3.5 h-3.5" />
-            <span>{viewfinderMode ? '退出取景器 [V]' : '单反取景器 [V]'}</span>
+            <span>{viewfinderMode ? '退出取景 [V]' : '取景器 [V]'}</span>
           </button>
 
           <button
             type="button"
             onClick={captureIslandPostcard}
-            className="px-3.5 py-2 rounded-xl text-xs font-mono font-bold flex items-center gap-1.5 bg-emerald-500/90 hover:bg-emerald-400 text-slate-950 border border-emerald-300 shadow-lg transition-all"
+            className="px-3 py-2 rounded-xl text-xs font-mono flex items-center gap-1.5 bg-[#141413] hover:bg-[#8A6F48] text-[#FAF9F5] dark:bg-[#F0EFEA] dark:hover:bg-[#C8A97E] dark:text-[#141413] border border-transparent shadow-sm transition-colors"
             title="拍下当前 3D 小岛明信片"
           >
             <Aperture className="w-3.5 h-3.5" />
@@ -2832,7 +2877,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
               sim.camTargetDist = 17.5;
               sim.camTargetFocus.set(sim.playerPos.x, sim.playerPos.y + 1.1, sim.playerPos.z);
             }}
-            className="p-2 rounded-xl bg-[#111827]/80 text-slate-200 hover:text-white border border-white/15 backdrop-blur-xl"
+            className="p-2 rounded-xl bg-[#FAF9F5]/90 dark:bg-[#141413]/90 text-[#524E48] dark:text-[#B5B0A6] hover:text-[#141413] dark:hover:text-[#FAF9F5] border border-[#E6E2D8] dark:border-[#2A2925] hover:border-[#8A6F48] backdrop-blur-xl shadow-sm transition-colors"
             title="重置镜头视角"
           >
             <RotateCcw className="w-4 h-4" />
@@ -2841,27 +2886,40 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
           <button
             type="button"
             onClick={() => setSoundMuted((m) => !m)}
-            className="p-2 rounded-xl bg-[#111827]/80 text-slate-200 hover:text-white border border-white/15 backdrop-blur-xl"
+            className="p-2 rounded-xl bg-[#FAF9F5]/90 dark:bg-[#141413]/90 text-[#524E48] dark:text-[#B5B0A6] hover:text-[#141413] dark:hover:text-[#FAF9F5] border border-[#E6E2D8] dark:border-[#2A2925] hover:border-[#8A6F48] backdrop-blur-xl shadow-sm transition-colors"
             title={soundMuted ? '开启快门与风铃音效' : '静音'}
           >
             {soundMuted ? (
-              <VolumeX className="w-4 h-4 text-rose-400" />
+              <VolumeX className="w-4 h-4 text-[#9E553F]" />
             ) : (
-              <Volume2 className="w-4 h-4 text-emerald-400" />
+              <Volume2 className="w-4 h-4 text-[#8A6F48] dark:text-[#C8A97E]" />
             )}
           </button>
+
+          {!embedded && (
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="p-2 rounded-xl bg-[#FAF9F5]/90 dark:bg-[#141413]/90 text-[#524E48] dark:text-[#B5B0A6] hover:text-[#141413] dark:hover:text-[#FAF9F5] border border-[#E6E2D8] dark:border-[#2A2925] hover:border-[#8A6F48] backdrop-blur-xl shadow-sm transition-colors"
+              title={theme === 'dark' ? '切换浅色纸面主题' : '切换深色暗房主题'}
+            >
+              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
+          )}
         </div>
 
         {capturedPostcards.length > 0 && (
-          <div className="px-3 py-2 rounded-2xl bg-[#111827]/85 border border-white/15 backdrop-blur-xl flex items-center gap-2">
-            <span className="text-[11px] font-mono text-amber-300">明信片夹:</span>
+          <div className="px-3 py-2 rounded-2xl bg-[#FAF9F5]/90 dark:bg-[#141413]/90 border border-[#E6E2D8] dark:border-[#2A2925] backdrop-blur-xl shadow-sm flex items-center gap-2">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-[#8A6F48] dark:text-[#C8A97E]">
+              明信片夹
+            </span>
             <div className="flex items-center gap-1.5">
               {capturedPostcards.map((card) => (
                 <button
                   key={card.id}
                   type="button"
                   onClick={() => setPreviewPostcard(card)}
-                  className="w-10 h-7 rounded overflow-hidden border border-white/40 hover:scale-110 transition-transform"
+                  className="w-10 h-7 rounded-md overflow-hidden border border-[#E6E2D8] dark:border-[#2A2925] hover:border-[#8A6F48] hover:scale-105 transition-all"
                 >
                   <img src={card.dataUrl} alt={card.zoneLabel} className="w-full h-full object-cover" />
                 </button>
@@ -2880,18 +2938,18 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
             exit={{ opacity: 0 }}
             className="absolute inset-0 z-20 pointer-events-none flex flex-col justify-between p-10"
           >
-            <div className="absolute inset-12 border border-amber-400/35 rounded-lg">
-              <div className="absolute left-1/3 top-0 bottom-0 w-px bg-amber-400/20" />
-              <div className="absolute left-2/3 top-0 bottom-0 w-px bg-amber-400/20" />
-              <div className="absolute top-1/3 left-0 right-0 h-px bg-amber-400/20" />
-              <div className="absolute top-2/3 left-0 right-0 h-px bg-amber-400/20" />
+            <div className="absolute inset-12 border border-[#C8A97E]/45 rounded-lg">
+              <div className="absolute left-1/3 top-0 bottom-0 w-px bg-[#C8A97E]/20" />
+              <div className="absolute left-2/3 top-0 bottom-0 w-px bg-[#C8A97E]/20" />
+              <div className="absolute top-1/3 left-0 right-0 h-px bg-[#C8A97E]/20" />
+              <div className="absolute top-2/3 left-0 right-0 h-px bg-[#C8A97E]/20" />
 
-              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 border border-amber-400/60 rounded-full flex items-center justify-center">
-                <div className="w-3 h-3 border border-amber-300" />
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 border border-[#C8A97E]/70 rounded-full flex items-center justify-center">
+                <div className="w-3 h-3 border border-[#E5D3B3]" />
               </div>
             </div>
 
-            <div className="mt-auto mb-16 mx-auto px-6 py-2 rounded-full bg-black/75 border border-amber-400/40 text-amber-300 font-mono text-xs flex items-center gap-6 pointer-events-auto">
+            <div className="mt-auto mb-16 mx-auto px-5 py-2 rounded-full bg-[#141413]/90 border border-[#C8A97E]/35 text-[#E5D3B3] backdrop-blur-md font-mono text-xs flex items-center gap-5 pointer-events-auto shadow-xl">
               <span>AF-S · 35mm f/1.4</span>
               <span>SS 1/1000</span>
               <span>ISO {timeOfDay > 19 || timeOfDay < 6 ? '800' : '100'}</span>
@@ -2899,7 +2957,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
               <button
                 type="button"
                 onClick={captureIslandPostcard}
-                className="px-3 py-1 rounded-full bg-amber-400 text-slate-950 font-bold hover:bg-amber-300 transition-colors"
+                className="px-3.5 py-1 rounded-full bg-[#C8A97E] text-[#141413] font-medium hover:bg-[#DFC69E] transition-colors"
               >
                 ● 按下快门 [Space]
               </button>
@@ -2928,90 +2986,135 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
                   setActiveStation(nearbyPrompt.id as SpecialStation['id']);
                 }
               }}
-              className="px-5 py-2.5 rounded-2xl bg-[#111827]/90 hover:bg-[#1E293B] text-white border border-amber-400/50 backdrop-blur-xl shadow-2xl flex items-center gap-3 group transition-all"
+              className="px-4 py-2.5 rounded-2xl bg-[#FAF9F5]/95 dark:bg-[#141413]/95 hover:border-[#8A6F48] dark:hover:border-[#C8A97E] text-[#141413] dark:text-[#F0EFEA] border border-[#E6E2D8] dark:border-[#2A2925] backdrop-blur-xl shadow-xl flex items-center gap-3 group transition-all"
             >
-              <span className="px-2 py-1 rounded-lg bg-amber-400 text-slate-950 font-mono text-xs font-bold">
+              <span className="px-2 py-1 rounded-lg bg-[#141413] text-[#FAF9F5] dark:bg-[#C8A97E] dark:text-[#141413] font-mono text-[11px]">
                 E / 点击
               </span>
               <div className="text-left">
-                <div className="text-sm font-bold text-amber-200 group-hover:text-white flex items-center gap-1.5">
+                <div className="font-serif text-sm font-medium text-[#141413] dark:text-[#FAF9F5] group-hover:text-[#8A6F48] dark:group-hover:text-[#C8A97E] flex items-center gap-1.5 transition-colors">
                   <span>{nearbyPrompt.titleZh}</span>
                   <ArrowUpRight className="w-3.5 h-3.5" />
                 </div>
-                <div className="text-[11px] text-slate-300">{nearbyPrompt.subZh}</div>
+                <div className="text-[11px] text-[#6E6A63] dark:text-[#9E9A92]">{nearbyPrompt.subZh}</div>
               </div>
             </button>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* 6. Bottom 35mm Filmstrip Navigation Bar */}
+      {/* 6. Bottom 35mm Filmstrip Navigation Bar (Zero Native Scrollbar) */}
       <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 max-w-[96%] pointer-events-auto">
-        <div className="px-3 py-2 rounded-2xl bg-[#111827]/85 backdrop-blur-xl border border-white/15 shadow-2xl flex items-center gap-2 overflow-x-auto">
-          <div className="flex items-center gap-1.5 pr-2 border-r border-white/15 shrink-0">
-            <Film className="w-4 h-4 text-amber-400" />
-            <span className="text-xs font-mono font-bold text-slate-200 hidden sm:inline">
-              35mm 胶卷导览:
+        <div className="px-2.5 py-2 rounded-2xl bg-[#FAF9F5]/95 dark:bg-[#141413]/90 backdrop-blur-xl border border-[#E6E2D8] dark:border-[#2A2925] shadow-lg flex items-center gap-2">
+          <div className="flex items-center gap-1.5 pl-1 pr-2.5 border-r border-[#E6E2D8] dark:border-[#2A2925] shrink-0">
+            <Film className="w-3.5 h-3.5 text-[#8A6F48] dark:text-[#C8A97E]" />
+            <span className="text-[11px] font-mono tracking-wide text-[#524E48] dark:text-[#B5B0A6] hidden md:inline">
+              35mm 胶卷
             </span>
           </div>
 
-          {EASEL_CONFIGS.map((easel, idx) => {
-            const photo = photos[easel.photoIndex % photos.length];
-            const isSelected = selectedEasel?.id === easel.id;
-            const isDiscovered = discoveredIds.includes(easel.id);
-            return (
-              <button
-                key={easel.id}
-                type="button"
-                onClick={() => inspectEasel(easel)}
-                className={`group relative shrink-0 w-14 h-10 rounded-lg overflow-hidden border transition-all ${
-                  isSelected
-                    ? 'border-amber-400 ring-2 ring-amber-400/60 scale-105'
-                    : isDiscovered
-                      ? 'border-emerald-400/60 hover:border-white'
-                      : 'border-white/20 opacity-80 hover:opacity-100'
-                }`}
-                title={`${idx + 1}. ${photo?.title || '摄影作品'} (${easel.locationZh})`}
-              >
-                <img
-                  src={photo?.thumbnailUrl || photo?.imageUrl}
-                  alt={photo?.title}
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex items-end justify-between px-1 pb-0.5">
-                  <span className="text-[9px] font-mono text-amber-300 font-bold">
-                    {String(idx + 1).padStart(2, '0')}
-                  </span>
-                  {isDiscovered && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
-                </div>
-              </button>
-            );
-          })}
+          <button
+            type="button"
+            onClick={() => filmstripRef.current?.scrollBy({ left: -220, behavior: 'smooth' })}
+            className="p-1 rounded-lg text-[#8C877E] hover:text-[#141413] dark:hover:text-[#FAF9F5] hover:bg-[#F3F1EC] dark:hover:bg-[#1E1D1A] transition-colors shrink-0"
+            title="向左滚动胶卷"
+          >
+            <ChevronLeft className="w-3.5 h-3.5" />
+          </button>
 
-          <div className="h-6 w-px bg-white/15 mx-1 shrink-0" />
+          <div
+            ref={filmstripRef}
+            onWheel={(e) => {
+              if (Math.abs(e.deltaY) > 0) {
+                e.stopPropagation();
+                e.currentTarget.scrollLeft += e.deltaY;
+              }
+            }}
+            className="flex items-center gap-1.5 overflow-x-auto max-w-[44vw] sm:max-w-[52vw] lg:max-w-[60vw] py-0.5 px-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {EASEL_CONFIGS.map((easel, idx) => {
+              const photo = photos[easel.photoIndex % photos.length];
+              const isSelected = selectedEasel?.id === easel.id;
+              const isDiscovered = discoveredIds.includes(easel.id);
+              return (
+                <button
+                  key={easel.id}
+                  type="button"
+                  onClick={() => inspectEasel(easel)}
+                  className={`group relative shrink-0 w-12 h-9 rounded-lg overflow-hidden border transition-all ${
+                    isSelected
+                      ? 'border-[#8A6F48] dark:border-[#C8A97E] ring-2 ring-[#8A6F48]/40 dark:ring-[#C8A97E]/40 scale-105'
+                      : isDiscovered
+                        ? 'border-[#8A6F48]/45 dark:border-[#C8A97E]/45 hover:border-[#141413] dark:hover:border-[#FAF9F5]'
+                        : 'border-[#E6E2D8] dark:border-[#2A2925] opacity-85 hover:opacity-100'
+                  }`}
+                  title={`${idx + 1}. ${photo?.title || '摄影作品'} (${easel.locationZh})`}
+                >
+                  <img
+                    src={photo?.thumbnailUrl || photo?.imageUrl}
+                    alt={photo?.title}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#141413]/75 via-transparent to-transparent flex items-end justify-between px-1 pb-0.5">
+                    <span className="text-[9px] font-mono text-[#FAF9F5]">
+                      {String(idx + 1).padStart(2, '0')}
+                    </span>
+                    {isDiscovered && <span className="w-1.5 h-1.5 rounded-full bg-[#C8A97E]" />}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
 
-          {SPECIAL_STATIONS.map((st) => (
-            <button
-              key={st.id}
-              type="button"
-              onClick={() => {
-                playWindChimeNote(1, soundMuted);
-                setSelectedEasel(null);
-                setActiveStation(st.id);
-              }}
-              className={`px-2.5 py-1.5 rounded-xl text-xs font-mono shrink-0 border transition-all ${
-                activeStation === st.id
-                  ? 'bg-amber-400 text-slate-950 font-bold border-amber-300'
-                  : 'bg-white/10 text-slate-200 border-white/10 hover:bg-white/20'
-              }`}
-            >
-              {st.id === 'gear-bag'
-                ? '🎒 器材包'
-                : st.id === 'campfire-projects'
-                  ? '🔥 篝火造物'
-                  : '📮 漂流瓶'}
-            </button>
-          ))}
+          <button
+            type="button"
+            onClick={() => filmstripRef.current?.scrollBy({ left: 220, behavior: 'smooth' })}
+            className="p-1 rounded-lg text-[#8C877E] hover:text-[#141413] dark:hover:text-[#FAF9F5] hover:bg-[#F3F1EC] dark:hover:bg-[#1E1D1A] transition-colors shrink-0"
+            title="向右滚动胶卷"
+          >
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+
+          <div className="h-5 w-px bg-[#E6E2D8] dark:bg-[#2A2925] shrink-0" />
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            {SPECIAL_STATIONS.map((st) => {
+              const active = activeStation === st.id;
+              return (
+                <button
+                  key={st.id}
+                  type="button"
+                  onClick={() => {
+                    playWindChimeNote(1, soundMuted);
+                    setSelectedEasel(null);
+                    setActiveStation(st.id);
+                  }}
+                  className={`px-2.5 py-1.5 rounded-xl text-[11px] font-mono shrink-0 border transition-all flex items-center gap-1.5 ${
+                    active
+                      ? 'bg-[#141413] text-[#FAF9F5] border-[#141413] dark:bg-[#F0EFEA] dark:text-[#141413] dark:border-[#F0EFEA]'
+                      : 'bg-[#F3F1EC]/90 dark:bg-[#1C1B18] text-[#524E48] dark:text-[#B5B0A6] border-[#E6E2D8] dark:border-[#2A2925] hover:border-[#8A6F48] dark:hover:border-[#C8A97E] hover:text-[#141413] dark:hover:text-[#FAF9F5]'
+                  }`}
+                >
+                  {st.id === 'gear-bag' ? (
+                    <>
+                      <Briefcase className="w-3 h-3" />
+                      <span className="hidden sm:inline">器材包</span>
+                    </>
+                  ) : st.id === 'campfire-projects' ? (
+                    <>
+                      <Flame className="w-3 h-3" />
+                      <span className="hidden sm:inline">篝火造物</span>
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="w-3 h-3" />
+                      <span className="hidden sm:inline">漂流瓶</span>
+                    </>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -3022,21 +3125,21 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-4 sm:p-8"
+            className="fixed inset-0 z-50 bg-[#141413]/75 backdrop-blur-md flex items-center justify-center p-4 sm:p-8"
             onClick={() => setSelectedEasel(null)}
           >
             <motion.div
-              initial={{ scale: 0.92, y: 20, opacity: 0 }}
+              initial={{ scale: 0.94, y: 18, opacity: 0 }}
               animate={{ scale: 1, y: 0, opacity: 1 }}
-              exit={{ scale: 0.92, y: 20, opacity: 0 }}
+              exit={{ scale: 0.94, y: 18, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="relative max-w-5xl w-full bg-[#141824]/95 border border-white/15 rounded-3xl overflow-hidden shadow-2xl grid grid-cols-1 lg:grid-cols-12 text-white"
+              className="relative max-w-5xl w-full bg-[#FAF9F5] dark:bg-[#141413] border border-[#E6E2D8] dark:border-[#2A2925] rounded-2xl overflow-hidden shadow-2xl grid grid-cols-1 lg:grid-cols-12 text-[#141413] dark:text-[#F0EFEA]"
             >
-              <div className="lg:col-span-7 bg-black/60 relative flex items-center justify-center min-h-[320px] sm:min-h-[460px] p-6">
+              <div className="lg:col-span-7 bg-[#1A1917] dark:bg-[#0B0B0A] relative flex items-center justify-center min-h-[320px] sm:min-h-[460px] p-6">
                 <img
                   src={selectedPhoto.imageUrl}
                   alt={selectedPhoto.title}
-                  className="max-h-[70vh] w-auto object-contain rounded-xl shadow-2xl border border-white/10"
+                  className="max-h-[70vh] w-auto object-contain rounded-lg shadow-2xl border border-white/10"
                 />
 
                 <button
@@ -3046,7 +3149,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
                     const prev = EASEL_CONFIGS[(idx - 1 + EASEL_CONFIGS.length) % EASEL_CONFIGS.length];
                     inspectEasel(prev);
                   }}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-black/60 hover:bg-amber-500 hover:text-slate-950 text-white border border-white/15 transition-colors"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-[#FAF9F5]/90 dark:bg-[#141413]/85 hover:bg-[#8A6F48] hover:text-[#FAF9F5] text-[#141413] dark:text-[#F0EFEA] border border-[#E6E2D8] dark:border-[#2A2925] transition-colors shadow-md"
                   title="上一幅作品"
                 >
                   <ChevronLeft className="w-5 h-5" />
@@ -3058,7 +3161,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
                     const next = EASEL_CONFIGS[(idx + 1) % EASEL_CONFIGS.length];
                     inspectEasel(next);
                   }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-black/60 hover:bg-amber-500 hover:text-slate-950 text-white border border-white/15 transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-[#FAF9F5]/90 dark:bg-[#141413]/85 hover:bg-[#8A6F48] hover:text-[#FAF9F5] text-[#141413] dark:text-[#F0EFEA] border border-[#E6E2D8] dark:border-[#2A2925] transition-colors shadow-md"
                   title="下一幅作品"
                 >
                   <ChevronRight className="w-5 h-5" />
@@ -3068,24 +3171,24 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
               <div className="lg:col-span-5 p-6 sm:p-8 flex flex-col justify-between">
                 <div>
                   <div className="flex items-center justify-between gap-2">
-                    <span className="px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-300 text-xs font-mono font-bold">
-                      {selectedPhoto.category?.name || '光影拾遗'} · {selectedEasel.id.toUpperCase()}
+                    <span className="text-[11px] font-mono uppercase tracking-[0.16em] text-[#8A6F48] dark:text-[#C8A97E]">
+                      {selectedPhoto.category?.name || '光影拾遗'} // {selectedEasel.id.toUpperCase()}
                     </span>
                     <button
                       type="button"
                       onClick={() => setSelectedEasel(null)}
-                      className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-slate-300"
+                      className="p-1.5 rounded-full bg-[#F3F1EC] dark:bg-[#1E1D1A] hover:bg-[#E6E2D8] dark:hover:bg-[#2A2925] text-[#6E6A63] dark:text-[#9E9A92] transition-colors"
                     >
                       <X className="w-4 h-4" />
                     </button>
                   </div>
 
-                  <h2 className="mt-4 text-2xl font-bold tracking-tight text-white">
+                  <h2 className="mt-3 font-serif text-2xl font-medium tracking-tight text-[#141413] dark:text-[#FAF9F5]">
                     {selectedPhoto.title}
                   </h2>
 
-                  <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-300 font-mono">
-                    <span className="flex items-center gap-1 text-emerald-300">
+                  <div className="mt-2 flex flex-wrap items-center gap-2.5 text-xs text-[#6E6A63] dark:text-[#9E9A92] font-mono">
+                    <span className="flex items-center gap-1 text-[#8A6F48] dark:text-[#C8A97E]">
                       <MapPin className="w-3.5 h-3.5" />
                       {selectedEasel.locationZh}
                     </span>
@@ -3093,52 +3196,58 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
                     <span>{selectedEasel.weatherZh}</span>
                   </div>
 
-                  <div className="mt-5 p-4 rounded-2xl bg-white/5 border border-white/10">
-                    <div className="text-[11px] font-mono uppercase tracking-wider text-amber-300 mb-1.5">
-                      📸 快门背后的故事 · FIELD NOTE
+                  <div className="mt-5 p-4 rounded-xl bg-[#F3F1EC]/85 dark:bg-[#1A1917] border border-[#E6E2D8] dark:border-[#2A2925]">
+                    <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-[#8A6F48] dark:text-[#C8A97E] mb-1.5 flex items-center gap-1.5">
+                      <Camera className="w-3 h-3" />
+                      <span>FIELD NOTE · 快门手记</span>
                     </div>
-                    <p className="text-sm text-slate-200 leading-relaxed">
+                    <p className="text-sm text-[#4A4741] dark:text-[#C9C5BC] leading-relaxed">
                       {td(selectedEasel.storyZh, selectedEasel.storyEn)}
                     </p>
                   </div>
 
                   <div className="mt-5">
-                    <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400 mb-2">
-                      光学参数 · EXIF TELEMETRY
+                    <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-[#8C877E] mb-2">
+                      EXIF TELEMETRY · 光学参数
                     </div>
-                    <div className="grid grid-cols-2 gap-2.5 font-mono text-xs">
-                      <div className="p-3 rounded-xl bg-white/5 border border-white/10">
-                        <div className="text-[10px] text-slate-400">CAMERA BODY</div>
-                        <div className="text-white font-bold mt-0.5">
-                          {selectedPhoto.cameraModel || 'Fujifilm X-T4 / Sony A7M4'}
+                    {(() => {
+                      const ex = resolvePhotoExif(selectedPhoto);
+                      return (
+                        <div className="grid grid-cols-2 gap-2.5 font-mono text-xs">
+                          <div className="p-3 rounded-xl bg-[#F3F1EC]/70 dark:bg-[#1A1917] border border-[#E6E2D8] dark:border-[#2A2925]">
+                            <div className="text-[10px] text-[#8C877E]">CAMERA BODY</div>
+                            <div className="text-[#141413] dark:text-[#FAF9F5] font-medium mt-0.5">
+                              {ex.cameraFull}
+                            </div>
+                          </div>
+                          <div className="p-3 rounded-xl bg-[#F3F1EC]/70 dark:bg-[#1A1917] border border-[#E6E2D8] dark:border-[#2A2925]">
+                            <div className="text-[10px] text-[#8C877E]">LENS &amp; FOCAL</div>
+                            <div className="text-[#141413] dark:text-[#FAF9F5] font-medium mt-0.5">
+                              {ex.lens} · {ex.focalLength}
+                            </div>
+                          </div>
+                          <div className="p-3 rounded-xl bg-[#F3F1EC]/70 dark:bg-[#1A1917] border border-[#E6E2D8] dark:border-[#2A2925]">
+                            <div className="text-[10px] text-[#8C877E]">APERTURE &amp; SHUTTER</div>
+                            <div className="text-[#8A6F48] dark:text-[#C8A97E] font-medium mt-0.5">
+                              f/{ex.aperture} · {ex.shutterSpeed}s
+                            </div>
+                          </div>
+                          <div className="p-3 rounded-xl bg-[#F3F1EC]/70 dark:bg-[#1A1917] border border-[#E6E2D8] dark:border-[#2A2925]">
+                            <div className="text-[10px] text-[#8C877E]">ISO &amp; FORMAT</div>
+                            <div className="text-[#141413] dark:text-[#FAF9F5] font-medium mt-0.5">
+                              ISO {ex.iso} · RAW / WebP
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                      <div className="p-3 rounded-xl bg-white/5 border border-white/10">
-                        <div className="text-[10px] text-slate-400">LENS & FOCAL</div>
-                        <div className="text-white font-bold mt-0.5">
-                          {selectedPhoto.lens || '35mm f/1.4 GM'}
-                        </div>
-                      </div>
-                      <div className="p-3 rounded-xl bg-white/5 border border-white/10">
-                        <div className="text-[10px] text-slate-400">APERTURE & SHUTTER</div>
-                        <div className="text-amber-300 font-bold mt-0.5">
-                          f/{selectedPhoto.aperture || '1.4'} · {selectedPhoto.shutterSpeed || '1/1000'}s
-                        </div>
-                      </div>
-                      <div className="p-3 rounded-xl bg-white/5 border border-white/10">
-                        <div className="text-[10px] text-slate-400">ISO & COLOR PROFILE</div>
-                        <div className="text-emerald-300 font-bold mt-0.5">
-                          ISO {selectedPhoto.iso || '160'} · Classic Neg
-                        </div>
-                      </div>
-                    </div>
+                      );
+                    })()}
                   </div>
                 </div>
 
-                <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between text-xs text-slate-400">
-                  <span>
+                <div className="mt-6 pt-4 border-t border-[#E6E2D8] dark:border-[#262522] flex items-center justify-between text-xs text-[#6E6A63] dark:text-[#9E9A92]">
+                  <span className="font-mono">
                     所在岛屿：
-                    <strong className="text-slate-200 ml-1">
+                    <strong className="text-[#141413] dark:text-[#FAF9F5] font-medium ml-1">
                       {ISLAND_ZONES.find((z) => z.id === selectedEasel.zoneId)?.nameZh.split(' · ')[1]}
                     </strong>
                   </span>
@@ -3150,7 +3259,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
                       if (zone) setActiveZoneId(zone.id);
                       setSelectedEasel(null);
                     }}
-                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition-colors"
+                    className="px-4 py-2 rounded-xl bg-[#141413] hover:bg-[#8A6F48] text-[#FAF9F5] dark:bg-[#F0EFEA] dark:hover:bg-[#C8A97E] dark:text-[#141413] font-mono text-xs transition-colors"
                   >
                     继续在岛上漫步
                   </button>
@@ -3168,56 +3277,65 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 bg-[#141413]/75 backdrop-blur-md flex items-center justify-center p-4"
             onClick={() => setActiveStation(null)}
           >
             <motion.div
-              initial={{ scale: 0.93, y: 18 }}
+              initial={{ scale: 0.94, y: 18 }}
               animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.93, y: 18 }}
+              exit={{ scale: 0.94, y: 18 }}
               onClick={(e) => e.stopPropagation()}
-              className="max-w-3xl w-full bg-[#141824]/95 border border-white/15 rounded-3xl p-6 sm:p-8 text-white shadow-2xl max-h-[85vh] overflow-y-auto"
+              className="max-w-3xl w-full bg-[#FAF9F5] dark:bg-[#141413] border border-[#E6E2D8] dark:border-[#2A2925] rounded-2xl p-6 sm:p-8 text-[#141413] dark:text-[#F0EFEA] shadow-2xl max-h-[85vh] overflow-y-auto"
             >
               {activeStation === 'gear-bag' && (
                 <div>
                   <div className="flex items-center justify-between">
-                    <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-mono font-bold">
-                      🎒 拾光主岛 · 摄影师长椅与器材包
+                    <span className="text-[11px] font-mono uppercase tracking-[0.18em] text-[#8A6F48] dark:text-[#C8A97E] flex items-center gap-1.5">
+                      <Briefcase className="w-3.5 h-3.5" />
+                      <span>01 // 拾光主岛 · 摄影师长椅与器材包</span>
                     </span>
                     <button
                       type="button"
                       onClick={() => setActiveStation(null)}
-                      className="p-1.5 rounded-full bg-white/10 hover:bg-white/20"
+                      className="p-1.5 rounded-full bg-[#F3F1EC] dark:bg-[#1E1D1A] hover:bg-[#E6E2D8] dark:hover:bg-[#2A2925] text-[#6E6A63] dark:text-[#9E9A92] transition-colors"
                     >
                       <X className="w-4 h-4" />
                     </button>
                   </div>
 
-                  <h2 className="mt-3 text-2xl font-bold">关于岛主 · 光影与代码皆是造物</h2>
-                  <p className="mt-2 text-sm text-slate-300 leading-relaxed">
+                  <h2 className="mt-3 font-serif text-2xl font-medium tracking-tight">
+                    关于岛主 · 光影与代码皆是造物
+                  </h2>
+                  <p className="mt-2 text-sm text-[#524E48] dark:text-[#B5B0A6] leading-relaxed">
                     欢迎来到我的 3D 治愈摄影小岛。我是一名常驻长沙的全栈与 AI Agent 工程师，也是一名喜欢带着 35mm 定焦镜头在江边、山林与老街拾荒光影的摄影爱好者。
                   </p>
 
-                  <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
-                      <div className="text-xs font-mono text-amber-300 font-bold mb-2">
-                        📷 主力机身与镜头 (GEAR LIST)
+                  <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div className="p-4 rounded-xl bg-[#F3F1EC]/85 dark:bg-[#1A1917] border border-[#E6E2D8] dark:border-[#2A2925]">
+                      <div className="text-[11px] font-mono uppercase tracking-[0.14em] text-[#8A6F48] dark:text-[#C8A97E] mb-2.5 flex items-center gap-1.5">
+                        <Camera className="w-3.5 h-3.5" />
+                        <span>主力机身与镜头 · GEAR LIST</span>
                       </div>
-                      <ul className="space-y-1.5 text-xs text-slate-200 font-mono">
-                        <li>• Sony A7M4 + FE 35mm f/1.4 GM（人文/夜街主力）</li>
-                        <li>• Fujifilm X-T4 + XF 50mm f/1.2（胶片直出/日常）</li>
-                        <li>• Nikon Zf + 24-70mm f/2.8（风光/旅拍）</li>
+                      <ul className="space-y-1.5 text-xs text-[#4A4741] dark:text-[#C9C5BC] font-mono">
+                        <li>• Sony α7C II (ILCE-7CM2) + FE 28-60mm F4-5.6</li>
+                        <li>• Sony ZV-E10 + E PZ 16-50mm OSS / YN50mm f/1.8</li>
+                        <li>• Xiaomi 14 · Leica Summilux 23mm f/1.6（街拍/日常）</li>
                       </ul>
                     </div>
 
-                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
-                      <div className="text-xs font-mono text-emerald-300 font-bold mb-2">
-                        🧭 岛屿探索指南 (ISLAND TIPS)
+                    <div className="p-4 rounded-xl bg-[#F3F1EC]/85 dark:bg-[#1A1917] border border-[#E6E2D8] dark:border-[#2A2925]">
+                      <div className="text-[11px] font-mono uppercase tracking-[0.14em] text-[#8A6F48] dark:text-[#C8A97E] mb-2.5 flex items-center gap-1.5">
+                        <Info className="w-3.5 h-3.5" />
+                        <span>岛屿探索指南 · ISLAND TIPS</span>
                       </div>
-                      <ul className="space-y-1.5 text-xs text-slate-200">
+                      <ul className="space-y-1.5 text-xs text-[#4A4741] dark:text-[#C9C5BC]">
                         <li>• 拖动右上角「太阳轨迹滑块」，体验清晨、黄金时刻与星野</li>
                         <li>
-                          • 按 <code className="px-1.5 py-0.5 rounded bg-white/10">V</code> 键开启复古单反取景器拍下小岛明信片
+                          • 按{' '}
+                          <code className="px-1.5 py-0.5 rounded bg-[#FAF9F5] dark:bg-[#141413] border border-[#E6E2D8] dark:border-[#2A2925] font-mono text-[11px]">
+                            V
+                          </code>{' '}
+                          键开启单反取景器拍下小岛明信片
                         </li>
                         <li>• 走向山顶篝火可查看我的 AI 与全栈工程代表作</li>
                       </ul>
@@ -3229,13 +3347,14 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
               {activeStation === 'campfire-projects' && (
                 <div>
                   <div className="flex items-center justify-between">
-                    <span className="px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-mono font-bold">
-                      🔥 云端观星台 · 篝火旁的数字造物手稿
+                    <span className="text-[11px] font-mono uppercase tracking-[0.18em] text-[#8A6F48] dark:text-[#C8A97E] flex items-center gap-1.5">
+                      <Flame className="w-3.5 h-3.5" />
+                      <span>02 // 云端观星台 · 篝火旁的数字造物手稿</span>
                     </span>
                     <button
                       type="button"
                       onClick={() => setActiveStation(null)}
-                      className="p-1.5 rounded-full bg-white/10 hover:bg-white/20"
+                      className="p-1.5 rounded-full bg-[#F3F1EC] dark:bg-[#1E1D1A] hover:bg-[#E6E2D8] dark:hover:bg-[#2A2925] text-[#6E6A63] dark:text-[#9E9A92] transition-colors"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -3243,17 +3362,20 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
 
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                     <div>
-                      <h2 className="text-2xl font-bold">除了摄影，我还在构建这些数字系统</h2>
-                      <p className="text-xs text-slate-300 mt-1">
+                      <h2 className="font-serif text-2xl font-medium tracking-tight">
+                        除了摄影，我还在构建这些数字系统
+                      </h2>
+                      <p className="text-xs text-[#6E6A63] dark:text-[#9E9A92] mt-1">
                         在山顶篝火旁弹一首吉他和弦，翻阅我的 4 个核心工程作品：
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => playGuitarChord(Math.floor(Math.random() * 4))}
-                      className="px-3.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-300 text-xs font-mono font-bold"
+                      className="px-3.5 py-1.5 rounded-xl bg-[#F3F1EC] dark:bg-[#1E1D1A] hover:border-[#8A6F48] dark:hover:border-[#C8A97E] border border-[#E6E2D8] dark:border-[#2A2925] text-[#8A6F48] dark:text-[#C8A97E] text-xs font-mono flex items-center gap-1.5 transition-colors"
                     >
-                      🎸 拨动篝火吉他和弦
+                      <Music className="w-3.5 h-3.5" />
+                      <span>拨动篝火吉他和弦</span>
                     </button>
                   </div>
 
@@ -3261,23 +3383,25 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
                     {LAB_PROJECTS.map((proj) => (
                       <div
                         key={proj.id}
-                        className="p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all flex flex-col justify-between"
+                        className="p-4 rounded-xl bg-[#F3F1EC]/75 dark:bg-[#1A1917] hover:border-[#8A6F48] dark:hover:border-[#C8A97E] border border-[#E6E2D8] dark:border-[#2A2925] transition-all flex flex-col justify-between"
                       >
                         <div>
-                          <div className="flex items-center justify-between text-xs font-mono text-amber-300">
+                          <div className="flex items-center justify-between text-[11px] font-mono text-[#8A6F48] dark:text-[#C8A97E]">
                             <span>
                               {proj.num} · {proj.year}
                             </span>
-                            <span>{proj.role}</span>
+                            <span className="text-[#8C877E]">{proj.role}</span>
                           </div>
-                          <h3 className="mt-1 text-base font-bold text-white">{proj.title}</h3>
-                          <p className="text-xs text-emerald-300 font-medium">{proj.subtitle}</p>
-                          <p className="mt-2 text-xs text-slate-300 leading-relaxed line-clamp-3">
+                          <h3 className="mt-1.5 font-serif text-base font-medium text-[#141413] dark:text-[#FAF9F5]">
+                            {proj.title}
+                          </h3>
+                          <p className="text-xs text-[#6E6A63] dark:text-[#9E9A92] mt-0.5">{proj.subtitle}</p>
+                          <p className="mt-2 text-xs text-[#4A4741] dark:text-[#C9C5BC] leading-relaxed line-clamp-3">
                             {proj.summary}
                           </p>
                         </div>
-                        <div className="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between">
-                          <span className="text-[11px] font-mono text-slate-400">
+                        <div className="mt-3 pt-2.5 border-t border-[#E6E2D8] dark:border-[#262522] flex items-center justify-between">
+                          <span className="text-[10px] font-mono text-[#8C877E]">
                             {proj.stack.slice(0, 3).join(' · ')}
                           </span>
                           {proj.link && (
@@ -3285,7 +3409,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
                               href={proj.link}
                               target={proj.link.startsWith('http') ? '_blank' : '_self'}
                               rel="noreferrer"
-                              className="text-xs font-mono font-bold text-amber-300 hover:underline flex items-center gap-1"
+                              className="text-xs font-mono text-[#8A6F48] dark:text-[#C8A97E] hover:underline flex items-center gap-1"
                             >
                               <span>访问项目</span>
                               <ArrowUpRight className="w-3.5 h-3.5" />
@@ -3301,20 +3425,23 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
               {activeStation === 'drift-bottle' && (
                 <div>
                   <div className="flex items-center justify-between">
-                    <span className="px-3 py-1 rounded-full bg-pink-500/20 text-pink-300 text-xs font-mono font-bold">
-                      📮 浅滩木栈道 · 漂流瓶与海边红邮筒
+                    <span className="text-[11px] font-mono uppercase tracking-[0.18em] text-[#8A6F48] dark:text-[#C8A97E] flex items-center gap-1.5">
+                      <Mail className="w-3.5 h-3.5" />
+                      <span>03 // 浅滩木栈道 · 漂流瓶与海边红邮筒</span>
                     </span>
                     <button
                       type="button"
                       onClick={() => setActiveStation(null)}
-                      className="p-1.5 rounded-full bg-white/10 hover:bg-white/20"
+                      className="p-1.5 rounded-full bg-[#F3F1EC] dark:bg-[#1E1D1A] hover:bg-[#E6E2D8] dark:hover:bg-[#2A2925] text-[#6E6A63] dark:text-[#9E9A92] transition-colors"
                     >
                       <X className="w-4 h-4" />
                     </button>
                   </div>
 
-                  <h2 className="mt-3 text-2xl font-bold">海面漂流瓶 · 留下你的登岛足迹</h2>
-                  <p className="mt-1 text-xs text-slate-300">
+                  <h2 className="mt-3 font-serif text-2xl font-medium tracking-tight">
+                    海面漂流瓶 · 留下你的登岛足迹
+                  </h2>
+                  <p className="mt-1 text-xs text-[#6E6A63] dark:text-[#9E9A92]">
                     在南岸浅滩的红邮筒旁，写下你对这座小岛或摄影作品的寄语。
                   </p>
 
@@ -3324,18 +3451,18 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
                       placeholder="你的署名（如：旅人 · 深圳）"
                       value={newBottleAuthor}
                       onChange={(e) => setNewBottleAuthor(e.target.value)}
-                      className="sm:w-44 px-3.5 py-2 rounded-xl bg-white/10 border border-white/15 text-xs text-white placeholder:text-slate-400 focus:outline-none focus:border-amber-400"
+                      className="sm:w-44 px-3.5 py-2 rounded-xl bg-white dark:bg-[#1A1917] border border-[#E6E2D8] dark:border-[#2A2925] text-xs text-[#141413] dark:text-[#FAF9F5] placeholder:text-[#8C877E] focus:outline-none focus:border-[#8A6F48] dark:focus:border-[#C8A97E]"
                     />
                     <input
                       type="text"
                       placeholder="写下给小岛或摄影作品的留言，装进漂流瓶..."
                       value={newBottleText}
                       onChange={(e) => setNewBottleText(e.target.value)}
-                      className="flex-1 px-3.5 py-2 rounded-xl bg-white/10 border border-white/15 text-xs text-white placeholder:text-slate-400 focus:outline-none focus:border-amber-400"
+                      className="flex-1 px-3.5 py-2 rounded-xl bg-white dark:bg-[#1A1917] border border-[#E6E2D8] dark:border-[#2A2925] text-xs text-[#141413] dark:text-[#FAF9F5] placeholder:text-[#8C877E] focus:outline-none focus:border-[#8A6F48] dark:focus:border-[#C8A97E]"
                     />
                     <button
                       type="submit"
-                      className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shrink-0"
+                      className="px-4 py-2 rounded-xl bg-[#141413] hover:bg-[#8A6F48] text-[#FAF9F5] dark:bg-[#F0EFEA] dark:hover:bg-[#C8A97E] dark:text-[#141413] font-mono text-xs flex items-center justify-center gap-1.5 shrink-0 transition-colors"
                     >
                       <Send className="w-3.5 h-3.5" />
                       <span>投进大海</span>
@@ -3346,13 +3473,13 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
                     {driftBottles.map((b) => (
                       <div
                         key={b.id}
-                        className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col gap-1"
+                        className="p-3.5 rounded-xl bg-[#F3F1EC]/80 dark:bg-[#1A1917] border border-[#E6E2D8] dark:border-[#2A2925] flex flex-col gap-1"
                       >
-                        <div className="flex items-center justify-between text-xs font-mono text-emerald-300">
-                          <span>🍾 {b.author}</span>
-                          <span className="text-slate-400">{b.date}</span>
+                        <div className="flex items-center justify-between text-[11px] font-mono text-[#8A6F48] dark:text-[#C8A97E]">
+                          <span>{b.author}</span>
+                          <span className="text-[#8C877E]">{b.date}</span>
                         </div>
-                        <p className="text-sm text-slate-200">{b.text}</p>
+                        <p className="text-sm text-[#4A4741] dark:text-[#C9C5BC] leading-relaxed">{b.text}</p>
                       </div>
                     ))}
                   </div>
@@ -3370,37 +3497,37 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 bg-[#141413]/75 backdrop-blur-md flex items-center justify-center p-4"
             onClick={() => setPreviewPostcard(null)}
           >
             <motion.div
-              initial={{ scale: 0.9, rotate: -2 }}
+              initial={{ scale: 0.92, rotate: -1.5 }}
               animate={{ scale: 1, rotate: 0 }}
-              exit={{ scale: 0.9 }}
+              exit={{ scale: 0.92 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-[#FAF8F5] text-slate-900 p-4 pb-6 rounded-2xl shadow-2xl max-w-lg w-full"
+              className="bg-[#FAF9F5] dark:bg-[#1A1917] text-[#141413] dark:text-[#F0EFEA] border border-[#E6E2D8] dark:border-[#2A2925] p-4 pb-6 rounded-2xl shadow-2xl max-w-lg w-full"
             >
-              <div className="relative rounded-xl overflow-hidden border border-slate-200 aspect-video bg-slate-900">
+              <div className="relative rounded-xl overflow-hidden border border-[#E6E2D8] dark:border-[#2A2925] aspect-video bg-[#141413]">
                 <img
                   src={previewPostcard.dataUrl}
                   alt="Island Postcard"
                   className="w-full h-full object-cover"
                 />
               </div>
-              <div className="mt-4 px-2 flex items-center justify-between">
+              <div className="mt-4 px-1 flex items-center justify-between gap-3">
                 <div>
-                  <div className="font-serif italic text-lg font-bold text-slate-900">
-                    The Shutter Island · 光影拾遗岛明信片
+                  <div className="font-serif italic text-lg font-medium text-[#141413] dark:text-[#FAF9F5]">
+                    The Shutter Island · 光影拾遗岛
                   </div>
-                  <div className="text-xs font-mono text-slate-500 mt-0.5">
-                    📍 {previewPostcard.zoneLabel} · 🕒 {previewPostcard.timeLabel}
+                  <div className="text-[11px] font-mono text-[#8A6F48] dark:text-[#C8A97E] mt-0.5">
+                    {previewPostcard.zoneLabel} · {previewPostcard.timeLabel}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <a
                     href={previewPostcard.dataUrl}
                     download={`shutter-island-${previewPostcard.id}.png`}
-                    className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-mono font-bold flex items-center gap-1.5"
+                    className="px-3.5 py-2 rounded-xl bg-[#141413] hover:bg-[#8A6F48] text-[#FAF9F5] dark:bg-[#F0EFEA] dark:hover:bg-[#C8A97E] dark:text-[#141413] text-xs font-mono flex items-center gap-1.5 transition-colors"
                   >
                     <Download className="w-3.5 h-3.5" />
                     <span>保存明信片</span>
@@ -3408,7 +3535,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
                   <button
                     type="button"
                     onClick={() => setPreviewPostcard(null)}
-                    className="p-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700"
+                    className="p-2 rounded-xl bg-[#F3F1EC] dark:bg-[#262522] hover:bg-[#E6E2D8] dark:hover:bg-[#32302C] text-[#524E48] dark:text-[#B5B0A6] transition-colors"
                   >
                     <X className="w-4 h-4" />
                   </button>

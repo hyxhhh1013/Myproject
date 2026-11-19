@@ -269,58 +269,69 @@ const REPO_CURATED_META: Record<
   },
 };
 
-function buildFallbackWeeks(activeDates: Map<string, number>): {
-  weeks: GithubContribDay[][];
-  total: number;
-} {
-  const today = new Date();
-  const totalDays = 28 * 7; // 28 weeks
-  const startDate = new Date(today);
-  startDate.setDate(today.getDate() - (totalDays - 1));
+function groupDaysIntoCalendarWeeks(
+  days: GithubContribDay[],
+  maxWeeks = 52
+): GithubContribDay[][] {
+  if (days.length === 0) return [];
+  const sorted = [...days].sort((a, b) => a.date.localeCompare(b.date));
 
   const weeks: GithubContribDay[][] = [];
   let currentWeek: GithubContribDay[] = [];
-  let total = 0;
 
-  for (let i = 0; i < totalDays; i++) {
-    const d = new Date(startDate);
-    d.setDate(startDate.getDate() + i);
-    const iso = d.toISOString().slice(0, 10);
+  // Pad leading empty days before the first day's weekday (0 = Sun .. 6 = Sat)
+  const firstDow = new Date(`${sorted[0].date}T00:00:00Z`).getUTCDay();
+  for (let i = 0; i < firstDow; i++) {
+    const padDate = new Date(`${sorted[0].date}T00:00:00Z`);
+    padDate.setUTCDate(padDate.getUTCDate() - (firstDow - i));
+    currentWeek.push({
+      date: padDate.toISOString().slice(0, 10),
+      level: 0,
+      count: 0,
+    });
+  }
 
-    let level: 0 | 1 | 2 | 3 | 4 = 0;
-    let count = 0;
-
-    if (activeDates.has(iso)) {
-      const c = activeDates.get(iso) || 1;
-      count = c;
-      level = c >= 8 ? 4 : c >= 5 ? 3 : c >= 2 ? 2 : 1;
-    } else {
-      // Deterministic baseline activity from real commit history period (2026.02 - 2026.11)
-      const dayHash = (d.getFullYear() * 37 + (d.getMonth() + 1) * 19 + d.getDate() * 13 + i * 7) % 17;
-      if (dayHash >= 15) {
-        level = 4;
-        count = 9;
-      } else if (dayHash >= 12) {
-        level = 3;
-        count = 5;
-      } else if (dayHash >= 8) {
-        level = 2;
-        count = 3;
-      } else if (dayHash >= 5) {
-        level = 1;
-        count = 1;
-      }
-    }
-
-    total += count;
-    currentWeek.push({ date: iso, level, count });
+  for (const day of sorted) {
+    currentWeek.push(day);
     if (currentWeek.length === 7) {
       weeks.push(currentWeek);
       currentWeek = [];
     }
   }
 
-  return { weeks, total };
+  if (currentWeek.length > 0) {
+    weeks.push(currentWeek);
+  }
+
+  return weeks.length > maxWeeks ? weeks.slice(-maxWeeks) : weeks;
+}
+
+function buildFallbackWeeks(activeDates: Map<string, number>): {
+  weeks: GithubContribDay[][];
+  total: number;
+} {
+  const today = new Date();
+  const totalDays = 52 * 7;
+  const startDate = new Date(today);
+  startDate.setUTCDate(today.getUTCDate() - (totalDays - 1));
+
+  const days: GithubContribDay[] = [];
+  let total = 0;
+
+  for (let i = 0; i < totalDays; i++) {
+    const d = new Date(startDate);
+    d.setUTCDate(startDate.getUTCDate() + i);
+    const iso = d.toISOString().slice(0, 10);
+
+    const count = activeDates.get(iso) || 0;
+    const level: 0 | 1 | 2 | 3 | 4 =
+      count >= 12 ? 4 : count >= 6 ? 3 : count >= 3 ? 2 : count >= 1 ? 1 : 0;
+
+    total += count;
+    days.push({ date: iso, level, count });
+  }
+
+  return { weeks: groupDaysIntoCalendarWeeks(days, 52), total };
 }
 
 export const getGithubTelemetry = asyncHandler(async (req: Request, res: Response) => {
@@ -335,49 +346,53 @@ export const getGithubTelemetry = asyncHandler(async (req: Request, res: Respons
   }
 
   const username = 'hyxhhh1013';
-  const ghHeaders = {
-    'User-Agent': 'hyxhhh-portfolio-telemetry/2.0',
+  const ghHeaders: Record<string, string> = {
+    'User-Agent': 'hyxhhh-portfolio-telemetry/2.1',
     Accept: 'application/vnd.github+json',
   };
+  if (process.env.GITHUB_TOKEN) {
+    ghHeaders.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+  }
 
   let repos: GithubRepoItem[] = [];
   const activeDates = new Map<string, number>();
   let parsedCalendarDays: GithubContribDay[] = [];
   let calendarTotal = 0;
-  let isLive = false;
+  let isLiveRepos = false;
+  let isLiveCalendar = false;
 
   try {
-    const [reposResult, contribHtmlResult, eventsResult] = await Promise.allSettled([
-      axios.get(`https://api.github.com/users/${username}/repos?sort=pushed&per_page=12`, {
+    const [reposResult, jogruberResult, contribHtmlResult, eventsResult] = await Promise.allSettled([
+      axios.get(`https://api.github.com/users/${username}/repos?sort=pushed&per_page=30`, {
         headers: ghHeaders,
-        timeout: 6500,
+        timeout: 9000,
+      }),
+      axios.get(`https://github-contributions-api.jogruber.de/v4/${username}?y=last`, {
+        headers: { 'User-Agent': 'hyxhhh-portfolio-telemetry/2.1', Accept: 'application/json' },
+        timeout: 9500,
       }),
       axios.get(`https://github.com/users/${username}/contributions`, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; hyxhhh-portfolio/2.0)',
+          'User-Agent': 'Mozilla/5.0 (compatible; hyxhhh-portfolio/2.1)',
           Accept: 'text/html',
         },
-        timeout: 6500,
+        timeout: 9500,
       }),
       axios.get(`https://api.github.com/users/${username}/events/public?per_page=100`, {
         headers: ghHeaders,
-        timeout: 6500,
+        timeout: 8000,
       }),
     ]);
 
-    // 1. Parse Live Repositories
+    // 1. Parse Live Repositories (strictly real GitHub data, sorted by pushed_at)
     if (reposResult.status === 'fulfilled' && Array.isArray(reposResult.value.data)) {
-      isLive = true;
+      isLiveRepos = true;
       const rawRepos = reposResult.value.data.filter((r: any) => !r.fork);
 
       for (const r of rawRepos) {
         if (r.pushed_at) {
           const pDate = String(r.pushed_at).slice(0, 10);
-          activeDates.set(pDate, (activeDates.get(pDate) || 0) + 4);
-        }
-        if (r.updated_at) {
-          const uDate = String(r.updated_at).slice(0, 10);
-          activeDates.set(uDate, (activeDates.get(uDate) || 0) + 2);
+          activeDates.set(pDate, (activeDates.get(pDate) || 0) + 1);
         }
       }
 
@@ -388,73 +403,112 @@ export const getGithubTelemetry = asyncHandler(async (req: Request, res: Respons
           name: r.name,
           displayName: curated?.displayName || r.name,
           url: r.html_url || `https://github.com/${username}/${r.name}`,
-          language: curated?.lang || r.language || 'TypeScript',
+          language: r.language || curated?.lang || 'TypeScript',
           stars: typeof r.stargazers_count === 'number' ? r.stargazers_count : 0,
           pushedAt: r.pushed_at || r.updated_at || new Date().toISOString(),
-          descZh: curated?.descZh || r.description || '独立全栈与 AI 工程实践仓库',
+          descZh: r.description || curated?.descZh || '独立全栈与 AI 工程实践仓库',
           descEn: curated?.descEn || r.description || 'Full-stack & AI engineering repository',
         };
       });
     }
 
-    // 2. Parse Public Events for real commit activity dates
+    // 2. Parse Public Events as supplementary real commit dates
     if (eventsResult.status === 'fulfilled' && Array.isArray(eventsResult.value.data)) {
-      isLive = true;
       for (const ev of eventsResult.value.data) {
         if (ev.created_at) {
           const dStr = String(ev.created_at).slice(0, 10);
-          const weight = ev.type === 'PushEvent' ? (ev.payload?.size || 2) : 1;
+          const weight = ev.type === 'PushEvent' ? (ev.payload?.size || 1) : 1;
           activeDates.set(dStr, (activeDates.get(dStr) || 0) + weight);
         }
       }
     }
 
-    // 3. Parse GitHub Official Contributions Calendar HTML if available
-    if (contribHtmlResult.status === 'fulfilled' && typeof contribHtmlResult.value.data === 'string') {
+    // 3A. Primary Calendar Source: github-contributions-api.jogruber.de (exact JSON counts & levels)
+    if (
+      jogruberResult.status === 'fulfilled' &&
+      jogruberResult.value.data &&
+      Array.isArray(jogruberResult.value.data.contributions) &&
+      jogruberResult.value.data.contributions.length >= 60
+    ) {
+      const payload = jogruberResult.value.data;
+      if (payload.total && typeof payload.total.lastYear === 'number') {
+        calendarTotal = payload.total.lastYear;
+      }
+      parsedCalendarDays = payload.contributions.map((d: any) => ({
+        date: String(d.date),
+        count: typeof d.count === 'number' ? d.count : 0,
+        level: Math.min(4, Math.max(0, Number(d.level) || 0)) as 0 | 1 | 2 | 3 | 4,
+      }));
+      isLiveCalendar = true;
+    }
+
+    // 3B. Secondary Calendar Source: Official GitHub Contributions HTML
+    if (
+      !isLiveCalendar &&
+      contribHtmlResult.status === 'fulfilled' &&
+      typeof contribHtmlResult.value.data === 'string'
+    ) {
       const html = contribHtmlResult.value.data;
 
-      // Match total contributions heading e.g. "624 contributions in the last year"
       const totalMatch = html.match(/([\d,]+)\s+contributions?\s+in\s+the\s+last\s+year/i);
       if (totalMatch) {
         calendarTotal = parseInt(totalMatch[1].replace(/,/g, ''), 10) || 0;
       }
 
-      // Match all <td ... data-date="2026-11-18" ... data-level="2"> tags
-      const cellRegex = /data-date="(\d{4}-\d{2}-\d{2})"[^>]*data-level="([0-4])"|data-level="([0-4])"[^>]*data-date="(\d{4}-\d{2}-\d{2})"/g;
-      const dayMap = new Map<string, 0 | 1 | 2 | 3 | 4>();
-      let m: RegExpExecArray | null;
-      while ((m = cellRegex.exec(html)) !== null) {
-        const dateStr = m[1] || m[4];
-        const lvl = parseInt(m[2] || m[3] || '0', 10) as 0 | 1 | 2 | 3 | 4;
-        if (dateStr) {
-          dayMap.set(dateStr, lvl);
+      // Map tooltip text ("12 contributions on November 19th.") by td id
+      const tooltipCounts = new Map<string, number>();
+      const tipRegex = /<tool-tip[^>]*for="([^"]+)"[^>]*>([^<]+)<\/tool-tip>/g;
+      let tm: RegExpExecArray | null;
+      while ((tm = tipRegex.exec(html)) !== null) {
+        const countMatch = tm[2].match(/(\d+)\s+contribution/i);
+        tooltipCounts.set(tm[1], countMatch ? parseInt(countMatch[1], 10) : 0);
+      }
+
+      const tdRegex = /<td[^>]*class="ContributionCalendar-day"[^>]*>/g;
+      const dayList: GithubContribDay[] = [];
+      let tdMatch: RegExpExecArray | null;
+      while ((tdMatch = tdRegex.exec(html)) !== null) {
+        const tag = tdMatch[0];
+        const dateM = tag.match(/data-date="(\d{4}-\d{2}-\d{2})"/);
+        const levelM = tag.match(/data-level="([0-4])"/);
+        const idM = tag.match(/id="([^"]+)"/);
+        if (dateM) {
+          const dateStr = dateM[1];
+          const lvl = (levelM ? parseInt(levelM[1], 10) : 0) as 0 | 1 | 2 | 3 | 4;
+          const exactCount = idM && tooltipCounts.has(idM[1])
+            ? tooltipCounts.get(idM[1])!
+            : (activeDates.get(dateStr) || (lvl === 4 ? 12 : lvl === 3 ? 6 : lvl === 2 ? 3 : lvl === 1 ? 1 : 0));
+          dayList.push({ date: dateStr, level: lvl, count: exactCount });
         }
       }
 
-      if (dayMap.size >= 60) {
-        isLive = true;
-        const sortedDates = Array.from(dayMap.keys()).sort();
-        const last196 = sortedDates.slice(-196);
-        parsedCalendarDays = last196.map((dt) => {
-          const lvl = dayMap.get(dt) || 0;
-          const evCount = activeDates.get(dt);
-          const count = evCount || (lvl === 4 ? 10 : lvl === 3 ? 6 : lvl === 2 ? 3 : lvl === 1 ? 1 : 0);
-          return { date: dt, level: lvl, count };
-        });
+      if (dayList.length >= 60) {
+        parsedCalendarDays = dayList;
+        isLiveCalendar = true;
       }
     }
   } catch {
     // Fallback handled below
   }
 
-  // Ensure flagship repos are always represented if GitHub returned fewer than 4
+  // Fallback repos only if GitHub REST API failed completely
   const defaultFlagshipRepos: GithubRepoItem[] = [
+    {
+      name: 'Myproject',
+      displayName: REPO_CURATED_META['myproject'].displayName,
+      url: 'https://github.com/hyxhhh1013/Myproject',
+      language: 'TypeScript',
+      stars: 3,
+      pushedAt: '2026-11-19T04:20:15Z',
+      descZh: REPO_CURATED_META['myproject'].descZh,
+      descEn: REPO_CURATED_META['myproject'].descEn,
+    },
     {
       name: 'TravelWeather',
       displayName: REPO_CURATED_META['travelweather'].displayName,
       url: 'https://github.com/hyxhhh1013/TravelWeather',
       language: 'Python',
-      stars: 1,
+      stars: 0,
       pushedAt: '2026-11-18T03:43:52Z',
       descZh: REPO_CURATED_META['travelweather'].descZh,
       descEn: REPO_CURATED_META['travelweather'].descEn,
@@ -463,7 +517,7 @@ export const getGithubTelemetry = asyncHandler(async (req: Request, res: Respons
       name: 'AI-assisted-writing-system-for-agricultural-research',
       displayName: REPO_CURATED_META['ai-assisted-writing-system-for-agricultural-research'].displayName,
       url: 'https://github.com/hyxhhh1013/AI-assisted-writing-system-for-agricultural-research',
-      language: 'TypeScript / LangGraph',
+      language: 'TypeScript',
       stars: 2,
       pushedAt: '2026-11-15T14:20:00Z',
       descZh: REPO_CURATED_META['ai-assisted-writing-system-for-agricultural-research'].descZh,
@@ -473,44 +527,33 @@ export const getGithubTelemetry = asyncHandler(async (req: Request, res: Respons
       name: 'Outbounds',
       displayName: REPO_CURATED_META['outbounds'].displayName,
       url: 'https://github.com/hyxhhh1013/Outbounds',
-      language: 'Next.js 16 / React 19',
+      language: 'TypeScript',
       stars: 2,
       pushedAt: '2026-10-28T11:15:00Z',
       descZh: REPO_CURATED_META['outbounds'].descZh,
       descEn: REPO_CURATED_META['outbounds'].descEn,
     },
-    {
-      name: 'Myproject',
-      displayName: REPO_CURATED_META['myproject'].displayName,
-      url: 'https://github.com/hyxhhh1013/Myproject',
-      language: 'TypeScript / Node.js',
-      stars: 1,
-      pushedAt: '2026-11-19T02:00:00Z',
-      descZh: REPO_CURATED_META['myproject'].descZh,
-      descEn: REPO_CURATED_META['myproject'].descEn,
-    },
   ];
 
   if (repos.length === 0) {
-    repos = defaultFlagshipRepos;
-  } else {
-    // Make sure HeShu AI4Science is always visible among the top 4 cards even if older repos were pushed
-    const hasHeShu = repos.some((r) => r.name.toLowerCase().includes('agricultural-research'));
-    if (!hasHeShu && repos.length >= 4) {
-      repos[3] = defaultFlagshipRepos[1];
-    }
+    repos = cachedGithubTelemetry?.data.repos?.length
+      ? cachedGithubTelemetry.data.repos
+      : defaultFlagshipRepos;
   }
 
   let weeks: GithubContribDay[][] = [];
   let totalContributions = calendarTotal;
 
-  if (parsedCalendarDays.length === 196) {
-    for (let w = 0; w < 28; w++) {
-      weeks.push(parsedCalendarDays.slice(w * 7, (w + 1) * 7));
-    }
+  if (isLiveCalendar && parsedCalendarDays.length >= 28) {
+    weeks = groupDaysIntoCalendarWeeks(parsedCalendarDays, 52);
     if (!totalContributions) {
       totalContributions = parsedCalendarDays.reduce((acc, d) => acc + d.count, 0);
     }
+  } else if (cachedGithubTelemetry?.data.isLive && cachedGithubTelemetry.data.weeks.length > 0) {
+    // Stale-while-revalidate: never overwrite real cached heatmap with fallback data
+    weeks = cachedGithubTelemetry.data.weeks;
+    totalContributions = cachedGithubTelemetry.data.totalContributions;
+    isLiveCalendar = true;
   } else {
     const fb = buildFallbackWeeks(activeDates);
     weeks = fb.weeks;
@@ -521,7 +564,7 @@ export const getGithubTelemetry = asyncHandler(async (req: Request, res: Respons
     username,
     totalContributions,
     syncedAt: new Date().toISOString(),
-    isLive,
+    isLive: isLiveRepos || isLiveCalendar,
     repos,
     weeks,
   };

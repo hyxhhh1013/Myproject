@@ -72,7 +72,40 @@ const REPO_EN_MAP: Record<string, { displayNameEn: string; descEn: string }> = {
     displayNameEn: 'CropManagement · Agronomic DB',
     descEn: 'Agricultural crop variety metadata management & analytical query platform',
   },
+  'agri-crop': {
+    displayNameEn: 'agri-crop · Crop Variety Management',
+    descEn: 'Agricultural crop variety metadata management & analytical query platform',
+  },
+  'ai-daily': {
+    displayNameEn: 'ai-daily · AI Engineering Daily',
+    descEn: 'Daily full-stack & AI agent engineering practice repository',
+  },
 };
+
+const HEATMAP_WEEKS = 52;
+
+function expandToWeeks(rawWeeks: GithubContribDay[][], targetWeeks = HEATMAP_WEEKS): GithubContribDay[][] {
+  if (!Array.isArray(rawWeeks) || rawWeeks.length === 0) return buildInitialWeeks(targetWeeks);
+  if (rawWeeks.length >= targetWeeks) return rawWeeks.slice(-targetWeeks);
+
+  const missingCount = targetWeeks - rawWeeks.length;
+  const firstDateStr = rawWeeks[0]?.[0]?.date;
+  const firstDate = firstDateStr ? new Date(`${firstDateStr}T00:00:00Z`) : new Date();
+  const prefixWeeks: GithubContribDay[][] = [];
+
+  for (let w = missingCount; w >= 1; w--) {
+    const week: GithubContribDay[] = [];
+    for (let d = 0; d < 7; d++) {
+      const dt = new Date(firstDate);
+      dt.setUTCDate(firstDate.getUTCDate() - w * 7 + d);
+      const iso = dt.toISOString().slice(0, 10);
+      week.push({ date: iso, level: 0, count: 0 });
+    }
+    prefixWeeks.push(week);
+  }
+
+  return [...prefixWeeks, ...rawWeeks];
+}
 
 const DEFAULT_REPOS: GithubRepoItem[] = [
   {
@@ -121,36 +154,20 @@ const DEFAULT_REPOS: GithubRepoItem[] = [
   },
 ];
 
-function buildInitialWeeks(): GithubContribDay[][] {
+function buildInitialWeeks(numWeeks = HEATMAP_WEEKS): GithubContribDay[][] {
   const today = new Date();
-  const totalDays = 28 * 7;
+  const totalDays = numWeeks * 7;
   const start = new Date(today);
-  start.setDate(today.getDate() - (totalDays - 1));
+  start.setUTCDate(today.getUTCDate() - (totalDays - 1));
 
   const weeks: GithubContribDay[][] = [];
   let currentWeek: GithubContribDay[] = [];
 
   for (let i = 0; i < totalDays; i++) {
     const d = new Date(start);
-    d.setDate(start.getDate() + i);
+    d.setUTCDate(start.getUTCDate() + i);
     const iso = d.toISOString().slice(0, 10);
-    const seed = (d.getFullYear() * 37 + (d.getMonth() + 1) * 19 + d.getDate() * 13 + i * 7) % 17;
-    let level: 0 | 1 | 2 | 3 | 4 = 0;
-    let count = 0;
-    if (seed >= 15) {
-      level = 4;
-      count = 9;
-    } else if (seed >= 12) {
-      level = 3;
-      count = 5;
-    } else if (seed >= 8) {
-      level = 2;
-      count = 3;
-    } else if (seed >= 5) {
-      level = 1;
-      count = 1;
-    }
-    currentWeek.push({ date: iso, level, count });
+    currentWeek.push({ date: iso, level: 0, count: 0 });
     if (currentWeek.length === 7) {
       weeks.push(currentWeek);
       currentWeek = [];
@@ -174,7 +191,7 @@ export const About = () => {
 
   const [githubRepos, setGithubRepos] = useState<GithubRepoItem[]>(DEFAULT_REPOS);
   const [contribWeeks, setContribWeeks] = useState<GithubContribDay[][]>(() => buildInitialWeeks());
-  const [totalContributions, setTotalContributions] = useState<number>(486);
+  const [totalContributions, setTotalContributions] = useState<number>(0);
   const [isLiveSynced, setIsLiveSynced] = useState<boolean>(false);
   const [syncingGithub, setSyncingGithub] = useState<boolean>(false);
   const [hoveredDay, setHoveredDay] = useState<GithubContribDay | null>(null);
@@ -191,15 +208,15 @@ export const About = () => {
           setGithubRepos(data.repos.slice(0, 4));
         }
         if (Array.isArray(data.weeks) && data.weeks.length > 0) {
-          setContribWeeks(data.weeks);
+          setContribWeeks(expandToWeeks(data.weeks, HEATMAP_WEEKS));
         }
-        if (typeof data.totalContributions === 'number' && data.totalContributions > 0) {
+        if (typeof data.totalContributions === 'number') {
           setTotalContributions(data.totalContributions);
         }
-        setIsLiveSynced(true);
+        setIsLiveSynced(Boolean(data.isLive));
       }
     } catch {
-      // Fallback to default repos and weeks
+      // Fallback to default repos and empty weeks
     } finally {
       setSyncingGithub(false);
     }
@@ -255,7 +272,7 @@ export const About = () => {
     }
   };
 
-  // Compute month labels for the 28-week columns
+  // Compute month labels for the heatmap columns
   const monthLabels = useMemo(() => {
     const monthsEn = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
     let lastMonth = -1;
@@ -560,22 +577,32 @@ export const About = () => {
               </div>
 
               <div className="w-full overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {/* Month Headers — Full Width Aligned */}
-                <div className="grid grid-cols-[repeat(28,minmax(0,1fr))] gap-1 mb-1 min-w-[420px] w-full">
+                {/* Month Headers — Fine 48-Week Compact Grid */}
+                <div
+                  className="grid gap-[3px] mb-1 min-w-[480px] w-full"
+                  style={{
+                    gridTemplateColumns: `repeat(${contribWeeks.length}, minmax(0, 1fr))`,
+                  }}
+                >
                   {monthLabels.map((mLabel, idx) => (
                     <div
                       key={idx}
-                      className="text-[9px] font-mono text-[#8A6F48] dark:text-[#C8A97E] overflow-visible whitespace-nowrap"
+                      className="text-[9px] font-mono text-[#8A6F48] dark:text-[#C8A97E] overflow-visible whitespace-nowrap leading-none"
                     >
                       {mLabel}
                     </div>
                   ))}
                 </div>
 
-                {/* 28 Weeks x 7 Days Matrix — Edge-to-Edge Full Width */}
-                <div className="grid grid-cols-[repeat(28,minmax(0,1fr))] gap-1 min-w-[420px] w-full">
+                {/* 48 Weeks x 7 Days Matrix — Delicate ~11px Cells */}
+                <div
+                  className="grid gap-[3px] min-w-[480px] w-full"
+                  style={{
+                    gridTemplateColumns: `repeat(${contribWeeks.length}, minmax(0, 1fr))`,
+                  }}
+                >
                   {contribWeeks.map((week, wIdx) => (
-                    <div key={wIdx} className="flex flex-col gap-1">
+                    <div key={wIdx} className="flex flex-col gap-[3px]">
                       {week.map((day, dIdx) => (
                         <div
                           key={`${wIdx}-${dIdx}`}
