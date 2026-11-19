@@ -280,21 +280,21 @@ export const Photos = () => {
   return (
     <section
       id="photos"
-      className="py-20 sm:py-28 transition-colors duration-300"
+      className="py-14 sm:py-28 transition-colors duration-300"
     >
-      <div className="container mx-auto px-6 max-w-6xl">
+      <div className="container mx-auto px-4 sm:px-6 max-w-6xl">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
-          className="mb-10 pb-5 border-b designer-hairline flex flex-col sm:flex-row sm:items-end justify-between gap-4"
+          className="mb-7 sm:mb-10 pb-4 sm:pb-5 border-b designer-hairline flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4"
         >
           <div>
-            <div className="text-[11px] font-mono uppercase tracking-widest designer-accent-text mb-2">
+            <div className="text-[11px] font-mono uppercase tracking-widest designer-accent-text mb-1.5 sm:mb-2">
               05 // 35MM PHOTOGRAPHIC ARCHIVE
             </div>
-            <h2 className="designer-heading text-3xl md:text-4xl font-normal tracking-[-0.02em]">
+            <h2 className="designer-heading text-2xl sm:text-3xl md:text-4xl font-normal tracking-[-0.02em]">
               {t('photos.title')}
             </h2>
           </div>
@@ -304,8 +304,8 @@ export const Photos = () => {
         </motion.div>
 
         {/* Category Pills + Darkroom Contact Sheet Switcher */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-10">
-          <div className="flex justify-start gap-2 flex-wrap">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-7 sm:mb-10">
+          <div className="flex justify-start gap-2 flex-nowrap overflow-x-auto sm:flex-wrap pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {dynamicCategoryKeys.map((catKey) => {
               const active = activeCategoryKey === catKey;
               return (
@@ -313,7 +313,7 @@ export const Photos = () => {
                   key={catKey}
                   type="button"
                   onClick={() => setActiveCategoryKey(catKey)}
-                  className={`px-4 py-1.5 rounded-full text-xs font-mono transition-all duration-200 ${
+                  className={`px-3.5 sm:px-4 py-1.5 rounded-full text-xs font-mono whitespace-nowrap shrink-0 transition-all duration-200 ${
                     active
                       ? 'designer-btn-primary font-semibold'
                       : 'designer-btn-secondary designer-text-secondary'
@@ -416,10 +416,10 @@ export const Photos = () => {
 
                   {/* Editorial Caption Footer */}
                   <div
-                    className={`px-3.5 py-2.5 flex items-center justify-between gap-2 ${
+                    className={`${
                       viewLayout === 'contact'
-                        ? 'bg-[#141413] text-white/85'
-                        : 'bg-[#FFFFFF] dark:bg-[#171715]'
+                        ? 'px-2.5 py-2 flex flex-col gap-0.5 bg-[#141413] text-white/85'
+                        : 'px-3.5 py-2.5 flex items-center justify-between gap-2 bg-[#FFFFFF] dark:bg-[#171715]'
                     }`}
                   >
                     <h3
@@ -430,11 +430,19 @@ export const Photos = () => {
                       {photo.title}
                     </h3>
                     <div
-                      className="flex items-center text-[10px] font-mono designer-text-muted shrink-0"
+                      className={`flex items-center text-[10px] font-mono designer-text-muted ${
+                        viewLayout === 'contact' ? 'min-w-0' : 'shrink-0'
+                      }`}
                       title={photo.exif}
                     >
                       <Camera className="w-3 h-3 mr-1 flex-shrink-0 stroke-[1.5] text-[#8A6F48]" />
-                      <span className="truncate max-w-[175px]">{photo.exifShort}</span>
+                      <span
+                        className={`truncate ${
+                          viewLayout === 'contact' ? 'max-w-full' : 'max-w-[130px] sm:max-w-[175px]'
+                        }`}
+                      >
+                        {photo.exifShort}
+                      </span>
                     </div>
                   </div>
                 </motion.div>

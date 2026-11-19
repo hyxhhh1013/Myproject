@@ -421,7 +421,7 @@ export const CommandPalette: React.FC = () => {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.15 }}
-          className="fixed inset-0 z-[100] flex items-start justify-center pt-[11vh] px-4 bg-[#141413]/55 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-start justify-center pt-[6vh] sm:pt-[11vh] px-3 sm:px-4 bg-[#141413]/55 backdrop-blur-sm"
           onClick={() => {
             playPaletteWhoosh(false);
             setCommandOpen(false);
@@ -436,7 +436,7 @@ export const CommandPalette: React.FC = () => {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Input Bar */}
-            <div className="flex items-center gap-3 px-4 py-3.5 border-b designer-hairline bg-[#F3F1EC]/70 dark:bg-[#1A1A17]">
+            <div className="flex items-center gap-2.5 sm:gap-3 px-3.5 sm:px-4 py-3 sm:py-3.5 border-b designer-hairline bg-[#F3F1EC]/70 dark:bg-[#1A1A17]">
               <Search className="w-4 h-4 text-[#8A6F48] dark:text-[#C8A97E] shrink-0" />
               <input
                 ref={inputRef}
@@ -447,7 +447,7 @@ export const CommandPalette: React.FC = () => {
                   '输入指令或搜索（如：项目、FDE、奖项、音效、音乐、简历）...',
                   'Type a command or search (e.g. projects, FDE, awards, SFX, music)...',
                 )}
-                className="w-full bg-transparent text-sm sm:text-base designer-text-primary placeholder-[#8E8C84] focus:outline-none"
+                className="w-full bg-transparent text-base designer-text-primary placeholder-[#8E8C84] focus:outline-none"
               />
               <button
                 type="button"
@@ -463,7 +463,7 @@ export const CommandPalette: React.FC = () => {
             </div>
 
             {/* Command List */}
-            <div className="max-h-[56vh] overflow-y-auto p-2 space-y-1">
+            <div className="max-h-[62dvh] sm:max-h-[56vh] overflow-y-auto p-2 space-y-1">
               {filteredCommands.length === 0 ? (
                 <div className="p-4 text-center space-y-3">
                   <div className="text-xs font-mono designer-text-muted">
@@ -557,11 +557,14 @@ export const CommandPalette: React.FC = () => {
 
             {/* Footer */}
             <div className="px-4 py-2.5 bg-[#F3F1EC] dark:bg-[#181816] border-t designer-hairline flex items-center justify-between text-[11px] font-mono designer-text-muted">
-              <div className="flex items-center gap-3">
+              <div className="hidden sm:flex items-center gap-3">
                 <span>↑↓ {td('选择', 'Navigate')}</span>
                 <span>↵ {td('执行', 'Execute')}</span>
                 <span>ESC {td('关闭', 'Close')}</span>
               </div>
+              <span className="sm:hidden text-[10px]">
+                {td('点击任意指令即可执行', 'Tap any command to run')}
+              </span>
               <span className="text-[#8A6F48] dark:text-[#C8A97E]">HYX.DEV // COMMAND INDEX</span>
             </div>
           </motion.div>

@@ -32,12 +32,12 @@ export const TechStackMarquee: React.FC<TechStackMarqueeProps> = ({
   const doubledItems = [...items, ...items];
 
   return (
-    <div className="designer-card p-5 rounded-2xl overflow-hidden">
-      <div className="flex items-center justify-between mb-3.5 pb-2.5 border-b designer-hairline">
-        <h3 className="text-[#8E8C84] text-[11px] font-mono uppercase tracking-widest">
+    <div className="designer-card p-4 sm:p-5 rounded-2xl overflow-hidden">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-3.5 pb-2.5 border-b designer-hairline">
+        <h3 className="text-[#8E8C84] text-[10px] sm:text-[11px] font-mono uppercase tracking-widest">
           {td('ENGINEERING & AI TOOLCHAIN // 技术栈矩阵', 'ENGINEERING & AI TOOLCHAIN')}
         </h3>
-        <span className="text-[11px] font-mono text-[#8A6F48] dark:text-[#C8A97E]">
+        <span className="text-[10px] sm:text-[11px] font-mono text-[#8A6F48] dark:text-[#C8A97E]">
           {td('CLICK ANY NODE TO INSPECT →', 'CLICK ANY NODE TO INSPECT →')}
         </span>
       </div>

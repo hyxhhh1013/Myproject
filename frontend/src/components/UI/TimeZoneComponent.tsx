@@ -30,7 +30,7 @@ export const TimeZoneComponent: React.FC<TimeZoneComponentProps> = ({
   });
 
   return (
-    <div className="designer-card p-6 rounded-2xl h-full flex flex-col justify-between">
+    <div className="designer-card p-5 sm:p-6 rounded-2xl h-full flex flex-col justify-between">
       <div className="flex justify-between items-center pb-3 border-b designer-hairline">
         <span className="text-[#8E8C84] text-[11px] font-mono uppercase tracking-widest flex items-center gap-1.5">
           <Clock className="w-3.5 h-3.5 text-[#8A6F48] stroke-[1.5]" />
@@ -41,7 +41,7 @@ export const TimeZoneComponent: React.FC<TimeZoneComponentProps> = ({
         </span>
       </div>
 
-      <div className="my-5">
+      <div className="my-4 sm:my-5">
         <div className="text-3xl sm:text-4xl font-light font-mono tracking-tight text-[#141413] dark:text-[#F2F0EA]">
           {formattedTime}
         </div>

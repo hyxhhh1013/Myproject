@@ -288,21 +288,21 @@ export const Skills: React.FC = () => {
   return (
     <section
       id="skills"
-      className="py-20 sm:py-28 transition-colors duration-300 relative overflow-hidden"
+      className="py-14 sm:py-28 transition-colors duration-300 relative overflow-hidden"
     >
-      <div className="container mx-auto px-6 relative z-10">
+      <div className="container mx-auto px-4 sm:px-6 relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
-          className="max-w-6xl mx-auto mb-12 pb-5 border-b designer-hairline flex flex-col sm:flex-row sm:items-end justify-between gap-4"
+          className="max-w-6xl mx-auto mb-8 sm:mb-12 pb-4 sm:pb-5 border-b designer-hairline flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4"
         >
           <div>
-            <div className="text-[11px] font-mono uppercase tracking-widest designer-accent-text mb-2">
+            <div className="text-[11px] font-mono uppercase tracking-widest designer-accent-text mb-1.5 sm:mb-2">
               02 // CAPABILITY MATRIX
             </div>
-            <h2 className="designer-heading text-3xl md:text-4xl font-normal tracking-[-0.02em]">
+            <h2 className="designer-heading text-2xl sm:text-3xl md:text-4xl font-normal tracking-[-0.02em]">
               {t('skills.title')}
             </h2>
           </div>
@@ -312,14 +312,14 @@ export const Skills: React.FC = () => {
         </motion.div>
 
         {/* Main 12-Col Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 max-w-6xl mx-auto items-stretch">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 max-w-6xl mx-auto items-stretch">
           {/* Left 7 Cols: Architectural Skill Index */}
           <motion.div
             initial={{ opacity: 0, y: 18 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
-            className="lg:col-span-7 designer-card p-6 sm:p-8 rounded-2xl flex flex-col justify-between"
+            className="lg:col-span-7 designer-card p-5 sm:p-8 rounded-2xl flex flex-col justify-between"
           >
             <div>
               <div className="flex items-center justify-between pb-4 mb-5 border-b designer-hairline">
@@ -355,16 +355,16 @@ export const Skills: React.FC = () => {
                           : 'bg-transparent border-transparent hover:bg-[#F6F4EF]/60 dark:hover:bg-[#1C1C19]'
                       }`}
                     >
-                      <div className="flex justify-between items-baseline mb-2">
-                        <div className="flex items-baseline gap-3">
-                          <span className="text-[11px] font-mono text-[#8A6F48] dark:text-[#C8A97E]">
+                      <div className="flex justify-between items-baseline gap-2 mb-2">
+                        <div className="flex items-baseline gap-2.5 sm:gap-3 min-w-0">
+                          <span className="text-[11px] font-mono text-[#8A6F48] dark:text-[#C8A97E] shrink-0">
                             {skill.indexCode}
                           </span>
-                          <span className="font-medium text-sm sm:text-base designer-text-primary">
+                          <span className="font-medium text-sm sm:text-base designer-text-primary leading-snug">
                             {td(skill.name, skill.nameEn)}
                           </span>
                         </div>
-                        <span className="text-xs font-mono designer-text-muted">
+                        <span className="text-xs font-mono designer-text-muted shrink-0">
                           {skill.level}%
                         </span>
                       </div>
@@ -416,14 +416,14 @@ export const Skills: React.FC = () => {
           </motion.div>
 
           {/* Right 5 Cols: Warm Bronze Radar + Tactile Field Attributes */}
-          <div className="lg:col-span-5 flex flex-col gap-6">
+          <div className="lg:col-span-5 flex flex-col gap-5 sm:gap-6">
             {/* Radar Card — Warm Bronze & Stone Palette */}
             <motion.div
               initial={{ opacity: 0, y: 18 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: 0.08 }}
-              className="designer-card p-6 rounded-2xl flex flex-col"
+              className="designer-card p-5 sm:p-6 rounded-2xl flex flex-col"
             >
               <div className="flex items-center justify-between pb-3 mb-2 border-b designer-hairline">
                 <h3 className="text-xs font-mono uppercase tracking-widest designer-text-muted">
@@ -431,9 +431,9 @@ export const Skills: React.FC = () => {
                 </h3>
                 <span className="text-[11px] font-mono text-[#8A6F48] dark:text-[#C8A97E]">6-AXIS</span>
               </div>
-              <div className="w-full h-[245px] sm:h-[260px]">
+              <div className="w-full h-[230px] sm:h-[260px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart cx="50%" cy="50%" outerRadius="60%" data={radarData}>
+                  <RadarChart cx="50%" cy="50%" outerRadius="55%" data={radarData}>
                     <PolarGrid
                       stroke={theme === 'dark' ? '#C8A97E' : '#9E9B91'}
                       strokeOpacity={theme === 'dark' ? 0.34 : 0.28}
@@ -442,7 +442,7 @@ export const Skills: React.FC = () => {
                       dataKey="subject"
                       tick={{
                         fill: theme === 'dark' ? '#D4D1C7' : '#5F5E58',
-                        fontSize: 11,
+                        fontSize: 10,
                         fontFamily: 'JetBrains Mono, monospace',
                       }}
                     />

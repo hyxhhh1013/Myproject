@@ -70,7 +70,7 @@ export const NowComponent: React.FC<NowComponentProps> = ({
             }`}
           />
         </span>
-        <div className="text-xs sm:text-sm text-[#5F5E58] dark:text-[#A09E96] font-normal truncate">
+        <div className="text-xs sm:text-sm text-[#5F5E58] dark:text-[#A09E96] font-normal line-clamp-2 sm:truncate">
           {displayedText}
           <span className="inline-block w-1 h-3.5 ml-0.5 bg-[#8A6F48] animate-pulse align-middle" />
         </div>

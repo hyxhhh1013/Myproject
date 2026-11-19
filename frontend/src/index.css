@@ -130,6 +130,11 @@ html.dark[data-skin="cobalt"] {
 }
 
 /* Base Body & Font Stack */
+html {
+  overflow-x: clip;
+  -webkit-tap-highlight-color: transparent;
+}
+
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -138,6 +143,7 @@ body {
   color: var(--text-primary);
   line-height: 1.65;
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  overflow-x: clip;
 }
 
 .font-mono {

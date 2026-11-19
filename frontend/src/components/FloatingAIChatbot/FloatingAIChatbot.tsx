@@ -167,7 +167,7 @@ export const FloatingAIChatbot: React.FC = () => {
   }, [messages, scrollToBottom]);
 
   useEffect(() => {
-    if (aiChatOpen && activeTab === 'ai') {
+    if (aiChatOpen && activeTab === 'ai' && window.innerWidth >= 640) {
       setTimeout(() => inputRef.current?.focus(), 180);
     }
   }, [aiChatOpen, activeTab]);
@@ -388,7 +388,13 @@ export const FloatingAIChatbot: React.FC = () => {
   }
 
   return (
-    <div className="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-50 flex flex-col items-end">
+    <div
+      className={`fixed z-50 flex flex-col items-end ${
+        aiChatOpen
+          ? 'inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] sm:inset-auto sm:bottom-6 sm:right-6'
+          : 'bottom-[calc(5.25rem+env(safe-area-inset-bottom))] md:bottom-6 right-4 md:right-6'
+      }`}
+    >
       <AnimatePresence>
         {aiChatOpen && (
           <motion.div
@@ -396,22 +402,22 @@ export const FloatingAIChatbot: React.FC = () => {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.94, y: 16 }}
             transition={{ duration: 0.2 }}
-            className="bg-[#FAF9F5] dark:bg-[#141413] rounded-2xl shadow-[0_20px_60px_rgba(20,20,19,0.16)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.55)] border border-[#E4DFD4] dark:border-[#2A2925] overflow-hidden mb-3 flex flex-col transition-all duration-200"
+            className={`w-full ${
+              isExpanded ? 'sm:w-[560px]' : 'sm:w-[432px]'
+            } bg-[#FAF9F5] dark:bg-[#141413] rounded-2xl shadow-[0_20px_60px_rgba(20,20,19,0.16)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.55)] border border-[#E4DFD4] dark:border-[#2A2925] overflow-hidden sm:mb-3 flex flex-col transition-all duration-200`}
             style={{
-              maxHeight: isExpanded ? '84vh' : '76vh',
-              width: isExpanded ? '94vw' : '92vw',
-              maxWidth: isExpanded ? '560px' : '432px',
+              maxHeight: isExpanded ? '84dvh' : '80dvh',
             }}
           >
             {/* 1. Top Header Bar — Crisp Single-Line Layout */}
-            <div className="bg-[#F3F1EC]/95 dark:bg-[#1A1A17]/95 backdrop-blur-md border-b border-[#E6E2D8] dark:border-[#282723] px-3.5 py-2.5 shrink-0">
-              <div className="flex items-center justify-between gap-2">
+            <div className="bg-[#F3F1EC]/95 dark:bg-[#1A1A17]/95 backdrop-blur-md border-b border-[#E6E2D8] dark:border-[#282723] px-3 sm:px-3.5 py-2.5 shrink-0">
+              <div className="flex items-center justify-between gap-1.5 sm:gap-2">
                 {/* AI / Music Segmented Switcher */}
                 <div className="inline-flex items-center bg-[#E8E4DA] dark:bg-[#11110F] rounded-xl p-0.5 shrink-0">
                   <button
                     type="button"
                     onClick={() => setActiveTab('ai')}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-mono font-semibold whitespace-nowrap shrink-0 transition-all ${
+                    className={`inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg text-[11px] font-mono font-semibold whitespace-nowrap shrink-0 transition-all ${
                       activeTab === 'ai'
                         ? 'bg-[#FFFFFF] dark:bg-[#242420] text-[#141413] dark:text-[#F4F3EF] shadow-xs'
                         : 'text-[#6E6A63] dark:text-[#96928A] hover:text-[#141413] dark:hover:text-[#F4F3EF]'
@@ -423,7 +429,7 @@ export const FloatingAIChatbot: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setActiveTab('music')}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-mono font-semibold whitespace-nowrap shrink-0 transition-all ${
+                    className={`inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg text-[11px] font-mono font-semibold whitespace-nowrap shrink-0 transition-all ${
                       activeTab === 'music'
                         ? 'bg-[#FFFFFF] dark:bg-[#242420] text-[#141413] dark:text-[#F4F3EF] shadow-xs'
                         : 'text-[#6E6A63] dark:text-[#96928A] hover:text-[#141413] dark:hover:text-[#F4F3EF]'
@@ -445,14 +451,14 @@ export const FloatingAIChatbot: React.FC = () => {
                           setShowToolsDrawer(!showToolsDrawer);
                         }}
                         title={td('查看已挂载的 12 个 Agent 工具', 'Inspect 12 Mounted Agent Tools')}
-                        className={`px-2 py-1 rounded-lg text-[10px] font-mono border inline-flex items-center gap-1 whitespace-nowrap shrink-0 mr-0.5 transition-all ${
+                        className={`px-1.5 sm:px-2 py-1 rounded-lg text-[10px] font-mono border inline-flex items-center gap-1 whitespace-nowrap shrink-0 mr-0.5 transition-all ${
                           showToolsDrawer
                             ? 'bg-[#141413] text-[#FAF9F5] dark:bg-[#F2F0EA] dark:text-[#141413] border-transparent font-semibold'
                             : 'bg-[#FAF9F5] dark:bg-[#141413] border-[#DFDAD0] dark:border-[#2C2B27] text-[#8A6F48] dark:text-[#C8A97E] hover:border-[#8A6F48]'
                         }`}
                       >
                         <Wrench className="w-2.5 h-2.5 shrink-0" />
-                        <span>12 Tools</span>
+                        <span>12<span className="hidden sm:inline"> Tools</span></span>
                       </button>
 
                       <button
@@ -620,8 +626,8 @@ export const FloatingAIChatbot: React.FC = () => {
             {activeTab === 'ai' ? (
               <>
                 <div
-                  className="overflow-y-auto p-3.5 space-y-3 flex-1"
-                  style={{ maxHeight: isExpanded ? '54vh' : '44vh' }}
+                  className="overflow-y-auto p-3.5 space-y-3 flex-1 min-h-0"
+                  style={{ maxHeight: isExpanded ? '56dvh' : '50dvh' }}
                 >
                   {messages.map((msg) => (
                     <motion.div
@@ -728,7 +734,7 @@ export const FloatingAIChatbot: React.FC = () => {
                             )
                       }
                       disabled={isLoading}
-                      className="flex-1 px-3.5 py-2.5 bg-[#F3F1EC] dark:bg-[#1E1E1B] border border-[#DFDAD0] dark:border-[#2C2B27] rounded-xl focus:outline-none focus:border-[#8A6F48] focus:ring-2 focus:ring-[#8A6F48]/15 text-[#141413] dark:text-[#F0EFEA] placeholder-[#8E8C84] text-xs sm:text-[13px] transition-all disabled:opacity-50"
+                      className="flex-1 px-3.5 py-2.5 bg-[#F3F1EC] dark:bg-[#1E1E1B] border border-[#DFDAD0] dark:border-[#2C2B27] rounded-xl focus:outline-none focus:border-[#8A6F48] focus:ring-2 focus:ring-[#8A6F48]/15 text-[#141413] dark:text-[#F0EFEA] placeholder-[#8E8C84] text-base sm:text-[13px] transition-all disabled:opacity-50"
                     />
                     <button
                       type="submit"
@@ -833,12 +839,14 @@ export const FloatingAIChatbot: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Floating Toggle Button */}
+      {/* Floating Toggle Button (hidden on mobile while chat sheet is open to maximize viewport) */}
       <motion.button
         type="button"
         onClick={() => setAiChatOpen(!aiChatOpen)}
         aria-label={td('打开 AI 助手与音乐播放器', 'Open AI Assistant & Music Player')}
-        className="w-13 h-13 sm:w-14 sm:h-14 p-3.5 bg-[#141413] text-[#FAF9F5] dark:bg-[#F2F0EA] dark:text-[#141413] rounded-full shadow-lg border designer-hairline hover:opacity-90 transition-opacity flex items-center justify-center relative"
+        className={`${
+          aiChatOpen ? 'hidden sm:flex' : 'flex'
+        } w-12 h-12 sm:w-14 sm:h-14 p-3 sm:p-3.5 bg-[#141413] text-[#FAF9F5] dark:bg-[#F2F0EA] dark:text-[#141413] rounded-full shadow-lg border designer-hairline hover:opacity-90 transition-opacity items-center justify-center relative`}
         whileTap={{ scale: 0.94 }}
       >
         {aiChatOpen ? (

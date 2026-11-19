@@ -603,46 +603,46 @@ export default function Interests() {
   const showSection = (sec: FilterTab) => activeFilter === 'all' || activeFilter === sec;
 
   return (
-    <div className="min-h-screen pt-24 pb-24 transition-colors duration-300">
+    <div className="min-h-screen pt-20 sm:pt-24 pb-28 md:pb-24 transition-colors duration-300">
       {/* ================= TOP EDITORIAL MASTHEAD ================= */}
-      <section className="max-w-6xl mx-auto px-6 pt-6 pb-12 border-b designer-hairline">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-4 sm:pt-6 pb-8 sm:pb-12 border-b designer-hairline">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-5 sm:gap-6">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full designer-pill text-[11px] font-mono uppercase tracking-widest mb-5">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full designer-pill text-[10px] sm:text-[11px] font-mono uppercase tracking-widest mb-4 sm:mb-5">
               <Sparkles className="w-3 h-3 text-[#8A6F48]" />
               <span>00 // DIGITAL GARDEN &amp; CULTURAL ARCHIVE</span>
             </div>
-            <h1 className="designer-heading text-4xl sm:text-5xl font-normal tracking-[-0.03em] leading-tight">
+            <h1 className="designer-heading text-3xl sm:text-5xl font-normal tracking-[-0.03em] leading-tight">
               <span>{t('interests.title')}</span>
             </h1>
-            <p className="designer-text-secondary text-sm sm:text-base mt-3 max-w-2xl leading-relaxed">
+            <p className="designer-text-secondary text-sm sm:text-base mt-2.5 sm:mt-3 max-w-2xl leading-relaxed">
               {t('interests.subtitle')}
             </p>
           </div>
 
           {/* Archive Telemetry Summary */}
-          <div className="grid grid-cols-3 gap-6 pt-4 md:pt-0 border-t md:border-t-0 designer-hairline font-mono text-left">
+          <div className="grid grid-cols-3 gap-3 sm:gap-6 pt-4 md:pt-0 border-t md:border-t-0 designer-hairline font-mono text-left">
             <div>
-              <div className="text-[10px] designer-text-muted uppercase">VINYL &amp; LOFI</div>
-              <div className="text-lg font-semibold designer-text-primary mt-0.5">
+              <div className="text-[10px] designer-text-muted uppercase truncate">VINYL &amp; LOFI</div>
+              <div className="text-base sm:text-lg font-semibold designer-text-primary mt-0.5">
                 {musicList.length} Tracks
               </div>
             </div>
             <div>
-              <div className="text-[10px] designer-text-muted uppercase">CINEMA &amp; BOOKS</div>
-              <div className="text-lg font-semibold designer-text-primary mt-0.5">10 Curated</div>
+              <div className="text-[10px] designer-text-muted uppercase truncate">CINEMA &amp; BOOKS</div>
+              <div className="text-base sm:text-lg font-semibold designer-text-primary mt-0.5">10 Curated</div>
             </div>
             <div>
-              <div className="text-[10px] designer-text-muted uppercase">GUEST NOTES</div>
-              <div className="text-lg font-semibold text-[#8A6F48] dark:text-[#C8A97E] mt-0.5">
+              <div className="text-[10px] designer-text-muted uppercase truncate">GUEST NOTES</div>
+              <div className="text-base sm:text-lg font-semibold text-[#8A6F48] dark:text-[#C8A97E] mt-0.5">
                 {danmakuList.length} Notes
               </div>
             </div>
           </div>
         </div>
 
-        {/* Filter Navigation Bar */}
-        <div className="flex flex-wrap items-center gap-2 mt-10 pb-1">
+        {/* Filter Navigation Bar — Horizontally scrollable on mobile */}
+        <div className="flex flex-nowrap overflow-x-auto sm:flex-wrap items-center gap-2 mt-7 sm:mt-10 pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {filterTabs.map((tab) => {
             const active = activeFilter === tab.id;
             return (
@@ -654,7 +654,7 @@ export default function Interests() {
                   playToggleSwitch(true);
                   setActiveFilter(tab.id);
                 }}
-                className={`px-4 py-2 rounded-full text-xs font-mono transition-all whitespace-nowrap shrink-0 flex items-center gap-2 ${
+                className={`px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs font-mono transition-all whitespace-nowrap shrink-0 flex items-center gap-1.5 sm:gap-2 ${
                   active
                     ? 'designer-btn-primary font-semibold'
                     : 'designer-btn-secondary designer-text-secondary'
@@ -668,7 +668,7 @@ export default function Interests() {
         </div>
       </section>
 
-      <div className="max-w-6xl mx-auto px-6 space-y-20 pt-14">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-14 sm:space-y-20 pt-10 sm:pt-14">
         {/* ================= 01 // VINYL TURNTABLE & SOUNDTRACK ================= */}
         {showSection('audio') && (
           <section id="section-audio">
@@ -704,7 +704,7 @@ export default function Interests() {
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
               {/* Left 5 Cols: Tactile Vinyl Turntable Card — Fixed Balanced Height */}
-              <div className="lg:col-span-5 lg:h-[500px] designer-card rounded-2xl p-6 sm:p-7 flex flex-col justify-between">
+              <div className="lg:col-span-5 lg:h-[500px] designer-card rounded-2xl p-5 sm:p-7 flex flex-col justify-between">
                 <div className="flex items-center justify-between text-[11px] font-mono designer-text-muted pb-3 border-b designer-hairline shrink-0">
                   <span>TURNTABLE // MODEL HYX-LP01</span>
                   <span className="text-[#8A6F48] dark:text-[#C8A97E]">
@@ -723,7 +723,7 @@ export default function Interests() {
                       togglePlay();
                     }}
                     title={td('点击黑胶唱片播放 / 暂停', 'Click vinyl disc to Play / Pause')}
-                    className={`relative w-52 h-52 sm:w-56 sm:h-56 rounded-full bg-[#141413] border-4 border-[#2C2B28] shadow-xl flex items-center justify-center cursor-pointer transition-transform hover:scale-[1.02] active:scale-[0.99] ${
+                    className={`relative w-44 h-44 sm:w-56 sm:h-56 rounded-full bg-[#141413] border-4 border-[#2C2B28] shadow-xl flex items-center justify-center cursor-pointer transition-transform hover:scale-[1.02] active:scale-[0.99] ${
                       isPlaying ? 'animate-spin' : ''
                     }`}
                     style={{ animationDuration: '10s' }}
@@ -734,7 +734,7 @@ export default function Interests() {
                     <div className="absolute inset-11 rounded-full border border-white/10 pointer-events-none" />
 
                     {/* Album Center Label */}
-                    <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-[#8A6F48] relative">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden border-2 border-[#8A6F48] relative">
                       {currentMusic?.coverUrl ? (
                         <img
                           src={getImageUrl(currentMusic.coverUrl)}
@@ -752,11 +752,11 @@ export default function Interests() {
 
                   {/* Minimalist Tonearm */}
                   <div
-                    className="pointer-events-none absolute top-2 right-6 w-16 h-24 origin-top-right transition-transform duration-500"
+                    className="pointer-events-none absolute top-1 sm:top-2 right-3 sm:right-6 w-14 sm:w-16 h-20 sm:h-24 origin-top-right transition-transform duration-500"
                     style={{ transform: isPlaying ? 'rotate(24deg)' : 'rotate(4deg)' }}
                   >
-                    <div className="w-4 h-4 rounded-full bg-[#8A6F48] ml-auto" />
-                    <div className="w-0.5 h-20 bg-[#8A6F48] ml-auto mr-1.5" />
+                    <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-[#8A6F48] ml-auto" />
+                    <div className="w-0.5 h-16 sm:h-20 bg-[#8A6F48] ml-auto mr-1.5" />
                   </div>
                 </div>
 
@@ -836,7 +836,7 @@ export default function Interests() {
               </div>
 
               {/* Right 7 Cols: Synchronized Scrolling Lyrics + Curated Tracklist Switcher */}
-              <div className="lg:col-span-7 lg:h-[500px] designer-card rounded-2xl p-6 sm:p-7 flex flex-col">
+              <div className="lg:col-span-7 lg:h-[500px] designer-card rounded-2xl p-5 sm:p-7 flex flex-col">
                 <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono designer-text-muted pb-3 mb-3 border-b designer-hairline shrink-0">
                   <div className="flex items-center gap-2">
                     <span className="text-[#8A6F48] dark:text-[#C8A97E] font-semibold">
@@ -1393,11 +1393,11 @@ export default function Interests() {
                 <ShutterIsland3D embedded onExit={() => setInline3DOpen(false)} />
               </div>
             ) : (
-              <div className="designer-card rounded-2xl p-6 sm:p-8 overflow-hidden relative">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+              <div className="designer-card rounded-2xl p-5 sm:p-8 overflow-hidden relative">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-center">
                   {/* Left 7 Cols: Minimalist Copy + Collapsible Gameplay Guide */}
-                  <div className="lg:col-span-7 space-y-5">
-                    <h3 className="designer-heading text-2xl sm:text-3xl font-normal leading-snug">
+                  <div className="lg:col-span-7 space-y-4 sm:space-y-5">
+                    <h3 className="designer-heading text-xl sm:text-3xl font-normal leading-snug">
                       {td(
                         '把摄影与故事，种进一座会随太阳流转光影的 3D 浮空群岛。',
                         'A living 3D archipelago where photography and Golden Hour light float above the sea.'
@@ -1547,10 +1547,10 @@ export default function Interests() {
               )}
             </div>
 
-            <div className="designer-card rounded-2xl p-6 sm:p-8">
+            <div className="designer-card rounded-2xl p-4 sm:p-8">
               {/* Danmaku Stream Canvas — Warm Sand & Architectural Grid */}
               <div
-                className="relative overflow-hidden rounded-xl bg-[#F6F4EF] dark:bg-[#121210] border designer-hairline mb-6 h-[260px]"
+                className="relative overflow-hidden rounded-xl bg-[#F6F4EF] dark:bg-[#121210] border designer-hairline mb-5 sm:mb-6 h-[210px] sm:h-[260px]"
                 style={{
                   backgroundImage:
                     'radial-gradient(circle, rgba(138,111,72,0.16) 1px, transparent 1px)',
@@ -1639,7 +1639,7 @@ export default function Interests() {
                   onChange={(e) => setDanmakuInput(e.target.value)}
                   maxLength={50}
                   placeholder={td('写下一句留言，让它飘过这面灵感便签墙...', 'Write a note to float across the guestbook wall...')}
-                  className="flex-1 px-4 py-2.5 rounded-xl bg-[#F6F4EF] dark:bg-[#1E1E1B] border designer-hairline focus:border-[#8A6F48] outline-none text-xs sm:text-sm designer-text-primary"
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-[#F6F4EF] dark:bg-[#1E1E1B] border designer-hairline focus:border-[#8A6F48] outline-none text-base sm:text-sm designer-text-primary"
                 />
 
                 <button

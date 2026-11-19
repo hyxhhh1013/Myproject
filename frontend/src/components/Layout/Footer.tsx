@@ -25,16 +25,16 @@ export const Footer = () => {
   }, []);
 
   return (
-    <footer className="bg-[#FAF9F5] dark:bg-[#0D0D0C] border-t designer-hairline pt-12 pb-24 md:pb-12 transition-colors duration-300">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-6">
+    <footer className="bg-[#FAF9F5] dark:bg-[#0D0D0C] border-t designer-hairline pt-10 sm:pt-12 pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-12 transition-colors duration-300">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-5 sm:gap-6">
         <div className="text-center sm:text-left">
           <div className="flex items-center justify-center sm:justify-start gap-2.5 mb-1.5">
             <span className="w-2 h-2 rounded-full bg-[#8A6F48] dark:bg-[#C9A87C]" />
-            <span className="font-serif-editorial text-lg text-[#141413] dark:text-[#F0EFEA]">
+            <span className="font-serif-editorial text-base sm:text-lg text-[#141413] dark:text-[#F0EFEA]">
               {td('黄奕轩 · Huang Yixuan', 'Huang Yixuan · Portfolio')}
             </span>
           </div>
-          <p className="font-mono-tech text-[11px] uppercase tracking-[0.16em] text-[#6E6C66] dark:text-[#9E9C94]">
+          <p className="font-mono-tech text-[10px] sm:text-[11px] uppercase tracking-[0.1em] sm:tracking-[0.16em] text-[#6E6C66] dark:text-[#9E9C94]">
             &copy; {new Date().getFullYear()} {td('黄奕轩 (Huang Yixuan)', 'Huang Yixuan')} · CRAFTED WITH SWISS EDITORIAL GRIDS
           </p>
           {icpCode && (

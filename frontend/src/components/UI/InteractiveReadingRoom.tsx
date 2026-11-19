@@ -1260,7 +1260,7 @@ export const InteractiveReadingRoom: React.FC = () => {
   return (
     <div className="space-y-8">
       {/* 1. Tactile Cloth-Bound Bookshelf Selector */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
         {CURATED_BOOKS.map((b, idx) => {
           const active = idx === selectedBookIdx;
           return (
@@ -1269,7 +1269,7 @@ export const InteractiveReadingRoom: React.FC = () => {
               type="button"
               data-sfx="custom"
               onClick={() => handleSelectBook(idx)}
-              className={`group relative text-left rounded-xl p-4 border transition-all duration-300 overflow-hidden ${
+              className={`group relative text-left rounded-xl p-3 sm:p-4 border transition-all duration-300 overflow-hidden ${
                 active
                   ? 'border-[#8A6F48] shadow-md -translate-y-0.5 bg-white dark:bg-[#1A1916]'
                   : 'designer-card hover:-translate-y-0.5 hover:border-[#8A6F48]/50'
@@ -1312,7 +1312,7 @@ export const InteractiveReadingRoom: React.FC = () => {
 
       {/* 2. WebGL Flexible-Paper 3D Studio Reading Desk */}
       <div
-        className="designer-card rounded-3xl p-5 sm:p-7 relative overflow-hidden select-none"
+        className="designer-card rounded-2xl sm:rounded-3xl p-4 sm:p-7 relative overflow-hidden select-none"
         style={{
           backgroundImage:
             'radial-gradient(ellipse 75% 65% at 50% 45%, rgba(216,183,124,0.14), transparent 72%)',
@@ -1355,17 +1355,17 @@ export const InteractiveReadingRoom: React.FC = () => {
             simRef.current.mouseParallaxX = 0;
             simRef.current.mouseParallaxY = 0;
           }}
-          className="w-full h-[440px] sm:h-[530px] cursor-grab active:cursor-grabbing"
+          className="w-full h-[310px] sm:h-[530px] cursor-grab active:cursor-grabbing touch-pan-y"
         />
 
         {/* Bottom Controls */}
-        <div className="mt-2 pt-4 border-t designer-hairline flex flex-wrap items-center justify-between gap-3">
+        <div className="mt-2 pt-3.5 sm:pt-4 border-t designer-hairline flex flex-wrap items-center justify-between gap-2 sm:gap-3">
           <button
             type="button"
             data-sfx="custom"
             onClick={flipPrev}
             disabled={targetSpread === 0}
-            className="px-4 py-2 rounded-full designer-btn-secondary font-mono text-xs flex items-center gap-1.5 disabled:opacity-35 transition-all"
+            className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-full designer-btn-secondary font-mono text-xs flex items-center gap-1 sm:gap-1.5 disabled:opacity-35 transition-all"
           >
             <ChevronLeft className="w-3.5 h-3.5" />
             <span>{td('向前翻页', 'Prev')}</span>
@@ -1420,7 +1420,7 @@ export const InteractiveReadingRoom: React.FC = () => {
               data-sfx="custom"
               onClick={flipNext}
               disabled={targetSpread === totalSheets}
-              className="px-4 py-2 rounded-full designer-btn-primary font-mono text-xs flex items-center gap-1.5 disabled:opacity-35 transition-all"
+              className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-full designer-btn-primary font-mono text-xs flex items-center gap-1 sm:gap-1.5 disabled:opacity-35 transition-all"
             >
               <span>{td('向后翻页', 'Next')}</span>
               <ChevronRight className="w-3.5 h-3.5" />

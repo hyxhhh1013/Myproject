@@ -59,21 +59,21 @@ export const Contact = React.memo(() => {
   return (
     <section
       id="contact"
-      className="py-20 sm:py-28 transition-colors duration-300 relative overflow-hidden"
+      className="py-14 sm:py-28 transition-colors duration-300 relative overflow-hidden"
     >
-      <div className="container mx-auto px-6 relative z-10">
+      <div className="container mx-auto px-4 sm:px-6 relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
-          className="max-w-6xl mx-auto mb-12 pb-5 border-b designer-hairline flex flex-col sm:flex-row sm:items-end justify-between gap-4"
+          className="max-w-6xl mx-auto mb-8 sm:mb-12 pb-4 sm:pb-5 border-b designer-hairline flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4"
         >
           <div>
-            <div className="text-[11px] font-mono uppercase tracking-widest designer-accent-text mb-2">
+            <div className="text-[11px] font-mono uppercase tracking-widest designer-accent-text mb-1.5 sm:mb-2">
               06 // INITIATE DIALOGUE
             </div>
-            <h2 className="designer-heading text-3xl md:text-4xl font-normal tracking-[-0.02em]">
+            <h2 className="designer-heading text-2xl sm:text-3xl md:text-4xl font-normal tracking-[-0.02em]">
               {t('contact.title')}
             </h2>
           </div>
@@ -82,7 +82,7 @@ export const Contact = React.memo(() => {
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 max-w-6xl mx-auto items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 max-w-6xl mx-auto items-start">
           {/* Left 5 Cols: Editorial Contact Ledger */}
           <motion.div
             initial={{ opacity: 0, y: 18 }}
@@ -101,15 +101,15 @@ export const Contact = React.memo(() => {
             </div>
 
             <div className="space-y-3 pt-2 border-t designer-hairline text-xs sm:text-sm font-mono">
-              <div className="flex items-center justify-between py-2 border-b designer-hairline">
-                <span className="designer-text-muted flex items-center gap-2">
+              <div className="flex items-center justify-between flex-wrap gap-2 py-2 border-b designer-hairline">
+                <span className="designer-text-muted flex items-center gap-2 shrink-0">
                   <Mail className="w-4 h-4 text-[#8A6F48] stroke-[1.5]" />
                   EMAIL
                 </span>
                 <div className="flex items-center gap-2">
                   <a
                     href="mailto:hyxhhh1013@gmail.com"
-                    className="font-medium designer-text-primary hover:underline"
+                    className="font-medium designer-text-primary hover:underline break-all"
                   >
                     hyxhhh1013@gmail.com
                   </a>
@@ -157,10 +157,10 @@ export const Contact = React.memo(() => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="lg:col-span-7 designer-card p-6 sm:p-8 rounded-2xl"
+            className="lg:col-span-7 designer-card p-5 sm:p-8 rounded-2xl"
           >
-            <form className="space-y-5" onSubmit={handleSubmit}>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <form className="space-y-4 sm:space-y-5" onSubmit={handleSubmit}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                 <div>
                   <label className="block text-xs font-mono uppercase tracking-wider designer-text-muted mb-2">
                     {t('contact.form.name')}
@@ -170,7 +170,7 @@ export const Contact = React.memo(() => {
                     name="name"
                     value={formData.name}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2.5 rounded-xl bg-[#F6F4EF] dark:bg-[#1E1E1B] border designer-hairline focus:border-[#8A6F48] outline-none transition-all text-sm designer-text-primary"
+                    className="w-full px-4 py-2.5 rounded-xl bg-[#F6F4EF] dark:bg-[#1E1E1B] border designer-hairline focus:border-[#8A6F48] outline-none transition-all text-base sm:text-sm designer-text-primary"
                     placeholder={t('contact.form.name')}
                     required
                   />
@@ -184,7 +184,7 @@ export const Contact = React.memo(() => {
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2.5 rounded-xl bg-[#F6F4EF] dark:bg-[#1E1E1B] border designer-hairline focus:border-[#8A6F48] outline-none transition-all text-sm designer-text-primary"
+                    className="w-full px-4 py-2.5 rounded-xl bg-[#F6F4EF] dark:bg-[#1E1E1B] border designer-hairline focus:border-[#8A6F48] outline-none transition-all text-base sm:text-sm designer-text-primary"
                     placeholder="name@example.com"
                     required
                   />
@@ -199,7 +199,7 @@ export const Contact = React.memo(() => {
                   name="subject"
                   value={formData.subject}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2.5 rounded-xl bg-[#F6F4EF] dark:bg-[#1E1E1B] border designer-hairline focus:border-[#8A6F48] outline-none transition-all text-sm designer-text-primary"
+                  className="w-full px-4 py-2.5 rounded-xl bg-[#F6F4EF] dark:bg-[#1E1E1B] border designer-hairline focus:border-[#8A6F48] outline-none transition-all text-base sm:text-sm designer-text-primary"
                   placeholder={td('项目合作 / 实习邀请 / 技术交流', 'Collaboration / Internship / Tech Chat')}
                 />
               </div>
@@ -212,7 +212,7 @@ export const Contact = React.memo(() => {
                   name="content"
                   value={formData.content}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2.5 rounded-xl bg-[#F6F4EF] dark:bg-[#1E1E1B] border designer-hairline focus:border-[#8A6F48] outline-none transition-all text-sm designer-text-primary"
+                  className="w-full px-4 py-2.5 rounded-xl bg-[#F6F4EF] dark:bg-[#1E1E1B] border designer-hairline focus:border-[#8A6F48] outline-none transition-all text-base sm:text-sm designer-text-primary"
                   placeholder={td('请写下您想交流的内容...', 'Write your message here...')}
                   required
                 />

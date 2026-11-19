@@ -227,8 +227,8 @@ const FlagshipProjectCard: React.FC<{
       }`}
     >
       {/* Top Bar */}
-      <div className="px-6 py-3 border-b designer-hairline bg-[#FAF9F5] dark:bg-[#141412] flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono">
-        <div className="flex items-center gap-2.5">
+      <div className="px-4 sm:px-6 py-3 border-b designer-hairline bg-[#FAF9F5] dark:bg-[#141412] flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
           <span className="px-2 py-0.5 rounded bg-[#141413] text-[#FAF9F5] dark:bg-[#F2F0EA] dark:text-[#141413] font-semibold">
             FLAGSHIP // {project.indexCode}
           </span>
@@ -264,7 +264,7 @@ const FlagshipProjectCard: React.FC<{
               className="transition-transform duration-700 group-hover:scale-[1.02]"
             />
 
-            <div className="absolute top-3 right-3 z-20 p-1.5 rounded-full bg-black/55 text-white opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 z-20 p-1.5 rounded-full bg-black/55 text-white opacity-85 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
               <Maximize2 className="w-3.5 h-3.5" />
             </div>
 
@@ -310,15 +310,15 @@ const FlagshipProjectCard: React.FC<{
           </div>
 
           {/* 4 Compact Quantitative Metrics */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x designer-hairline">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-[var(--border-hairline)]">
             {[
               { val: '~3 Days', label: td('初稿周期 · 已出 10+ 篇', 'Draft Cycle · 10+ Papers') },
               { val: '46 Tools', label: td('LangGraph · 11 路 SSE', 'LangGraph · 11 SSE') },
               { val: '176,230', label: td('2,749 篇文献知识块', '2,749 Papers Indexed') },
               { val: '2000+', label: td('测试 · 124 API · 5 模板', 'Tests · 124 APIs') },
             ].map((m, i) => (
-              <div key={i} className="p-3.5 text-left">
-                <div className="text-base font-mono font-bold designer-text-primary">{m.val}</div>
+              <div key={i} className="p-3 sm:p-3.5 text-left bg-[var(--bg-card)]">
+                <div className="text-sm sm:text-base font-mono font-bold designer-text-primary">{m.val}</div>
                 <div className="text-[11px] designer-text-secondary mt-0.5 truncate">{m.label}</div>
               </div>
             ))}
@@ -326,7 +326,7 @@ const FlagshipProjectCard: React.FC<{
         </div>
 
         {/* Right 5 Cols: Fixed-Height Tab Body + Actions */}
-        <div className="lg:col-span-5 p-6 flex flex-col justify-between">
+        <div className="lg:col-span-5 p-4 sm:p-6 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between gap-3 mb-4">
               <h3 className="text-lg sm:text-xl font-semibold tracking-tight designer-text-primary">
@@ -544,7 +544,7 @@ const ProjectCard: React.FC<{
             className="transition-transform duration-700 group-hover:scale-[1.03]"
           />
 
-          <div className="absolute top-2.5 right-2.5 z-20 p-1.5 rounded-full bg-black/55 text-white opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="absolute top-2.5 right-2.5 z-20 p-1.5 rounded-full bg-black/55 text-white opacity-85 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
             <Maximize2 className="w-3 h-3" />
           </div>
 
@@ -555,7 +555,7 @@ const ProjectCard: React.FC<{
                 data-sfx="custom"
                 onClick={handlePrev}
                 aria-label="Previous photo"
-                className="absolute left-2.5 top-1/2 -translate-y-1/2 z-20 w-6 h-6 rounded-full bg-black/55 hover:bg-black/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 z-20 w-7 h-7 sm:w-6 sm:h-6 rounded-full bg-black/55 hover:bg-black/80 text-white flex items-center justify-center opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
               </button>
@@ -564,7 +564,7 @@ const ProjectCard: React.FC<{
                 data-sfx="custom"
                 onClick={handleNext}
                 aria-label="Next photo"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 z-20 w-6 h-6 rounded-full bg-black/55 hover:bg-black/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 z-20 w-7 h-7 sm:w-6 sm:h-6 rounded-full bg-black/55 hover:bg-black/80 text-white flex items-center justify-center opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
               >
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>
@@ -590,7 +590,7 @@ const ProjectCard: React.FC<{
         </div>
 
         {/* Title & Segmented Control */}
-        <div className="px-5 pt-4">
+        <div className="px-4 sm:px-5 pt-4">
           <h3 className="text-base sm:text-lg font-semibold tracking-tight designer-text-primary mb-2.5 truncate">
             {td(project.title, project.titleEn)}
           </h3>
@@ -603,7 +603,7 @@ const ProjectCard: React.FC<{
                 if (activeTab !== 'overview') playToggleSwitch(true);
                 setActiveTab('overview');
               }}
-              className={`flex items-center justify-center gap-1.5 py-1 px-2 rounded-lg text-[11px] font-mono whitespace-nowrap transition-all ${
+              className={`flex items-center justify-center gap-1.5 py-1.5 sm:py-1 px-2 rounded-lg text-[11px] font-mono whitespace-nowrap transition-all ${
                 activeTab === 'overview'
                   ? 'bg-[#FFFFFF] dark:bg-[#141413] designer-text-primary font-semibold shadow-2xs'
                   : 'designer-text-muted hover:designer-text-primary'
@@ -619,7 +619,7 @@ const ProjectCard: React.FC<{
                 if (activeTab !== 'architecture') playToggleSwitch(false);
                 setActiveTab('architecture');
               }}
-              className={`flex items-center justify-center gap-1.5 py-1 px-2 rounded-lg text-[11px] font-mono whitespace-nowrap transition-all ${
+              className={`flex items-center justify-center gap-1.5 py-1.5 sm:py-1 px-2 rounded-lg text-[11px] font-mono whitespace-nowrap transition-all ${
                 activeTab === 'architecture'
                   ? 'bg-[#FFFFFF] dark:bg-[#141413] designer-text-primary font-semibold shadow-2xs'
                   : 'designer-text-muted hover:designer-text-primary'
@@ -632,7 +632,7 @@ const ProjectCard: React.FC<{
         </div>
 
         {/* Fixed-Height Body — Zero Height Jump */}
-        <div className="p-5 min-h-[210px] flex flex-col justify-between">
+        <div className="p-4 sm:p-5 lg:min-h-[210px] flex flex-col justify-between">
           <AnimatePresence mode="wait" initial={false}>
             {activeTab === 'overview' ? (
               <motion.div
@@ -884,21 +884,21 @@ export const Projects: React.FC = () => {
   return (
     <section
       id="projects"
-      className="py-20 sm:py-24 transition-colors duration-300"
+      className="py-14 sm:py-24 transition-colors duration-300"
     >
-      <div className="container mx-auto px-6">
+      <div className="container mx-auto px-4 sm:px-6">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
-          className="max-w-6xl mx-auto mb-10 pb-4 border-b designer-hairline flex flex-col sm:flex-row sm:items-end justify-between gap-4"
+          className="max-w-6xl mx-auto mb-8 sm:mb-10 pb-4 border-b designer-hairline flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4"
         >
           <div>
             <div className="text-[11px] font-mono uppercase tracking-widest designer-accent-text mb-1.5">
               03 // SELECTED WORKS (FLAGSHIP + 3 AWARDED BUILDS)
             </div>
-            <h2 className="designer-heading text-3xl md:text-4xl font-normal tracking-[-0.02em]">
+            <h2 className="designer-heading text-2xl sm:text-3xl md:text-4xl font-normal tracking-[-0.02em]">
               {t('projects.title')}
             </h2>
           </div>

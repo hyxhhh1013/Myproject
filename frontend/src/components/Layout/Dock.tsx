@@ -27,7 +27,7 @@ export const Dock: React.FC = () => {
   return (
     <nav
       aria-label={td('移动端快捷导航', 'Mobile Quick Navigation')}
-      className="md:hidden fixed bottom-3 left-3 right-3 z-40 bg-[#FAF9F5]/95 dark:bg-[#141413]/95 backdrop-blur-xl border designer-hairline rounded-2xl shadow-lg px-2 py-1.5 flex items-center justify-around"
+      className="md:hidden fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-3 right-3 z-40 bg-[#FAF9F5]/95 dark:bg-[#141413]/95 backdrop-blur-xl border designer-hairline rounded-2xl shadow-lg px-1.5 py-1 flex items-center justify-around"
     >
       {items.map((item) => {
         const Icon = item.icon;
@@ -38,10 +38,10 @@ export const Dock: React.FC = () => {
               to={item.to}
               smooth={true}
               duration={500}
-              offset={-70}
+              offset={-64}
               spy={true}
-              activeClass="text-[#8A6F48] dark:text-[#C9A87C]"
-              className="flex flex-col items-center justify-center py-1 px-2 text-[#6E6C66] dark:text-[#9E9C94] hover:text-[#141413] dark:hover:text-[#F0EFEA] cursor-pointer transition-colors"
+              activeClass="text-[#8A6F48] dark:text-[#C9A87C] font-semibold"
+              className="flex flex-col items-center justify-center min-w-[54px] min-h-[44px] py-1 px-1.5 rounded-xl text-[#6E6C66] dark:text-[#9E9C94] hover:text-[#141413] dark:hover:text-[#F0EFEA] active:scale-95 cursor-pointer transition-all"
             >
               <Icon className="w-4 h-4 mb-0.5" />
               <span className="text-[10px] font-medium whitespace-nowrap">{item.name}</span>
@@ -54,7 +54,7 @@ export const Dock: React.FC = () => {
           <Link
             key={item.to}
             to={item.route}
-            className={`flex flex-col items-center justify-center py-1 px-2 transition-colors ${
+            className={`flex flex-col items-center justify-center min-w-[54px] min-h-[44px] py-1 px-1.5 rounded-xl active:scale-95 transition-all ${
               isActive
                 ? 'text-[#8A6F48] dark:text-[#C9A87C] font-semibold'
                 : 'text-[#6E6C66] dark:text-[#9E9C94] hover:text-[#141413] dark:hover:text-[#F0EFEA]'

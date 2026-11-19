@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import axios from '../../utils/axiosConfig';
 import { motion } from 'framer-motion';
 import {
@@ -195,6 +195,15 @@ export const About = () => {
   const [isLiveSynced, setIsLiveSynced] = useState<boolean>(false);
   const [syncingGithub, setSyncingGithub] = useState<boolean>(false);
   const [hoveredDay, setHoveredDay] = useState<GithubContribDay | null>(null);
+  const heatmapScrollRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll GitHub heatmap to the latest (rightmost) weeks on mobile/narrow viewports
+  useEffect(() => {
+    const el = heatmapScrollRef.current;
+    if (el) {
+      el.scrollLeft = el.scrollWidth;
+    }
+  }, [contribWeeks]);
 
   const fetchGithubTelemetry = useCallback(async (forceRefresh = false) => {
     setSyncingGithub(true);
@@ -296,21 +305,21 @@ export const About = () => {
   return (
     <section
       id="about"
-      className="py-20 sm:py-24 transition-colors duration-300"
+      className="py-14 sm:py-24 transition-colors duration-300"
     >
-      <div className="container mx-auto px-6">
+      <div className="container mx-auto px-4 sm:px-6">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
-          className="max-w-6xl mx-auto mb-10 pb-4 border-b designer-hairline flex flex-col sm:flex-row sm:items-end justify-between gap-4"
+          className="max-w-6xl mx-auto mb-8 sm:mb-10 pb-4 border-b designer-hairline flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4"
         >
           <div>
             <div className="text-[11px] font-mono uppercase tracking-widest designer-accent-text mb-1.5">
               01 // PROFILE &amp; TELEMETRY
             </div>
-            <h2 className="designer-heading text-3xl md:text-4xl font-normal tracking-[-0.02em]">
+            <h2 className="designer-heading text-2xl sm:text-3xl md:text-4xl font-normal tracking-[-0.02em]">
               {t('about.title')}
             </h2>
           </div>
@@ -320,18 +329,18 @@ export const About = () => {
         </motion.div>
 
         {/* Clean 4-Card Bento Grid + Bottom Marquee */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5 max-w-6xl mx-auto">
           {/* Card 1: Main Bio & Core Edge Tags (2 cols) */}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.45 }}
-            className="lg:col-span-2 designer-card p-6 sm:p-7 rounded-2xl flex flex-col justify-between"
+            className="lg:col-span-2 designer-card p-5 sm:p-7 rounded-2xl flex flex-col justify-between"
           >
             <div>
-              <div className="flex flex-col sm:flex-row sm:items-center gap-4 pb-4 mb-4 border-b designer-hairline">
-                <div className="w-14 h-14 rounded-xl overflow-hidden border designer-hairline shrink-0">
+              <div className="flex flex-row items-start sm:items-center gap-3.5 sm:gap-4 pb-4 mb-4 border-b designer-hairline">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden border designer-hairline shrink-0">
                   <ImageWithFallback
                     src={profile.avatar}
                     alt={profile.name}
@@ -399,7 +408,7 @@ export const About = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.45, delay: 0.1 }}
-            className="lg:col-span-1 designer-card p-6 rounded-2xl flex flex-col justify-between space-y-4"
+            className="lg:col-span-1 designer-card p-5 sm:p-6 rounded-2xl flex flex-col justify-between space-y-4"
           >
             <div>
               <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-widest designer-text-muted pb-3 mb-3.5 border-b designer-hairline">
@@ -433,8 +442,8 @@ export const About = () => {
             </div>
 
             <div className="space-y-2 pt-3 border-t designer-hairline text-xs font-mono">
-              <div className="flex items-center justify-between">
-                <span className="designer-text-muted flex items-center gap-1.5">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <span className="designer-text-muted flex items-center gap-1.5 shrink-0">
                   <MapPin className="w-3.5 h-3.5 text-[#8A6F48] stroke-[1.5]" />
                   {t('about.info.location')}
                 </span>
@@ -442,14 +451,14 @@ export const About = () => {
                   {td('深圳 / 杭州 / 长沙', 'SZ / HZ / CS')}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="designer-text-muted flex items-center gap-1.5">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <span className="designer-text-muted flex items-center gap-1.5 shrink-0">
                   <Mail className="w-3.5 h-3.5 text-[#8A6F48] stroke-[1.5]" />
                   {t('about.info.email')}
                 </span>
                 <a
                   href={`mailto:${profile.email}`}
-                  className="font-medium designer-text-primary hover:underline"
+                  className="font-medium designer-text-primary hover:underline break-all"
                 >
                   {profile.email}
                 </a>
@@ -463,11 +472,11 @@ export const About = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.45, delay: 0.14 }}
-            className="lg:col-span-2 designer-card p-6 rounded-2xl flex flex-col justify-between"
+            className="lg:col-span-2 designer-card p-5 sm:p-6 rounded-2xl flex flex-col justify-between"
           >
             <div>
               <div className="flex flex-wrap items-center justify-between gap-2 pb-3 mb-4 border-b designer-hairline">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Github className="w-4 h-4 designer-text-primary stroke-[1.5]" />
                   <h3 className="text-xs font-mono uppercase tracking-widest designer-text-muted">
                     {t('about.github.title')}
@@ -576,7 +585,10 @@ export const About = () => {
                 </div>
               </div>
 
-              <div className="w-full overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div
+                ref={heatmapScrollRef}
+                className="w-full overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              >
                 {/* Month Headers — Fine 48-Week Compact Grid */}
                 <div
                   className="grid gap-[3px] mb-1 min-w-[480px] w-full"
@@ -608,6 +620,7 @@ export const About = () => {
                           key={`${wIdx}-${dIdx}`}
                           onMouseEnter={() => setHoveredDay(day)}
                           onMouseLeave={() => setHoveredDay(null)}
+                          onClick={() => setHoveredDay((prev) => (prev?.date === day.date ? null : day))}
                           title={`${day.date}: ${day.count} contributions`}
                           className={`w-full aspect-square rounded-[2px] transition-transform hover:scale-125 cursor-pointer ${getLevelColorClass(
                             day.level,

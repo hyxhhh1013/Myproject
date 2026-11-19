@@ -88,7 +88,7 @@ export const Header = () => {
 
   return (
     <header className="fixed top-0 left-0 right-0 w-full z-50 bg-[#FAF9F5]/97 dark:bg-[#0D0D0C]/97 backdrop-blur-md border-b designer-hairline transition-colors duration-300">
-      <div className="max-w-7xl mx-auto px-6 lg:px-10 py-4 flex justify-between items-center gap-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-3 sm:py-4 flex justify-between items-center gap-3 sm:gap-4">
         {/* Brand Wordmark */}
         <div className="text-base sm:text-[17px] font-mono font-semibold tracking-tight designer-text-primary cursor-pointer whitespace-nowrap shrink-0">
           {!isHomePage ? (
@@ -203,7 +203,7 @@ export const Header = () => {
             type="button"
             data-sfx="custom"
             onClick={() => toggleSfx()}
-            className="w-8 h-8 rounded-full designer-pill flex items-center justify-center"
+            className="hidden sm:flex w-8 h-8 rounded-full designer-pill items-center justify-center"
             aria-label={sfxOn ? 'Mute UI Sound Effects' : 'Unmute UI Sound Effects'}
           >
             {sfxOn ? (
@@ -212,7 +212,7 @@ export const Header = () => {
               <VolumeX className="w-3.5 h-3.5 designer-text-muted" />
             )}
           </button>
-          <LanguageToggle />
+          <LanguageToggle className="px-2" />
           <ThemeToggle />
           <button
             type="button"
@@ -236,51 +236,86 @@ export const Header = () => {
       {/* Mobile Dropdown Menu */}
       <AnimatePresence>
         {isMobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.18 }}
-            className="lg:hidden bg-[#FAF9F5] dark:bg-[#121210] border-b designer-hairline absolute w-full shadow-lg z-40"
-          >
-            <div className="grid grid-cols-2 gap-2 px-5 py-5">
-              {navLinks.map((link) => {
-                const Icon = link.icon;
-                return link.type === 'scroll' && isHomePage ? (
-                  <ScrollLink
-                    key={link.to}
-                    to={link.to}
-                    smooth={true}
-                    duration={500}
-                    offset={-70}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-[#F3F1EC] dark:hover:bg-[#1E1E1B] transition-colors cursor-pointer"
-                  >
-                    <div className="w-8 h-8 rounded-full designer-pill flex items-center justify-center shrink-0">
-                      <Icon className="w-3.5 h-3.5 text-[#8A6F48]" />
-                    </div>
-                    <span className="text-sm font-medium designer-text-primary">
-                      {link.name}
-                    </span>
-                  </ScrollLink>
-                ) : (
-                  <Link
-                    key={link.to}
-                    to={link.type === 'scroll' ? `/#${link.to}` : link.to}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-[#F3F1EC] dark:hover:bg-[#1E1E1B] transition-colors"
-                  >
-                    <div className="w-8 h-8 rounded-full designer-pill flex items-center justify-center shrink-0">
-                      <Icon className="w-3.5 h-3.5 text-[#8A6F48]" />
-                    </div>
-                    <span className="text-sm font-medium designer-text-primary">
-                      {link.name}
-                    </span>
-                  </Link>
-                );
-              })}
-            </div>
-          </motion.div>
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.16 }}
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="lg:hidden fixed inset-0 top-[57px] bg-black/35 backdrop-blur-[2px] z-30"
+            />
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.18 }}
+              className="lg:hidden bg-[#FAF9F5] dark:bg-[#121210] border-b designer-hairline absolute w-full max-h-[calc(100dvh-64px)] overflow-y-auto shadow-lg z-40"
+            >
+              <div className="grid grid-cols-2 gap-2 px-4 py-4">
+                {navLinks.map((link) => {
+                  const Icon = link.icon;
+                  return link.type === 'scroll' && isHomePage ? (
+                    <ScrollLink
+                      key={link.to}
+                      to={link.to}
+                      smooth={true}
+                      duration={500}
+                      offset={-64}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-[#F3F1EC] dark:hover:bg-[#1E1E1B] active:bg-[#EFECE6] dark:active:bg-[#242420] transition-colors cursor-pointer"
+                    >
+                      <div className="w-8 h-8 rounded-full designer-pill flex items-center justify-center shrink-0">
+                        <Icon className="w-3.5 h-3.5 text-[#8A6F48]" />
+                      </div>
+                      <span className="text-sm font-medium designer-text-primary truncate">
+                        {link.name}
+                      </span>
+                    </ScrollLink>
+                  ) : (
+                    <Link
+                      key={link.to}
+                      to={link.type === 'scroll' ? `/#${link.to}` : link.to}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-[#F3F1EC] dark:hover:bg-[#1E1E1B] active:bg-[#EFECE6] dark:active:bg-[#242420] transition-colors"
+                    >
+                      <div className="w-8 h-8 rounded-full designer-pill flex items-center justify-center shrink-0">
+                        <Icon className="w-3.5 h-3.5 text-[#8A6F48]" />
+                      </div>
+                      <span className="text-sm font-medium designer-text-primary truncate">
+                        {link.name}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+
+              {/* Compact Sound Toggle inside Mobile Menu */}
+              <div className="sm:hidden px-4 pb-4 pt-2 border-t designer-hairline flex items-center justify-between">
+                <span className="text-xs font-mono designer-text-muted">
+                  {td('交互音效 (Tactile SFX)', 'Tactile UI Sounds')}
+                </span>
+                <button
+                  type="button"
+                  data-sfx="custom"
+                  onClick={() => toggleSfx()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full designer-pill text-xs font-mono designer-text-primary"
+                >
+                  {sfxOn ? (
+                    <>
+                      <Volume2 className="w-3.5 h-3.5 text-[#8A6F48] dark:text-[#C8A97E]" />
+                      <span>{td('已开启', 'ON')}</span>
+                    </>
+                  ) : (
+                    <>
+                      <VolumeX className="w-3.5 h-3.5 designer-text-muted" />
+                      <span>{td('已静音', 'OFF')}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
     </header>
