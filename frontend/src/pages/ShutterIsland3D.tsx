@@ -27,10 +27,21 @@ import {
   Flame,
   Mail,
   Music,
+  Lock,
+  Unlock,
+  KeyRound,
+  Bookmark,
 } from 'lucide-react';
 import { usePhotoContext, Photo } from '../context/PhotoContext';
 import { useTheme } from '../context/ThemeContext';
 import { useI18n } from '../i18n/i18nContext';
+import {
+  PERSONAL_MEMORIES,
+  PersonalMemoryNode,
+  MEMORY_PASSPHRASE_HINT_ZH,
+  MEMORY_PASSPHRASE_HINT_EN,
+} from '../data/islandMemories';
+import { buildPersonalMemoryModel, BuiltMemoryModel } from '../utils/islandMemoryModels';
 import { resolvePhotoExif } from '../components/Sections/Photos';
 
 // ============================================================================
@@ -515,40 +526,93 @@ const SPECIAL_STATIONS: SpecialStation[] = [
 ];
 
 // ============================================================================
-// Terrain Walkability & Exact Height Lookup
+// Terrain Walkability & Exact Height Lookup (Main Islands + All Bridges + Memory Islands)
 // ============================================================================
 function getTerrainHeightAt(x: number, z: number): { walkable: boolean; y: number; zoneId: string } {
+  // 1. Main 5 Archipelago Islands
   for (const zone of ISLAND_ZONES) {
     const dx = x - zone.center.x;
     const dz = z - zone.center.z;
     const dist = Math.hypot(dx, dz);
-    if (dist <= zone.radius) {
-      const norm = dist / zone.radius;
+    if (dist <= zone.radius + 0.15) {
+      const norm = Math.min(1, dist / zone.radius);
       const dome = Math.max(0, Math.cos(norm * Math.PI * 0.5)) * 0.42;
       const ripple = Math.sin(x * 0.55) * Math.cos(z * 0.55) * 0.08 * (1 - norm);
       return { walkable: true, y: zone.center.y + dome + ripple, zoneId: zone.id };
     }
   }
 
-  if (x >= 7.5 && x <= 11.8 && z >= -4.8 && z <= 0.5) {
-    const t = (x - 7.5) / 4.3;
+  // 2. 5 Dedicated Satellite Personal Memory Islands (including M01 Floating Pontoon)
+  for (const mem of PERSONAL_MEMORIES) {
+    if (mem.id === 'freedive-crimson') {
+      // Walkable floating teak pontoon on the right side of the diving buoy
+      const px = mem.pos.x + 4.6;
+      const pz = mem.pos.z - 0.4;
+      if (Math.abs(x - px) <= 2.4 && Math.abs(z - pz) <= 3.1) {
+        return { walkable: true, y: 0.25, zoneId: mem.zoneId };
+      }
+      // Allow walking right up to the dive buoy area along the pontoon approach
+      const distBuoy = Math.hypot(x - mem.islandCenter.x, z - mem.islandCenter.z);
+      if (distBuoy <= mem.islandRadius) {
+        return { walkable: true, y: 0.22, zoneId: mem.zoneId };
+      }
+    } else {
+      const dx = x - mem.islandCenter.x;
+      const dz = z - mem.islandCenter.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist <= mem.islandRadius + 0.15) {
+        return { walkable: true, y: mem.islandCenter.y + 0.14, zoneId: mem.zoneId };
+      }
+    }
+  }
+
+  // 3. Main Archipelago Bridges (generous width for smooth, non-sticking crossings)
+  if (x >= 7.0 && x <= 12.2 && z >= -5.2 && z <= 0.8) {
+    const t = Math.max(0, Math.min(1, (x - 7.5) / 4.3));
     const arch = Math.sin(t * Math.PI) * 0.45;
     return { walkable: true, y: 0.65 + t * 0.25 + arch, zoneId: 'forest' };
   }
 
-  if (x >= -11.8 && x <= -7.5 && z >= -4.8 && z <= 0.5) {
-    const t = (-x - 7.5) / 4.3;
+  if (x >= -12.2 && x <= -7.0 && z >= -5.2 && z <= 0.8) {
+    const t = Math.max(0, Math.min(1, (-x - 7.5) / 4.3));
     const arch = Math.sin(t * Math.PI) * 0.4;
     return { walkable: true, y: 0.62 + t * 0.12 + arch, zoneId: 'coast' };
   }
 
-  if (Math.abs(x) <= 3.0 && z >= -13.0 && z <= -7.5) {
-    const t = (-z - 7.5) / 5.5;
+  if (Math.abs(x) <= 3.4 && z >= -13.5 && z <= -7.0) {
+    const t = Math.max(0, Math.min(1, (-z - 7.5) / 5.5));
     return { walkable: true, y: 0.7 + t * 1.85, zoneId: 'summit' };
   }
 
-  if (Math.abs(x) <= 2.5 && z >= 7.2 && z <= 14.5) {
+  if (Math.abs(x) <= 2.8 && z >= 6.8 && z <= 15.2) {
     return { walkable: true, y: 0.42, zoneId: 'pier' };
+  }
+
+  // 4. Stepping-Stone Walkways connecting Parent Islands -> All 5 Dedicated Memory Islands
+  for (const mem of PERSONAL_MEMORIES) {
+    const parentZone = ISLAND_ZONES.find((zObj) => zObj.id === mem.zoneId);
+    if (!parentZone) continue;
+    const ax = parentZone.center.x;
+    const az = parentZone.center.z;
+    const bx = mem.islandCenter.x;
+    const bz = mem.islandCenter.z;
+    const abx = bx - ax;
+    const abz = bz - az;
+    const abLenSq = abx * abx + abz * abz;
+    if (abLenSq < 0.01) continue;
+
+    const proj = Math.max(0, Math.min(1, ((x - ax) * abx + (z - az) * abz) / abLenSq));
+    const closestX = ax + abx * proj;
+    const closestZ = az + abz * proj;
+    const perpDist = Math.hypot(x - closestX, z - closestZ);
+
+    if (perpDist <= 1.75) {
+      const yInterp =
+        parentZone.center.y +
+        (mem.islandCenter.y - parentZone.center.y) * proj +
+        Math.sin(proj * Math.PI) * 0.32;
+      return { walkable: true, y: yInterp + 0.14, zoneId: mem.zoneId };
+    }
   }
 
   return { walkable: false, y: 0, zoneId: 'meadow' };
@@ -1361,8 +1425,25 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
 
   const [selectedEasel, setSelectedEasel] = useState<EaselNode | null>(null);
   const [activeStation, setActiveStation] = useState<SpecialStation['id'] | null>(null);
+  const [selectedMemory, setSelectedMemory] = useState<PersonalMemoryNode | null>(null);
+  const [memoryPhotoIdx, setMemoryPhotoIdx] = useState<number>(0);
+  const [showMemoryIndex, setShowMemoryIndex] = useState<boolean>(false);
+  const [underwaterMode, setUnderwaterMode] = useState<boolean>(false);
+  const [discoveredMemoryIds, setDiscoveredMemoryIds] = useState<string[]>([]);
+  const [unlockedMemoryIds, setUnlockedMemoryIds] = useState<string[]>(() => {
+    try {
+      if (typeof window === 'undefined') return [];
+      const raw = sessionStorage.getItem('shutter_island_unlocked_memories');
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+  const [passphraseInput, setPassphraseInput] = useState<string>('');
+  const [passphraseError, setPassphraseError] = useState<boolean>(false);
   const [nearbyPrompt, setNearbyPrompt] = useState<{
-    type: 'easel' | 'station';
+    type: 'easel' | 'station' | 'memory';
     id: string;
     titleZh: string;
     subZh: string;
@@ -1442,24 +1523,44 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       frameMat: THREE.MeshStandardMaterial;
     }[],
     interactiveMeshes: [] as {
-      kind: 'easel' | 'station';
+      kind: 'easel' | 'station' | 'memory';
       id: string;
       mesh: THREE.Object3D;
       worldPos: Vec3;
     }[],
     terrainMeshes: [] as THREE.Object3D[],
     camera: null as THREE.PerspectiveCamera | null,
+    underwaterMode: false,
+    underwaterBlend: 0,
   });
 
   useEffect(() => {
     simRef.current.timeOfDay = timeOfDay;
   }, [timeOfDay]);
 
+  useEffect(() => {
+    simRef.current.underwaterMode = underwaterMode;
+  }, [underwaterMode]);
+
+  const surfaceFromUnderwater = useCallback(() => {
+    playWindChimeNote(2, soundMuted);
+    setUnderwaterMode(false);
+    const freediveMem = PERSONAL_MEMORIES.find((m) => m.id === 'freedive-crimson');
+    const sim = simRef.current;
+    if (freediveMem) {
+      sim.camTargetFocus.set(freediveMem.pos.x + 1.8, 0.8, freediveMem.pos.z);
+      sim.camTargetPitch = 0.42;
+      sim.camTargetDist = 14.5;
+    }
+  }, [soundMuted]);
+
   const inspectEasel = useCallback(
     (easel: EaselNode) => {
       playCameraShutterSound(soundMuted);
+      setUnderwaterMode(false);
       setSelectedEasel(easel);
       setActiveStation(null);
+      setSelectedMemory(null);
       setDiscoveredIds((prev) => (prev.includes(easel.id) ? prev : [...prev, easel.id]));
 
       const sim = simRef.current;
@@ -1474,12 +1575,134 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
     [soundMuted]
   );
 
+  const inspectMemory = useCallback(
+    (mem: PersonalMemoryNode, openModal = true) => {
+      playWindChimeNote(3, soundMuted);
+      setSelectedEasel(null);
+      setActiveStation(null);
+      setActiveZoneId(mem.zoneId);
+      setMemoryPhotoIdx(0);
+      setPassphraseError(false);
+      setDiscoveredMemoryIds((prev) => (prev.includes(mem.id) ? prev : [...prev, mem.id]));
+      if (openModal) {
+        setSelectedMemory(mem);
+      } else {
+        setSelectedMemory(null);
+      }
+
+      const sim = simRef.current;
+      if (mem.id === 'freedive-crimson') {
+        // Dive directly underwater to experience the submerged freediving pool!
+        setUnderwaterMode(true);
+        sim.playerPos.set(mem.pos.x + 4.4, 0.2, mem.pos.z + 1.2);
+        sim.playerYaw = -Math.PI / 2;
+        sim.playerTarget = null;
+        sim.camTargetFocus.set(mem.pos.x, -3.35, mem.pos.z);
+        sim.camTargetYaw = mem.rotY + 0.08;
+        sim.camTargetPitch = -0.08;
+        sim.camTargetDist = 8.4;
+      } else if (mem.id === 'yzfls-campus') {
+        setUnderwaterMode(false);
+        const standDist = Math.max(5.8, mem.islandRadius - 1.5);
+        const tx = mem.islandCenter.x + Math.sin(mem.rotY) * standDist;
+        const tz = mem.islandCenter.z + Math.cos(mem.rotY) * standDist;
+        sim.playerPos.set(tx, mem.islandCenter.y + 0.14, tz);
+        sim.playerYaw = mem.rotY + Math.PI;
+        sim.playerTarget = null;
+        sim.camTargetFocus.set(mem.pos.x, mem.pos.y + 3.05, mem.pos.z + 0.4);
+        sim.camTargetYaw = mem.rotY + 0.04;
+        sim.camTargetPitch = 0.2;
+        sim.camTargetDist = 14.8;
+      } else if (mem.id === 'gramophone-lounge') {
+        setUnderwaterMode(false);
+        const standDist = Math.max(4.8, mem.islandRadius - 1.5);
+        const tx = mem.islandCenter.x + Math.sin(mem.rotY) * standDist;
+        const tz = mem.islandCenter.z + Math.cos(mem.rotY) * standDist;
+        sim.playerPos.set(tx, mem.islandCenter.y + 0.14, tz);
+        sim.playerYaw = mem.rotY + Math.PI;
+        sim.playerTarget = null;
+        sim.camTargetFocus.set(mem.pos.x, mem.pos.y + 1.55, mem.pos.z);
+        sim.camTargetYaw = mem.rotY - 0.24;
+        sim.camTargetPitch = 0.26;
+        sim.camTargetDist = 11.6;
+      } else if (mem.id === 'winter-bros') {
+        setUnderwaterMode(false);
+        const standDist = Math.max(4.6, mem.islandRadius - 1.5);
+        const tx = mem.islandCenter.x + Math.sin(mem.rotY) * standDist;
+        const tz = mem.islandCenter.z + Math.cos(mem.rotY) * standDist;
+        sim.playerPos.set(tx, mem.islandCenter.y + 0.14, tz);
+        sim.playerYaw = mem.rotY + Math.PI;
+        sim.playerTarget = null;
+        sim.camTargetFocus.set(mem.pos.x, mem.pos.y + 1.85, mem.pos.z);
+        sim.camTargetYaw = mem.rotY + 0.04;
+        sim.camTargetPitch = 0.16;
+        sim.camTargetDist = 9.8;
+      } else {
+        setUnderwaterMode(false);
+        const standDist = Math.max(4.5, mem.islandRadius - 1.6);
+        const tx = mem.islandCenter.x + Math.sin(mem.rotY) * standDist;
+        const tz = mem.islandCenter.z + Math.cos(mem.rotY) * standDist;
+        sim.playerPos.set(tx, mem.islandCenter.y + 0.14, tz);
+        sim.playerYaw = mem.rotY + Math.PI;
+        sim.playerTarget = null;
+        sim.camTargetFocus.set(mem.pos.x, mem.pos.y + 2.2, mem.pos.z);
+        sim.camTargetYaw = mem.rotY + 0.12;
+        sim.camTargetPitch = 0.34;
+        sim.camTargetDist = 15.5;
+      }
+    },
+    [soundMuted]
+  );
+
+  const handleUnlockMemories = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!selectedMemory) return;
+      const answer = passphraseInput.trim().toLowerCase();
+      const matched = selectedMemory.unlockAnswers.some((a) => a.toLowerCase() === answer);
+      if (matched) {
+        playWindChimeNote(4, soundMuted);
+        setUnlockedMemoryIds((prev) => {
+          const next = prev.includes(selectedMemory.id) ? prev : [...prev, selectedMemory.id];
+          try {
+            sessionStorage.setItem('shutter_island_unlocked_memories', JSON.stringify(next));
+          } catch {
+            // Ignore storage error
+          }
+          return next;
+        });
+        setPassphraseError(false);
+        setPassphraseInput('');
+      } else {
+        playTactileClick(280);
+        setPassphraseError(true);
+      }
+    },
+    [passphraseInput, selectedMemory, soundMuted]
+  );
+
+  const handleLockMemories = useCallback(() => {
+    if (!selectedMemory) return;
+    playTactileClick(460);
+    setUnlockedMemoryIds((prev) => {
+      const next = prev.filter((id) => id !== selectedMemory.id);
+      try {
+        sessionStorage.setItem('shutter_island_unlocked_memories', JSON.stringify(next));
+      } catch {
+        // Ignore storage error
+      }
+      return next;
+    });
+  }, [selectedMemory]);
+
   const teleportToZone = useCallback(
     (zone: IslandZone, noteIdx = 0) => {
       playWindChimeNote(noteIdx, soundMuted);
+      setUnderwaterMode(false);
       setActiveZoneId(zone.id);
       setSelectedEasel(null);
       setActiveStation(null);
+      setSelectedMemory(null);
 
       const sim = simRef.current;
       const ground = getTerrainHeightAt(zone.center.x, zone.center.z + 2.0);
@@ -1534,16 +1757,20 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
         if (nearbyPrompt.type === 'easel') {
           const found = EASEL_CONFIGS.find((ea) => ea.id === nearbyPrompt.id);
           if (found) inspectEasel(found);
+        } else if (nearbyPrompt.type === 'memory') {
+          const foundMem = PERSONAL_MEMORIES.find((m) => m.id === nearbyPrompt.id);
+          if (foundMem) inspectMemory(foundMem);
         } else if (nearbyPrompt.type === 'station') {
           playWindChimeNote(2, soundMuted);
           setActiveStation(nearbyPrompt.id as SpecialStation['id']);
         }
-      } else if (e.code === 'Space' && viewfinderMode && !selectedEasel) {
+      } else if (e.code === 'Space' && viewfinderMode && !selectedEasel && !selectedMemory) {
         e.preventDefault();
         captureIslandPostcard();
       } else if (key === 'escape') {
         setSelectedEasel(null);
         setActiveStation(null);
+        setSelectedMemory(null);
         setPreviewPostcard(null);
       }
     };
@@ -1553,13 +1780,19 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       simRef.current.keys[key] = false;
     };
 
+    const handleWindowBlur = () => {
+      simRef.current.keys = {};
+    };
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleWindowBlur);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleWindowBlur);
     };
-  }, [nearbyPrompt, viewfinderMode, selectedEasel, inspectEasel, captureIslandPostcard, soundMuted]);
+  }, [nearbyPrompt, viewfinderMode, selectedEasel, selectedMemory, inspectEasel, inspectMemory, captureIslandPostcard, soundMuted]);
 
   useEffect(() => {
     const container = mountRef.current;
@@ -1569,10 +1802,10 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
     const height = container.clientHeight || window.innerHeight;
 
     const scene = new THREE.Scene();
-    const fog = new THREE.FogExp2('#FAD4B8', 0.0095);
+    const fog = new THREE.FogExp2('#FAD4B8', 0.0046);
     scene.fog = fog;
 
-    const camera = new THREE.PerspectiveCamera(44, width / height, 0.5, 240);
+    const camera = new THREE.PerspectiveCamera(44, width / height, 0.5, 380);
     simRef.current.camera = camera;
 
     const renderer = new THREE.WebGLRenderer({
@@ -1591,7 +1824,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    const skyGeo = new THREE.SphereGeometry(140, 32, 20);
+    const skyGeo = new THREE.SphereGeometry(210, 32, 20);
     const skyUniforms = {
       topColor: { value: new THREE.Color('#3D2E5E') },
       bottomColor: { value: new THREE.Color('#FF7A45') },
@@ -1639,8 +1872,8 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
     sunLight.shadow.mapSize.width = 2048;
     sunLight.shadow.mapSize.height = 2048;
     sunLight.shadow.camera.near = 2;
-    sunLight.shadow.camera.far = 110;
-    const d = 34;
+    sunLight.shadow.camera.far = 160;
+    const d = 58;
     sunLight.shadow.camera.left = -d;
     sunLight.shadow.camera.right = d;
     sunLight.shadow.camera.top = d;
@@ -1656,13 +1889,16 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
     cabinLight.position.set(-16.2, 2.5, -2.5);
     scene.add(cabinLight);
 
-    const waterGeo = new THREE.PlaneGeometry(240, 240, 96, 96);
+    const waterGeo = new THREE.PlaneGeometry(360, 360, 112, 112);
     waterGeo.rotateX(-Math.PI / 2);
     const waterMat = new THREE.MeshStandardMaterial({
       color: '#38B6B2',
       roughness: 0.22,
       metalness: 0.18,
       flatShading: true,
+      transparent: true,
+      opacity: 0.78,
+      side: THREE.DoubleSide,
     });
     const waterMesh = new THREE.Mesh(waterGeo, waterMat);
     waterMesh.position.y = -0.22;
@@ -2205,23 +2441,149 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       });
     }
 
+    // 21. Dedicated Personal Memory Islands, Stepping-Stone Paths & Refined 3D Landmarks
+    const memoryModels: BuiltMemoryModel[] = [];
+    const memoryStoneMat = new THREE.MeshStandardMaterial({
+      color: '#E5DFD3',
+      roughness: 0.85,
+      flatShading: true,
+    });
+    const memoryIslandStyles: Record<string, { top: string; rim: string }> = {
+      'freedive-crimson': { top: '#63B8C8', rim: '#E8D5B7' },
+      'yzfls-campus': { top: '#66B56A', rim: '#D8BA8E' },
+      'redbrick-gate': { top: '#78B970', rim: '#DFC59C' },
+      'gramophone-lounge': { top: '#5F9E78', rim: '#C9B393' },
+      'winter-bros': { top: '#80B68A', rim: '#E2CCA4' },
+      'hunau-campus': { top: '#8BA85A', rim: '#E0BE8A' },
+    };
+
+    PERSONAL_MEMORIES.forEach((mem) => {
+      // M01 Freediving Sanctuary sits directly on the sea with its own architectural stone & teak deck
+      if (mem.id !== 'freedive-crimson') {
+        const palette = memoryIslandStyles[mem.id] || { top: '#74C365', rim: '#E2C496' };
+        const memIsland = buildSculptedIslandMesh(
+          mem.islandCenter,
+          mem.islandRadius,
+          4.4,
+          palette.top,
+          palette.rim
+        );
+        scene.add(memIsland);
+        terrainMeshes.push(memIsland);
+      }
+
+      // Decorative floating stepping-stone bridge connecting parent island to this memory island
+      const parentZone = ISLAND_ZONES.find((z) => z.id === mem.zoneId);
+      if (parentZone) {
+        const dx = mem.islandCenter.x - parentZone.center.x;
+        const dz = mem.islandCenter.z - parentZone.center.z;
+        const totalDist = Math.hypot(dx, dz);
+        const startT = Math.min(0.45, (parentZone.radius + 0.6) / totalDist);
+        const endT = Math.max(0.55, 1 - (mem.islandRadius + 0.6) / totalDist);
+        const stoneCount = 6;
+        for (let s = 0; s <= stoneCount; s++) {
+          const t = startT + (endT - startT) * (s / stoneCount);
+          const sx = parentZone.center.x + dx * t;
+          const sz = parentZone.center.z + dz * t;
+          const sy =
+            parentZone.center.y +
+            (mem.islandCenter.y - parentZone.center.y) * t +
+            Math.sin((s / stoneCount) * Math.PI) * 0.35;
+          const stepStone = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.95, 0.78, 0.26, 9),
+            memoryStoneMat
+          );
+          stepStone.position.set(sx, sy, sz);
+          stepStone.castShadow = true;
+          stepStone.receiveShadow = true;
+          scene.add(stepStone);
+          terrainMeshes.push(stepStone);
+        }
+      }
+
+      // Mount the refined 3D memory diorama centered cleanly on its own island
+      const built = buildPersonalMemoryModel(mem.id);
+      built.group.position.set(mem.pos.x, mem.id === 'freedive-crimson' ? mem.pos.y : mem.pos.y + 0.12, mem.pos.z);
+      built.group.rotation.y = mem.rotY;
+      scene.add(built.group);
+      memoryModels.push(built);
+      simRef.current.interactiveMeshes.push({
+        kind: 'memory',
+        id: mem.id,
+        mesh: built.group,
+        worldPos: mem.pos,
+      });
+    });
+
     let reqId: number;
     const clock = new THREE.Clock();
+    let prevElapsed = 0;
+    let clickWalkStuckFrames = 0;
     const baseWaterPos = waterGeo.attributes.position.clone();
+
+    const tryMoveWithSliding = (
+      curX: number,
+      curZ: number,
+      dx: number,
+      dz: number
+    ): { moved: boolean; x: number; y: number; z: number; moveDx: number; moveDz: number; zoneId: string } => {
+      // 1. Direct desired step
+      const direct = getTerrainHeightAt(curX + dx, curZ + dz);
+      if (direct.walkable) {
+        return { moved: true, x: curX + dx, y: direct.y, z: curZ + dz, moveDx: dx, moveDz: dz, zoneId: direct.zoneId };
+      }
+
+      // 2. Axis-aligned wall sliding (great for rectangular bridges & piers)
+      const slideX = getTerrainHeightAt(curX + dx * 0.85, curZ);
+      const slideZ = getTerrainHeightAt(curX, curZ + dz * 0.85);
+      if (slideX.walkable && (!slideZ.walkable || Math.abs(dx) >= Math.abs(dz))) {
+        return { moved: true, x: curX + dx * 0.85, y: slideX.y, z: curZ, moveDx: dx * 0.85, moveDz: 0, zoneId: slideX.zoneId };
+      }
+      if (slideZ.walkable) {
+        return { moved: true, x: curX, y: slideZ.y, z: curZ + dz * 0.85, moveDx: 0, moveDz: dz * 0.85, zoneId: slideZ.zoneId };
+      }
+
+      // 3. Curved coastline tangent sliding (±25°, ±50°, ±72°) so circular islands NEVER trap the player!
+      const baseAngle = Math.atan2(dz, dx);
+      const stepLen = Math.hypot(dx, dz) * 0.82;
+      const offsets = [0.44, -0.44, 0.88, -0.88, 1.26, -1.26];
+      for (const off of offsets) {
+        const a = baseAngle + off;
+        const tx = Math.cos(a) * stepLen;
+        const tz = Math.sin(a) * stepLen;
+        const test = getTerrainHeightAt(curX + tx, curZ + tz);
+        if (test.walkable) {
+          return { moved: true, x: curX + tx, y: test.y, z: curZ + tz, moveDx: tx, moveDz: tz, zoneId: test.zoneId };
+        }
+      }
+
+      return { moved: false, x: curX, y: 0, z: curZ, moveDx: 0, moveDz: 0, zoneId: 'meadow' };
+    };
 
     const animate = () => {
       reqId = requestAnimationFrame(animate);
       const elapsed = clock.getElapsedTime();
+      const dt = Math.min(0.05, Math.max(0.004, elapsed - prevElapsed));
+      prevElapsed = elapsed;
       const sim = simRef.current;
 
       const atmo = computeAtmosphere(sim.timeOfDay);
-      skyUniforms.topColor.value.copy(atmo.skyTop);
-      skyUniforms.bottomColor.value.copy(atmo.skyBottom);
+      const isSubmerged = sim.underwaterMode || camera.position.y < -0.28;
+      sim.underwaterBlend += ((isSubmerged ? 1 : 0) - sim.underwaterBlend) * 0.08;
+      const uw = sim.underwaterBlend;
+
+      const uwSkyTop = new THREE.Color('#0369A1');
+      const uwSkyBottom = new THREE.Color('#082F49');
+      const uwFogColor = new THREE.Color('#03588C');
+
+      skyUniforms.topColor.value.copy(atmo.skyTop).lerp(uwSkyTop, uw);
+      skyUniforms.bottomColor.value.copy(atmo.skyBottom).lerp(uwSkyBottom, uw);
       skyUniforms.sunDir.value.copy(atmo.sunPosition).normalize();
       skyUniforms.sunColor.value.copy(atmo.sunColor);
 
-      fog.color.copy(atmo.fogColor);
-      waterMat.color.copy(atmo.waterColor);
+      fog.color.copy(atmo.fogColor).lerp(uwFogColor, uw);
+      fog.density = 0.0046 + uw * 0.021;
+      waterMat.color.copy(atmo.waterColor).lerp(new THREE.Color('#0E87B4'), uw);
 
       sunLight.color.copy(atmo.sunColor);
       sunLight.intensity = atmo.sunIntensity;
@@ -2280,6 +2642,8 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
         sr.mesh.rotation.y = elapsed * 0.12;
       });
 
+      memoryModels.forEach((mm) => mm.update(elapsed));
+
       flameOuter.scale.y = 0.9 + Math.sin(elapsed * 10) * 0.18;
       flameInner.scale.y = 0.9 + Math.cos(elapsed * 12) * 0.2;
       boatGroup.position.y = -0.05 + Math.sin(elapsed * 1.8) * 0.06;
@@ -2303,11 +2667,12 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       if (sim.keys['d'] || sim.keys['arrowright']) moveRight += 1;
       if (sim.keys['a'] || sim.keys['arrowleft']) moveRight -= 1;
 
-      const walkSpeed = 0.135;
+      const walkSpeed = 8.2 * dt;
       let isMoving = false;
 
       if (moveForward !== 0 || moveRight !== 0) {
         sim.playerTarget = null;
+        clickWalkStuckFrames = 0;
         const len = Math.hypot(moveForward, moveRight);
         const nf = moveForward / len;
         const nr = moveRight / len;
@@ -2320,34 +2685,49 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
         const dx = (fwdX * nf + rightX * nr) * walkSpeed;
         const dz = (fwdZ * nf + rightZ * nr) * walkSpeed;
 
-        const nextX = sim.playerPos.x + dx;
-        const nextZ = sim.playerPos.z + dz;
-        const ground = getTerrainHeightAt(nextX, nextZ);
-
-        if (ground.walkable) {
-          sim.playerPos.set(nextX, ground.y, nextZ);
-          sim.playerYaw = Math.atan2(dx, dz);
+        const res = tryMoveWithSliding(sim.playerPos.x, sim.playerPos.z, dx, dz);
+        if (res.moved) {
+          sim.playerPos.x = res.x;
+          sim.playerPos.z = res.z;
+          sim.playerPos.y += (res.y - sim.playerPos.y) * 0.25;
+          sim.playerYaw = Math.atan2(res.moveDx, res.moveDz);
           isMoving = true;
-          sim.camTargetFocus.set(nextX, ground.y + 1.1, nextZ);
+          if (!sim.underwaterMode) {
+            sim.camTargetFocus.set(res.x, sim.playerPos.y + 1.1, res.z);
+          }
         }
       } else if (sim.playerTarget) {
         const dx = sim.playerTarget.x - sim.playerPos.x;
         const dz = sim.playerTarget.z - sim.playerPos.z;
         const dist = Math.hypot(dx, dz);
-        if (dist > 0.24) {
+        if (dist > 0.28) {
           const step = Math.min(walkSpeed, dist);
-          const nextX = sim.playerPos.x + (dx / dist) * step;
-          const nextZ = sim.playerPos.z + (dz / dist) * step;
-          const ground = getTerrainHeightAt(nextX, nextZ);
-          if (ground.walkable) {
-            sim.playerPos.set(nextX, ground.y, nextZ);
-            sim.playerYaw = Math.atan2(dx, dz);
+          const res = tryMoveWithSliding(
+            sim.playerPos.x,
+            sim.playerPos.z,
+            (dx / dist) * step,
+            (dz / dist) * step
+          );
+          if (res.moved) {
+            clickWalkStuckFrames = 0;
+            sim.playerPos.x = res.x;
+            sim.playerPos.z = res.z;
+            sim.playerPos.y += (res.y - sim.playerPos.y) * 0.25;
+            sim.playerYaw = Math.atan2(res.moveDx, res.moveDz);
             isMoving = true;
+            if (!sim.underwaterMode) {
+              sim.camTargetFocus.set(res.x, sim.playerPos.y + 1.1, res.z);
+            }
           } else {
-            sim.playerTarget = null;
+            clickWalkStuckFrames += 1;
+            if (clickWalkStuckFrames > 10) {
+              sim.playerTarget = null;
+              clickWalkStuckFrames = 0;
+            }
           }
         } else {
           sim.playerTarget = null;
+          clickWalkStuckFrames = 0;
         }
       }
 
@@ -2360,7 +2740,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       }
 
       if (isMoving) {
-        sim.playerWalkCycle += 0.24;
+        sim.playerWalkCycle += 14.5 * dt;
         const swing = Math.sin(sim.playerWalkCycle) * 0.55;
         avatar.leftLeg.rotation.x = swing;
         avatar.rightLeg.rotation.x = -swing;
@@ -2372,7 +2752,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
         avatar.rightLeg.rotation.x *= 0.85;
         avatar.leftArm.rotation.x *= 0.85;
         avatar.rightArm.rotation.x *= 0.85;
-        avatar.root.position.y = sim.playerPos.y;
+        avatar.root.position.y += (sim.playerPos.y - avatar.root.position.y) * 0.25;
       }
       avatar.root.position.x = sim.playerPos.x;
       avatar.root.position.z = sim.playerPos.z;
@@ -2382,7 +2762,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       avatar.root.rotation.y += diffYaw * 0.18;
 
       let closestPrompt: {
-        type: 'easel' | 'station';
+        type: 'easel' | 'station' | 'memory';
         id: string;
         titleZh: string;
         subZh: string;
@@ -2414,6 +2794,20 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
             id: st.id,
             titleZh: st.nameZh,
             subZh: `${st.hintZh} · 按 [E] 或点击打开`,
+            dist: d,
+          };
+        }
+      });
+
+      PERSONAL_MEMORIES.forEach((mem) => {
+        const d = Math.hypot(mem.pos.x - sim.playerPos.x, mem.pos.z - sim.playerPos.z);
+        const triggerDist = mem.id === 'freedive-crimson' ? 5.2 : 4.2;
+        if (d < triggerDist && (!closestPrompt || d < closestPrompt.dist)) {
+          closestPrompt = {
+            type: 'memory',
+            id: mem.id,
+            titleZh: `${mem.indexLabel} · ${mem.titleZh}`,
+            subZh: `${mem.categoryZh} · 按 [E] 或点击打开记忆手账`,
             dist: d,
           };
         }
@@ -2518,7 +2912,9 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
         sim.dragMoved = true;
       }
       sim.camTargetYaw = sim.dragStartYaw - dx * 0.0075;
-      sim.camTargetPitch = Math.max(0.14, Math.min(1.18, sim.dragStartPitch + dy * 0.006));
+      const minPitch = sim.underwaterMode ? -0.32 : 0.14;
+      const maxPitch = sim.underwaterMode ? 0.65 : 1.18;
+      sim.camTargetPitch = Math.max(minPitch, Math.min(maxPitch, sim.dragStartPitch + dy * 0.006));
       setHoveredLabel(null);
       return;
     }
@@ -2543,15 +2939,23 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
         setHoveredLabel({
           x: e.clientX,
           y: e.clientY,
-          title: `📸 ${p?.title || '摄影画架'}`,
+          title: p?.title || '摄影画架',
           subtitle: `${ea?.locationZh || ''} · 点击赏析大图`,
+        });
+      } else if (hitTarget.kind === 'memory') {
+        const mem = PERSONAL_MEMORIES.find((x) => x.id === hitTarget.id);
+        setHoveredLabel({
+          x: e.clientX,
+          y: e.clientY,
+          title: `${mem?.indexLabel || ''} · ${mem?.titleZh || '个人记忆'}`,
+          subtitle: `${mem?.categoryZh || ''} · 点击翻阅记忆手账`,
         });
       } else {
         const st = SPECIAL_STATIONS.find((x) => x.id === hitTarget.id);
         setHoveredLabel({
           x: e.clientX,
           y: e.clientY,
-          title: `✨ ${st?.nameZh || ''}`,
+          title: st?.nameZh || '',
           subtitle: st?.hintZh || '',
         });
       }
@@ -2580,6 +2984,9 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
         if (item.kind === 'easel') {
           const easel = EASEL_CONFIGS.find((ea) => ea.id === item.id);
           if (easel) inspectEasel(easel);
+        } else if (item.kind === 'memory') {
+          const mem = PERSONAL_MEMORIES.find((m) => m.id === item.id);
+          if (mem) inspectMemory(mem);
         } else {
           playWindChimeNote(3, soundMuted);
           setActiveStation(item.id as SpecialStation['id']);
@@ -2604,8 +3011,8 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
 
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     const sim = simRef.current;
-    const delta = e.deltaY > 0 ? 1.5 : -1.5;
-    sim.camTargetDist = Math.max(7.5, Math.min(34, sim.camTargetDist + delta));
+    const delta = e.deltaY > 0 ? 1.8 : -1.8;
+    sim.camTargetDist = Math.max(7.5, Math.min(46, sim.camTargetDist + delta));
   };
 
   const selectedPhoto: Photo | null = useMemo(() => {
@@ -2657,7 +3064,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       />
 
       {/* Hover 3D Object Floating Tooltip */}
-      {hoveredLabel && !selectedEasel && !activeStation && (
+      {hoveredLabel && !selectedEasel && !activeStation && !selectedMemory && (
         <div
           style={{ left: hoveredLabel.x + 14, top: hoveredLabel.y - 18 }}
           className="fixed z-30 pointer-events-none px-3.5 py-2 rounded-xl bg-[#FAF9F5]/95 dark:bg-[#141413]/95 text-[#141413] dark:text-[#F0EFEA] border border-[#E6E2D8] dark:border-[#2A2925] backdrop-blur-xl shadow-lg"
@@ -2695,7 +3102,76 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>{embedded ? td('收起 3D 预览', 'Collapse 3D') : td('返回日常与兴趣', 'Back to Digital Garden')}</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              playTactileClick(680);
+              setShowMemoryIndex((v) => !v);
+            }}
+            className={`px-3 py-2 rounded-xl border backdrop-blur-xl shadow-sm text-xs font-mono flex items-center gap-1.5 transition-colors ${
+              showMemoryIndex
+                ? 'bg-[#8A6F48] text-[#FAF9F5] border-[#8A6F48]'
+                : 'bg-[#FAF9F5]/90 dark:bg-[#141413]/90 text-[#8A6F48] dark:text-[#C8A97E] border-[#E6E2D8] dark:border-[#2A2925] hover:border-[#8A6F48]'
+            }`}
+            title={td('个人记忆地标导览', 'Personal Memory Landmarks')}
+          >
+            <Bookmark className="w-3.5 h-3.5" />
+            <span>
+              {td('记忆', 'Memories')} {discoveredMemoryIds.length}/{PERSONAL_MEMORIES.length}
+            </span>
+          </button>
         </div>
+
+        <AnimatePresence>
+          {showMemoryIndex && (
+            <motion.div
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              className="p-2.5 rounded-2xl bg-[#FAF9F5]/95 dark:bg-[#141413]/95 border border-[#E6E2D8] dark:border-[#2A2925] backdrop-blur-xl shadow-xl space-y-1"
+            >
+              <div className="px-2 py-1 flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.16em] text-[#8A6F48] dark:text-[#C8A97E]">
+                <span>
+                  {td(`个人记忆地标 · ${PERSONAL_MEMORIES.length} 处`, `PERSONAL MEMORIES · ${PERSONAL_MEMORIES.length}`)}
+                </span>
+                <span className="flex items-center gap-1 text-[#8C877E]">
+                  {unlockedMemoryIds.length > 0 ? (
+                    <Unlock className="w-3 h-3 text-[#8A6F48]" />
+                  ) : (
+                    <Lock className="w-3 h-3" />
+                  )}
+                  {unlockedMemoryIds.length}/{PERSONAL_MEMORIES.length} {td('已显影', 'Unlocked')}
+                </span>
+              </div>
+              {PERSONAL_MEMORIES.map((mem) => {
+                const isMemUnlocked = unlockedMemoryIds.includes(mem.id);
+                return (
+                  <button
+                    key={mem.id}
+                    type="button"
+                    onClick={() => {
+                      setShowMemoryIndex(false);
+                      inspectMemory(mem, false);
+                    }}
+                    className="w-full px-2.5 py-1.5 rounded-xl hover:bg-[#F3F1EC] dark:hover:bg-[#1E1D1A] text-left flex items-center justify-between gap-2 transition-colors group"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-xs font-serif font-medium text-[#141413] dark:text-[#FAF9F5] group-hover:text-[#8A6F48] dark:group-hover:text-[#C8A97E] truncate flex items-center gap-1.5">
+                        <span className="truncate">{mem.titleZh}</span>
+                        {isMemUnlocked && <Unlock className="w-2.5 h-2.5 text-[#8A6F48] shrink-0" />}
+                      </div>
+                      <div className="text-[10px] font-mono text-[#8C877E] truncate">{mem.eraZh}</div>
+                    </div>
+                    <span className="text-[10px] font-mono text-[#8A6F48] dark:text-[#C8A97E] shrink-0">
+                      {mem.indexLabel} ↗
+                    </span>
+                  </button>
+                );
+              })}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <div className="px-4 py-3 rounded-2xl bg-[#FAF9F5]/90 dark:bg-[#141413]/90 text-[#141413] dark:text-[#F0EFEA] backdrop-blur-xl border border-[#E6E2D8]/90 dark:border-[#2A2925] shadow-lg">
           <div className="flex items-center justify-between gap-3">
@@ -2966,9 +3442,57 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
         )}
       </AnimatePresence>
 
+      {/* 4B. Underwater Freediving Immersion Vignette & Controls */}
+      <AnimatePresence>
+        {underwaterMode && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-10 pointer-events-none"
+              style={{
+                background:
+                  'radial-gradient(circle at 50% 42%, rgba(56,189,248,0.04) 35%, rgba(2,56,94,0.36) 100%)',
+              }}
+            />
+            {!selectedMemory && (
+              <motion.div
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 14 }}
+                className="absolute bottom-20 left-1/2 -translate-x-1/2 z-30 pointer-events-auto flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-[#082F49]/90 text-[#E0F2FE] border border-[#38BDF8]/35 backdrop-blur-xl shadow-xl"
+              >
+                <span className="w-2 h-2 rounded-full bg-[#38BDF8] animate-pulse" />
+                <span className="text-[11px] font-mono tracking-wide text-[#BAE6FD]">
+                  {td('水下自由潜视角 · DEPTH -4.2M（可拖拽环视水底）', 'UNDERWATER · -4.2M (Drag to look around)')}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const mem = PERSONAL_MEMORIES.find((m) => m.id === 'freedive-crimson');
+                    if (mem) setSelectedMemory(mem);
+                  }}
+                  className="px-2.5 py-1 rounded-xl bg-[#38BDF8]/20 hover:bg-[#38BDF8]/35 border border-[#38BDF8]/40 text-[11px] font-mono text-[#E0F2FE] transition-colors"
+                >
+                  {td('记忆手账', 'Journal')}
+                </button>
+                <button
+                  type="button"
+                  onClick={surfaceFromUnderwater}
+                  className="px-2.5 py-1 rounded-xl bg-[#FAF9F5] hover:bg-[#C8A97E] text-[#141413] text-[11px] font-mono transition-colors"
+                >
+                  {td('浮出水面 ↑', 'Surface ↑')}
+                </button>
+              </motion.div>
+            )}
+          </>
+        )}
+      </AnimatePresence>
+
       {/* 5. Proximity Interaction Prompt Banner */}
       <AnimatePresence>
-        {nearbyPrompt && !selectedEasel && !activeStation && (
+        {nearbyPrompt && !selectedEasel && !activeStation && !selectedMemory && (
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -2981,6 +3505,9 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
                 if (nearbyPrompt.type === 'easel') {
                   const found = EASEL_CONFIGS.find((ea) => ea.id === nearbyPrompt.id);
                   if (found) inspectEasel(found);
+                } else if (nearbyPrompt.type === 'memory') {
+                  const foundMem = PERSONAL_MEMORIES.find((m) => m.id === nearbyPrompt.id);
+                  if (foundMem) inspectMemory(foundMem);
                 } else {
                   playWindChimeNote(2, soundMuted);
                   setActiveStation(nearbyPrompt.id as SpecialStation['id']);
@@ -3538,6 +4065,252 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
                     className="p-2 rounded-xl bg-[#F3F1EC] dark:bg-[#262522] hover:bg-[#E6E2D8] dark:hover:bg-[#32302C] text-[#524E48] dark:text-[#B5B0A6] transition-colors"
                   >
                     <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 10. Personal Memory Hand-Journal Modal (Passcode-Gated Original Photos) */}
+      <AnimatePresence>
+        {selectedMemory && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-[#141413]/75 backdrop-blur-md flex items-center justify-center p-4 sm:p-8"
+            onClick={() => setSelectedMemory(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.94, y: 18, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.94, y: 18, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative max-w-4xl w-full bg-[#FAF9F5] dark:bg-[#141413] border border-[#E6E2D8] dark:border-[#2A2925] rounded-2xl overflow-hidden shadow-2xl grid grid-cols-1 lg:grid-cols-12 text-[#141413] dark:text-[#F0EFEA]"
+            >
+              {/* Left Stage: Locked Question Card OR Unlocked Original Photo(s) */}
+              <div className="lg:col-span-7 bg-[#1A1917] dark:bg-[#0B0B0A] relative flex flex-col items-center justify-center min-h-[320px] sm:min-h-[440px] p-6">
+                {!unlockedMemoryIds.includes(selectedMemory.id) ? (
+                  <div className="max-w-sm w-full text-center px-5 py-7 rounded-2xl bg-[#22211E]/90 border border-[#C8A97E]/25 shadow-xl">
+                    <div className="w-11 h-11 mx-auto rounded-full bg-[#C8A97E]/15 border border-[#C8A97E]/40 flex items-center justify-center text-[#C8A97E]">
+                      <Lock className="w-5 h-5" />
+                    </div>
+                    <div className="mt-3 text-[10px] font-mono uppercase tracking-[0.22em] text-[#C8A97E]">
+                      MEMORY QUESTION · 记忆问答
+                    </div>
+                    <h3 className="mt-2 font-serif text-lg font-medium text-[#FAF9F5] leading-snug">
+                      {td(selectedMemory.unlockQuestionZh, selectedMemory.unlockQuestionEn)}
+                    </h3>
+                    <p className="mt-1.5 text-xs text-[#A8A39A] leading-relaxed">
+                      {td(
+                        '答对这道专属小问题，即可显影查看这组封存的真实档案。',
+                        'Answer this personal memory question to develop and view the original archive.'
+                      )}
+                    </p>
+
+                    <form onSubmit={handleUnlockMemories} className="mt-4 flex flex-col gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <KeyRound className="w-3.5 h-3.5 text-[#8C877E] absolute left-3 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            value={passphraseInput}
+                            onChange={(e) => {
+                              setPassphraseInput(e.target.value);
+                              setPassphraseError(false);
+                            }}
+                            placeholder={td(
+                              selectedMemory.unlockPlaceholderZh,
+                              selectedMemory.unlockPlaceholderEn
+                            )}
+                            className="w-full pl-8 pr-3 py-2 rounded-xl bg-[#141413] border border-[#32302C] focus:border-[#C8A97E] text-xs font-mono text-[#FAF9F5] placeholder:text-[#6E6A63] focus:outline-none"
+                          />
+                        </div>
+                        <button
+                          type="submit"
+                          className="px-4 py-2 rounded-xl bg-[#C8A97E] hover:bg-[#DFC69E] text-[#141413] font-mono text-xs font-medium shrink-0 transition-colors"
+                        >
+                          {td('显影', 'Unlock')}
+                        </button>
+                      </div>
+
+                      {passphraseError ? (
+                        <div className="text-[11px] font-mono text-[#FB7185] text-left">
+                          {td('回答不对哦，再回忆一下试试看', 'Not quite right, try again')}
+                        </div>
+                      ) : (
+                        <div className="text-[10px] font-mono text-[#8C877E] text-left">
+                          {td(MEMORY_PASSPHRASE_HINT_ZH, MEMORY_PASSPHRASE_HINT_EN)}
+                        </div>
+                      )}
+                    </form>
+                  </div>
+                ) : selectedMemory.photos.length === 0 ? (
+                  <div className="max-w-sm w-full text-center px-6 py-8 rounded-2xl bg-[#22211E]/90 border border-[#C8A97E]/30 shadow-xl">
+                    <div className="text-[10px] font-mono uppercase tracking-[0.24em] text-[#E85D2A]">
+                      {selectedMemory.indexLabel} // 3D LANDMARK ARCHIVE · UNLOCKED
+                    </div>
+                    <h3 className="mt-2 font-serif text-xl font-medium text-[#FAF9F5]">
+                      {td(selectedMemory.titleZh, selectedMemory.titleEn)}
+                    </h3>
+                    <p className="mt-2 text-xs font-serif tracking-widest text-[#DFC69E]">
+                      {td('朴诚 · 奋勉 · 求实 · 创新', 'Simplicity · Diligence · Pragmatism · Innovation')}
+                    </p>
+                    <p className="mt-3 text-xs text-[#A8A39A] leading-relaxed">
+                      {td(
+                        '回答正确！该校园地标已以 3D 实景微缩形态完整落成，后续随时可在胶片档案中补充真实校园摄影作品。',
+                        'Correct! This campus landmark is live in 3D diorama form. Real campus film frames can be attached anytime.'
+                      )}
+                    </p>
+                  </div>
+                ) : (
+                  <motion.div
+                    key={`${selectedMemory.id}-${memoryPhotoIdx}`}
+                    initial={{ opacity: 0, filter: 'blur(6px)' }}
+                    animate={{ opacity: 1, filter: 'blur(0px)' }}
+                    transition={{ duration: 0.45 }}
+                    className="w-full flex flex-col items-center"
+                  >
+                    <img
+                      src={selectedMemory.photos[memoryPhotoIdx % selectedMemory.photos.length]?.url}
+                      alt={selectedMemory.titleZh}
+                      className="max-h-[62vh] w-auto object-contain rounded-lg shadow-2xl border border-white/10"
+                    />
+                    <div className="mt-3 w-full flex items-center justify-between gap-3 px-1">
+                      <span className="text-[11px] font-mono text-[#C8A97E]">
+                        {td(
+                          selectedMemory.photos[memoryPhotoIdx % selectedMemory.photos.length]?.captionZh || '',
+                          selectedMemory.photos[memoryPhotoIdx % selectedMemory.photos.length]?.captionEn || ''
+                        )}
+                      </span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {selectedMemory.photos.length > 1 && (
+                          <div className="flex items-center gap-1">
+                            {selectedMemory.photos.map((_, pIdx) => (
+                              <button
+                                key={pIdx}
+                                type="button"
+                                onClick={() => setMemoryPhotoIdx(pIdx)}
+                                className={`px-2 py-0.5 rounded-md text-[10px] font-mono border transition-colors ${
+                                  memoryPhotoIdx === pIdx
+                                    ? 'bg-[#C8A97E] text-[#141413] border-[#C8A97E]'
+                                    : 'bg-white/5 text-[#B5B0A6] border-white/10 hover:border-[#C8A97E]/60'
+                                }`}
+                              >
+                                {`0${pIdx + 1}`}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={handleLockMemories}
+                          className="px-2 py-0.5 rounded-md bg-white/5 hover:bg-white/15 border border-white/10 text-[10px] font-mono text-[#A8A39A] flex items-center gap-1 transition-colors"
+                          title={td('重新封存所有原图', 'Re-seal private photos')}
+                        >
+                          <Lock className="w-2.5 h-2.5" />
+                          <span>{td('重新封存', 'Seal')}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </div>
+
+              {/* Right Column: Editorial Memory Story */}
+              <div className="lg:col-span-5 p-6 sm:p-8 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-mono uppercase tracking-[0.16em] text-[#8A6F48] dark:text-[#C8A97E]">
+                      {selectedMemory.indexLabel} // {td(selectedMemory.categoryZh, selectedMemory.categoryEn)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedMemory(null)}
+                      className="p-1.5 rounded-full bg-[#F3F1EC] dark:bg-[#1E1D1A] hover:bg-[#E6E2D8] dark:hover:bg-[#2A2925] text-[#6E6A63] dark:text-[#9E9A92] transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <h2 className="mt-3 font-serif text-2xl font-medium tracking-tight text-[#141413] dark:text-[#FAF9F5]">
+                    {td(selectedMemory.titleZh, selectedMemory.titleEn)}
+                  </h2>
+
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-mono text-[#8A6F48] dark:text-[#C8A97E]">
+                    <span>{selectedMemory.eraZh}</span>
+                    <span>·</span>
+                    <span className="text-[#6E6A63] dark:text-[#9E9A92]">
+                      {selectedMemory.photos.length} {td('张封存胶片', 'film frames')}
+                    </span>
+                  </div>
+
+                  <div className="mt-5 p-4 rounded-xl bg-[#F3F1EC]/85 dark:bg-[#1A1917] border border-[#E6E2D8] dark:border-[#2A2925]">
+                    <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-[#8A6F48] dark:text-[#C8A97E] mb-1.5 flex items-center gap-1.5">
+                      <Bookmark className="w-3 h-3" />
+                      <span>MEMORY JOURNAL · 记忆手账</span>
+                    </div>
+                    <p className="text-sm text-[#4A4741] dark:text-[#C9C5BC] leading-relaxed">
+                      {td(selectedMemory.storyZh, selectedMemory.storyEn)}
+                    </p>
+                  </div>
+
+                  {selectedMemory.preferredTime !== undefined && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playTactileClick(700);
+                        setTimeOfDay(selectedMemory.preferredTime!);
+                      }}
+                      className="mt-4 w-full px-3.5 py-2 rounded-xl bg-[#F3F1EC] dark:bg-[#1E1D1A] hover:border-[#8A6F48] dark:hover:border-[#C8A97E] border border-[#E6E2D8] dark:border-[#2A2925] text-xs font-mono text-[#524E48] dark:text-[#B5B0A6] flex items-center justify-center gap-2 transition-colors"
+                    >
+                      <Sun className="w-3.5 h-3.5 text-[#8A6F48] dark:text-[#C8A97E]" />
+                      <span>
+                        {td(
+                          `切换小岛光影至记忆时刻 (${Math.floor(selectedMemory.preferredTime)}:00)`,
+                          `Switch Island Light to Memory Hour (${Math.floor(selectedMemory.preferredTime)}:00)`
+                        )}
+                      </span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="mt-6 pt-4 border-t border-[#E6E2D8] dark:border-[#262522] flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const idx = PERSONAL_MEMORIES.findIndex((m) => m.id === selectedMemory.id);
+                        const prev = PERSONAL_MEMORIES[(idx - 1 + PERSONAL_MEMORIES.length) % PERSONAL_MEMORIES.length];
+                        inspectMemory(prev, true);
+                      }}
+                      className="p-2 rounded-xl bg-[#F3F1EC] dark:bg-[#1E1D1A] hover:border-[#8A6F48] border border-[#E6E2D8] dark:border-[#2A2925] text-[#524E48] dark:text-[#B5B0A6] transition-colors"
+                      title={td('上一个记忆点', 'Previous Memory')}
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const idx = PERSONAL_MEMORIES.findIndex((m) => m.id === selectedMemory.id);
+                        const next = PERSONAL_MEMORIES[(idx + 1) % PERSONAL_MEMORIES.length];
+                        inspectMemory(next, true);
+                      }}
+                      className="p-2 rounded-xl bg-[#F3F1EC] dark:bg-[#1E1D1A] hover:border-[#8A6F48] border border-[#E6E2D8] dark:border-[#2A2925] text-[#524E48] dark:text-[#B5B0A6] transition-colors"
+                      title={td('下一个记忆点', 'Next Memory')}
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMemory(null)}
+                    className="px-4 py-2 rounded-xl bg-[#141413] hover:bg-[#8A6F48] text-[#FAF9F5] dark:bg-[#F0EFEA] dark:hover:bg-[#C8A97E] dark:text-[#141413] font-mono text-xs transition-colors"
+                  >
+                    {td('继续漫步小岛', 'Continue Exploring')}
                   </button>
                 </div>
               </div>
