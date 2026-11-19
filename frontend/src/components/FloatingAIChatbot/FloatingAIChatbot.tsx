@@ -23,13 +23,19 @@ import {
   Zap,
   Target,
   Cpu,
+  Volume2,
+  Volume1,
+  VolumeX,
+  Repeat,
+  Repeat1,
+  Shuffle,
 } from 'lucide-react';
-import { useMusic } from '../../context/MusicContext';
+import { useMusic, getQqMusicLink } from '../../context/MusicContext';
 import { useTheme } from '../../context/ThemeContext';
 import { getImageUrl } from '../../utils/imageUtils';
 import { useAppStore, AgentPersonaMode } from '../../store/useAppStore';
 import { useI18n } from '../../i18n/i18nContext';
-import { playTactileClick } from '../../utils/soundEffects';
+import { playTactileClick, playVinylNeedle, playToggleSwitch } from '../../utils/soundEffects';
 import { AGENT_TOOLS_REGISTRY, runAgentTurn } from '../../utils/agentEngine';
 import { AgentCardRenderer, AgentMarkdown, AgentTraceAccordion } from './AgentCards';
 import { AgentMessage, AgentSseEvent, AgentUiAction } from '../../types/agent';
@@ -129,13 +135,65 @@ export const FloatingAIChatbot: React.FC = () => {
   const {
     currentMusic,
     isPlaying,
+    hasActivated,
     currentTime,
     duration,
+    volume,
+    isMuted,
+    playMode,
     togglePlay,
     playNext,
     playPrev,
     seekTo,
+    setVolume,
+    toggleMute,
+    cyclePlayMode,
   } = useMusic();
+
+  const [miniBarDismissed, setMiniBarDismissed] = useState(false);
+  const [turntableVisible, setTurntableVisible] = useState(false);
+
+  useEffect(() => {
+    if (isPlaying) {
+      setMiniBarDismissed(false);
+    }
+  }, [isPlaying]);
+
+  useEffect(() => {
+    if (location.pathname !== '/interests') {
+      setTurntableVisible(false);
+      return;
+    }
+    const target = document.getElementById('section-audio');
+    if (!target || typeof IntersectionObserver === 'undefined') {
+      setTurntableVisible(false);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        setTurntableVisible(Boolean(entries[0]?.isIntersecting));
+      },
+      { threshold: 0.15 },
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [location.pathname]);
+
+  const showUnifiedMiniCapsule =
+    !aiChatOpen &&
+    hasActivated &&
+    Boolean(currentMusic) &&
+    !turntableVisible &&
+    !miniBarDismissed;
+
+  const progressPct = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
+
+  const playModeLabel =
+    playMode === 'single'
+      ? td('单曲循环', 'Repeat One')
+      : playMode === 'shuffle'
+      ? td('随机播放', 'Shuffle')
+      : td('列表循环', 'Repeat All');
 
   const progressRef = useRef<HTMLDivElement>(null);
 
@@ -753,22 +811,56 @@ export const FloatingAIChatbot: React.FC = () => {
                 {currentMusic ? (
                   <div className="flex flex-col gap-3.5">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 border designer-hairline bg-[#141413] flex items-center justify-center">
-                        {currentMusic.coverUrl ? (
-                          <img
-                            src={getImageUrl(currentMusic.coverUrl)}
-                            alt={currentMusic.title}
-                            className={`w-full h-full object-cover ${isPlaying ? 'animate-spin' : ''}`}
-                            style={{ animationDuration: '12s' }}
-                          />
-                        ) : (
-                          <Disc className="w-6 h-6 text-[#C8A97E]" />
-                        )}
-                      </div>
+                      {/* Mini Realistic Spinning Vinyl */}
+                      <button
+                        type="button"
+                        data-sfx="custom"
+                        onClick={() => {
+                          playVinylNeedle(!isPlaying);
+                          togglePlay();
+                        }}
+                        title={isPlaying ? td('暂停', 'Pause') : td('播放', 'Play')}
+                        className="relative w-12 h-12 rounded-full vinyl-grooves border-2 border-[#262522] flex-shrink-0 flex items-center justify-center overflow-hidden shadow-md cursor-pointer"
+                      >
+                        <div
+                          className="w-full h-full rounded-full flex items-center justify-center vinyl-spin"
+                          style={{ animationPlayState: isPlaying ? 'running' : 'paused' }}
+                        >
+                          <div className="w-6 h-6 rounded-full overflow-hidden border border-[#8A6F48] bg-[#141413]">
+                            {currentMusic.coverUrl ? (
+                              <img
+                                src={getImageUrl(currentMusic.coverUrl)}
+                                alt={currentMusic.title}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <Disc className="w-3.5 h-3.5 text-[#C8A97E] m-1" />
+                            )}
+                          </div>
+                        </div>
+                        <div className="pointer-events-none absolute inset-0 rounded-full vinyl-sheen" />
+                        <div className="pointer-events-none absolute w-1.5 h-1.5 rounded-full bg-[#FAF9F5] border border-black/40" />
+                      </button>
+
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold designer-text-primary truncate text-sm">
-                          {currentMusic.title}
-                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="font-serif font-medium designer-text-primary truncate text-sm">
+                            {currentMusic.title}
+                          </p>
+                          {isPlaying && (
+                            <span className="inline-flex items-end gap-[1.5px] h-2.5 shrink-0" aria-hidden="true">
+                              <span className="w-[2px] h-full rounded-full bg-[#8A6F48] dark:bg-[#C8A97E] eq-bar" />
+                              <span
+                                className="w-[2px] h-full rounded-full bg-[#8A6F48] dark:bg-[#C8A97E] eq-bar"
+                                style={{ animationDelay: '0.2s' }}
+                              />
+                              <span
+                                className="w-[2px] h-full rounded-full bg-[#8A6F48] dark:bg-[#C8A97E] eq-bar"
+                                style={{ animationDelay: '0.4s' }}
+                              />
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs font-mono designer-text-muted truncate">
                           {currentMusic.artist || 'Chill Lofi'}
                         </p>
@@ -783,54 +875,123 @@ export const FloatingAIChatbot: React.FC = () => {
                         onTouchStart={handleProgressClick}
                       >
                         <div
-                          className="h-full bg-[#8A6F48] dark:bg-[#C8A97E] rounded-full transition-all"
-                          style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
+                          className="h-full bg-[#8A6F48] dark:bg-[#C8A97E] rounded-full transition-[width] duration-200 ease-linear"
+                          style={{ width: `${progressPct}%` }}
                         />
                       </div>
-                      <div className="flex justify-between text-[11px] font-mono designer-text-muted mt-1">
+                      <div className="flex justify-between text-[11px] font-mono designer-text-muted mt-1 tabular-nums">
                         <span>{formatTime(currentTime)}</span>
                         <span>{formatTime(duration)}</span>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-center gap-5">
+                    {/* Mode | Prev / Play / Next | Volume */}
+                    <div className="flex items-center justify-between gap-2">
                       <button
                         type="button"
-                        onClick={playPrev}
-                        aria-label="Previous track"
-                        className="p-2 designer-btn-secondary rounded-full transition-colors"
+                        onClick={() => {
+                          playToggleSwitch(true);
+                          cyclePlayMode();
+                        }}
+                        title={`${td('播放模式', 'Play Mode')}: ${playModeLabel}`}
+                        aria-label={playModeLabel}
+                        className={`p-2 rounded-full border transition-colors ${
+                          playMode === 'list'
+                            ? 'border-transparent designer-text-muted hover:designer-text-primary hover:bg-[#EFECE6] dark:hover:bg-[#242420]'
+                            : 'border-[#8A6F48]/40 bg-[#EFECE6]/80 dark:bg-[#24231F] text-[#8A6F48] dark:text-[#D2B488]'
+                        }`}
                       >
-                        <SkipBack className="w-4 h-4" />
+                        {playMode === 'single' ? (
+                          <Repeat1 className="w-3.5 h-3.5" />
+                        ) : playMode === 'shuffle' ? (
+                          <Shuffle className="w-3.5 h-3.5" />
+                        ) : (
+                          <Repeat className="w-3.5 h-3.5" />
+                        )}
                       </button>
-                      <button
-                        type="button"
-                        onClick={togglePlay}
-                        aria-label={isPlaying ? 'Pause' : 'Play'}
-                        className="p-3 designer-btn-primary rounded-full shadow-sm transition-transform active:scale-95"
-                      >
-                        {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={playNext}
-                        aria-label="Next track"
-                        className="p-2 designer-btn-secondary rounded-full transition-colors"
-                      >
-                        <SkipForward className="w-4 h-4" />
-                      </button>
+
+                      <div className="flex items-center justify-center gap-3">
+                        <button
+                          type="button"
+                          onClick={playPrev}
+                          aria-label={td('上一首', 'Previous track')}
+                          className="p-2 designer-btn-secondary rounded-full transition-colors"
+                        >
+                          <SkipBack className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          data-sfx="custom"
+                          onClick={() => {
+                            playVinylNeedle(!isPlaying);
+                            togglePlay();
+                          }}
+                          aria-label={isPlaying ? 'Pause' : 'Play'}
+                          className="p-3 designer-btn-primary rounded-full shadow-sm transition-transform active:scale-95"
+                        >
+                          {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={playNext}
+                          aria-label={td('下一首', 'Next track')}
+                          className="p-2 designer-btn-secondary rounded-full transition-colors"
+                        >
+                          <SkipForward className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={toggleMute}
+                          aria-label={isMuted || volume === 0 ? td('取消静音', 'Unmute') : td('静音', 'Mute')}
+                          className="p-2 rounded-full designer-text-muted hover:designer-text-primary hover:bg-[#EFECE6] dark:hover:bg-[#242420] transition-colors"
+                        >
+                          {isMuted || volume === 0 ? (
+                            <VolumeX className="w-3.5 h-3.5 text-[#8A6F48] dark:text-[#C8A97E]" />
+                          ) : volume < 0.5 ? (
+                            <Volume1 className="w-3.5 h-3.5" />
+                          ) : (
+                            <Volume2 className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                        <input
+                          type="range"
+                          min={0}
+                          max={1}
+                          step={0.02}
+                          value={isMuted ? 0 : volume}
+                          onChange={(e) => setVolume(parseFloat(e.target.value))}
+                          aria-label={td('调节音量', 'Volume control')}
+                          className="w-12 h-1 accent-[#8A6F48] dark:accent-[#C8A97E] bg-[#E6E2D8] dark:bg-[#2A2925] rounded-full cursor-pointer"
+                        />
+                      </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAiChatOpen(false);
-                        navigate('/interests#music-section');
-                      }}
-                      className="w-full py-2 text-xs font-mono text-[#8A6F48] dark:text-[#C8A97E] hover:bg-[#F3F1EC] dark:hover:bg-[#1E1E1B] border designer-hairline rounded-xl flex items-center justify-center gap-1 transition-colors"
-                    >
-                      <ChevronUp className="w-3.5 h-3.5" />
-                      <span>{td('前往黑胶音乐与精神角落', 'Open Full Vinyl Player & Media Hub')}</span>
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAiChatOpen(false);
+                          navigate('/interests#music');
+                        }}
+                        className="flex-1 py-2 text-xs font-mono text-[#8A6F48] dark:text-[#C8A97E] hover:bg-[#F3F1EC] dark:hover:bg-[#1E1E1B] border designer-hairline rounded-xl flex items-center justify-center gap-1 transition-colors"
+                      >
+                        <ChevronUp className="w-3.5 h-3.5" />
+                        <span>{td('完整唱机与歌词', 'Full Turntable')}</span>
+                      </button>
+                      <a
+                        href={getQqMusicLink(currentMusic)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-2 text-xs font-mono designer-text-secondary hover:designer-text-primary hover:bg-[#F3F1EC] dark:hover:bg-[#1E1E1B] border designer-hairline rounded-xl inline-flex items-center gap-1 shrink-0 transition-colors"
+                        title={td('前往 QQ 音乐听原曲', 'Open on QQ Music')}
+                      >
+                        <span>{td('QQ原曲', 'QQ Music')}</span>
+                        <ArrowUpRight className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
                   </div>
                 ) : null}
               </div>
@@ -839,29 +1000,159 @@ export const FloatingAIChatbot: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Floating Toggle Button (hidden on mobile while chat sheet is open to maximize viewport) */}
-      <motion.button
-        type="button"
-        onClick={() => setAiChatOpen(!aiChatOpen)}
-        aria-label={td('打开 AI 助手与音乐播放器', 'Open AI Assistant & Music Player')}
-        className={`${
-          aiChatOpen ? 'hidden sm:flex' : 'flex'
-        } w-12 h-12 sm:w-14 sm:h-14 p-3 sm:p-3.5 bg-[#141413] text-[#FAF9F5] dark:bg-[#F2F0EA] dark:text-[#141413] rounded-full shadow-lg border designer-hairline hover:opacity-90 transition-opacity items-center justify-center relative`}
-        whileTap={{ scale: 0.94 }}
-      >
-        {aiChatOpen ? (
-          <X size={20} />
-        ) : (
-          <div className="relative">
-            {isPlaying ? (
-              <Music size={20} className="text-[#C8A97E] animate-bounce" />
-            ) : (
-              <MessageCircle size={20} />
-            )}
-            <span className="absolute -top-1 -right-1 w-2 h-2 bg-[#8A6F48] rounded-full" />
+      {/* Bottom-Right Unified Launcher: Morphs into Agent × Mini Vinyl Capsule when music is active off-screen */}
+      {showUnifiedMiniCapsule && currentMusic ? (
+        <motion.div
+          key="unified-agent-music-capsule"
+          layout
+          initial={{ opacity: 0, y: 12, scale: 0.94 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+          className="relative rounded-full bg-[#FAF9F5]/95 dark:bg-[#151513]/95 backdrop-blur-xl border designer-hairline shadow-[0_10px_30px_rgba(20,20,19,0.14)] dark:shadow-[0_14px_36px_rgba(0,0,0,0.55)] overflow-hidden"
+        >
+          <div className="pl-2 pr-1.5 py-1.5 flex items-center gap-2">
+            {/* Spinning Mini Vinyl + Title (opens Agent on Music tab) */}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('music');
+                setAiChatOpen(true);
+              }}
+              title={td('展开随身听面板', 'Open Vinyl Drawer')}
+              className="flex items-center gap-2 min-w-0 max-w-[150px] sm:max-w-[180px] text-left group cursor-pointer"
+            >
+              <div className="relative w-9 h-9 rounded-full vinyl-grooves border border-[#2C2B28] shrink-0 flex items-center justify-center overflow-hidden shadow-xs">
+                <div
+                  className="w-full h-full rounded-full flex items-center justify-center vinyl-spin"
+                  style={{ animationPlayState: isPlaying ? 'running' : 'paused' }}
+                >
+                  <div className="w-4 h-4 rounded-full overflow-hidden border border-[#8A6F48] bg-[#141413]">
+                    {currentMusic.coverUrl ? (
+                      <img
+                        src={getImageUrl(currentMusic.coverUrl)}
+                        alt={currentMusic.title}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <Disc className="w-2.5 h-2.5 text-[#C8A97E] m-0.5" />
+                    )}
+                  </div>
+                </div>
+                <div className="pointer-events-none absolute inset-0 rounded-full vinyl-sheen" />
+                <div className="pointer-events-none absolute w-1 h-1 rounded-full bg-[#FAF9F5]" />
+              </div>
+
+              <div className="min-w-0">
+                <div className="flex items-center gap-1">
+                  <span className="text-xs font-medium designer-text-primary truncate group-hover:text-[#8A6F48] dark:group-hover:text-[#D2B488] transition-colors">
+                    {currentMusic.title}
+                  </span>
+                  {isPlaying && (
+                    <span className="inline-flex items-end gap-[1.5px] h-2.5 shrink-0" aria-hidden="true">
+                      <span className="w-[1.5px] h-full rounded-full bg-[#8A6F48] dark:bg-[#C8A97E] eq-bar" />
+                      <span
+                        className="w-[1.5px] h-full rounded-full bg-[#8A6F48] dark:bg-[#C8A97E] eq-bar"
+                        style={{ animationDelay: '0.2s' }}
+                      />
+                      <span
+                        className="w-[1.5px] h-full rounded-full bg-[#8A6F48] dark:bg-[#C8A97E] eq-bar"
+                        style={{ animationDelay: '0.4s' }}
+                      />
+                    </span>
+                  )}
+                </div>
+                <div className="text-[10px] font-mono designer-text-muted truncate">
+                  {currentMusic.artist || 'Vinyl'}
+                </div>
+              </div>
+            </button>
+
+            {/* Quick Play/Pause + Next + Fold */}
+            <div className="flex items-center gap-0.5 shrink-0">
+              <button
+                type="button"
+                data-sfx="custom"
+                onClick={() => {
+                  playVinylNeedle(!isPlaying);
+                  togglePlay();
+                }}
+                aria-label={isPlaying ? td('暂停', 'Pause') : td('播放', 'Play')}
+                className="w-7 h-7 rounded-full designer-btn-secondary flex items-center justify-center"
+              >
+                {isPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3 translate-x-[0.5px]" />}
+              </button>
+              <button
+                type="button"
+                onClick={playNext}
+                aria-label={td('下一首', 'Next track')}
+                className="w-7 h-7 rounded-full designer-text-secondary hover:designer-text-primary hover:bg-[#EFECE6] dark:hover:bg-[#242420] flex items-center justify-center transition-colors"
+              >
+                <SkipForward className="w-3 h-3" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setMiniBarDismissed(true)}
+                aria-label={td('折叠迷你条', 'Collapse mini bar')}
+                title={td('折叠为纯 Agent 图标', 'Collapse to Agent icon')}
+                className="w-6 h-6 rounded-full designer-text-muted hover:designer-text-primary hover:bg-[#EFECE6] dark:hover:bg-[#242420] flex items-center justify-center transition-colors"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+
+            {/* Subtle Hairline Divider */}
+            <div className="w-px h-6 bg-[#E4DFD4] dark:bg-[#2C2B27] shrink-0" />
+
+            {/* AI Agent Primary Orb inside the Capsule */}
+            <motion.button
+              type="button"
+              onClick={() => {
+                setActiveTab('ai');
+                setAiChatOpen(true);
+              }}
+              aria-label={td('打开小轩 AI 助手', 'Open AI Co-Pilot')}
+              title={td('打开小轩 AI 助手', 'Open AI Co-Pilot')}
+              whileTap={{ scale: 0.92 }}
+              className="w-9 h-9 rounded-full bg-[#141413] text-[#FAF9F5] dark:bg-[#F2F0EA] dark:text-[#141413] flex items-center justify-center relative shrink-0 hover:opacity-90 transition-opacity shadow-xs"
+            >
+              <Sparkles size={16} className="text-[#C8A97E] dark:text-[#8A6F48]" />
+              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-[#8A6F48] rounded-full ring-2 ring-[#FAF9F5] dark:ring-[#151513]" />
+            </motion.button>
           </div>
-        )}
-      </motion.button>
+
+          {/* Ultra-slim bottom playback progress hairline */}
+          <div className="h-[2px] w-full bg-[#E6E2D8]/70 dark:bg-[#262522]">
+            <div
+              className="h-full bg-[#8A6F48] dark:bg-[#C8A97E] transition-[width] duration-300 ease-linear"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+        </motion.div>
+      ) : (
+        /* Default Circular Floating Toggle Button (hidden on mobile while chat sheet is open) */
+        <motion.button
+          type="button"
+          onClick={() => setAiChatOpen(!aiChatOpen)}
+          aria-label={td('打开 AI 助手与音乐播放器', 'Open AI Assistant & Music Player')}
+          className={`${
+            aiChatOpen ? 'hidden sm:flex' : 'flex'
+          } w-12 h-12 sm:w-14 sm:h-14 p-3 sm:p-3.5 bg-[#141413] text-[#FAF9F5] dark:bg-[#F2F0EA] dark:text-[#141413] rounded-full shadow-lg border designer-hairline hover:opacity-90 transition-opacity items-center justify-center relative`}
+          whileTap={{ scale: 0.94 }}
+        >
+          {aiChatOpen ? (
+            <X size={20} />
+          ) : (
+            <div className="relative">
+              {isPlaying ? (
+                <Music size={20} className="text-[#C8A97E] animate-bounce" />
+              ) : (
+                <MessageCircle size={20} />
+              )}
+              <span className="absolute -top-1 -right-1 w-2 h-2 bg-[#8A6F48] rounded-full" />
+            </div>
+          )}
+        </motion.button>
+      )}
     </div>
   );
 };

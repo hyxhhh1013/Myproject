@@ -20,8 +20,16 @@ import {
   AlignLeft,
   Info,
   ChevronDown,
+  Volume2,
+  Volume1,
+  VolumeX,
+  Repeat,
+  Repeat1,
+  Shuffle,
+  Crosshair,
+  ExternalLink,
 } from 'lucide-react';
-import { useMusic } from '../context/MusicContext';
+import { useMusic, getQqMusicLink } from '../context/MusicContext';
 import { useI18n } from '../i18n/i18nContext';
 import { ImageWithFallback } from '../components/UI/ImageWithFallback';
 import { getImageUrl } from '../utils/imageUtils';
@@ -311,7 +319,7 @@ const CURATED_MOMENTS = [
 ];
 
 export default function Interests() {
-  const { t, td } = useI18n();
+  const { language, t, td } = useI18n();
   const location = useLocation();
   const navigate = useNavigate();
   const {
@@ -321,17 +329,33 @@ export default function Interests() {
     isPlaying,
     currentTime,
     duration,
+    volume,
+    isMuted,
+    playMode,
+    isSynthFallback,
     togglePlay,
     playNext,
     playPrev,
     seekTo,
     selectMusic,
+    setVolume,
+    toggleMute,
+    cyclePlayMode,
   } = useMusic();
 
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
   const [audioRightPane, setAudioRightPane] = useState<'lyrics' | 'playlist'>('lyrics');
   const lyricsViewportRef = useRef<HTMLDivElement | null>(null);
-  const [lyricsViewportHeight, setLyricsViewportHeight] = useState<number>(320);
+  const lyricsLineRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const userScrollTimerRef = useRef<number | null>(null);
+  const [isUserScrollingLyrics, setIsUserScrollingLyrics] = useState(false);
+
+  const progressBarRef = useRef<HTMLDivElement | null>(null);
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const [scrubTime, setScrubTime] = useState<number | null>(null);
+  const [hoverTime, setHoverTime] = useState<number | null>(null);
+  const [hoverPct, setHoverPct] = useState<number>(0);
+
   const [inline3DOpen, setInline3DOpen] = useState<boolean>(false);
   const [openSectionHints, setOpenSectionHints] = useState<Record<string, boolean>>({});
   const [expandedMovieNotes, setExpandedMovieNotes] = useState<Record<number, boolean>>({});
@@ -540,16 +564,95 @@ export default function Interests() {
     return idx;
   }, [parsedLyrics, currentTime, duration]);
 
+  const scrollLyricsToActive = (behavior: ScrollBehavior = 'smooth') => {
+    const container = lyricsViewportRef.current;
+    const activeEl = lyricsLineRefs.current[currentLyricIndex];
+    if (!container || !activeEl) return;
+    const targetTop = activeEl.offsetTop - container.clientHeight / 2 + activeEl.clientHeight / 2;
+    container.scrollTo({ top: Math.max(0, targetTop), behavior });
+  };
+
   useEffect(() => {
-    const updateLyricsHeight = () => {
-      if (lyricsViewportRef.current) {
-        setLyricsViewportHeight(lyricsViewportRef.current.clientHeight || 320);
+    if (audioRightPane !== 'lyrics' || isUserScrollingLyrics || currentLyricIndex < 0) return;
+    scrollLyricsToActive('smooth');
+  }, [currentLyricIndex, audioRightPane, isUserScrollingLyrics, activeFilter]);
+
+  useEffect(() => {
+    // Reset scroll state when switching tracks
+    setIsUserScrollingLyrics(false);
+    if (userScrollTimerRef.current) {
+      window.clearTimeout(userScrollTimerRef.current);
+      userScrollTimerRef.current = null;
+    }
+    const raf = window.requestAnimationFrame(() => scrollLyricsToActive('auto'));
+    return () => window.cancelAnimationFrame(raf);
+  }, [currentMusicIndex]);
+
+  useEffect(() => {
+    return () => {
+      if (userScrollTimerRef.current) {
+        window.clearTimeout(userScrollTimerRef.current);
       }
     };
-    updateLyricsHeight();
-    window.addEventListener('resize', updateLyricsHeight);
-    return () => window.removeEventListener('resize', updateLyricsHeight);
-  }, [audioRightPane, activeFilter]);
+  }, []);
+
+  const handleLyricsUserScroll = () => {
+    setIsUserScrollingLyrics(true);
+    if (userScrollTimerRef.current) {
+      window.clearTimeout(userScrollTimerRef.current);
+    }
+    userScrollTimerRef.current = window.setTimeout(() => {
+      setIsUserScrollingLyrics(false);
+    }, 3200);
+  };
+
+  const calcTimeFromClientX = (clientX: number) => {
+    const bar = progressBarRef.current;
+    const total = duration || 165;
+    if (!bar) return { time: 0, pct: 0 };
+    const rect = bar.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    return { time: ratio * total, pct: ratio * 100 };
+  };
+
+  const handleProgressPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const { time, pct } = calcTimeFromClientX(e.clientX);
+    setIsScrubbing(true);
+    setScrubTime(time);
+    setHoverTime(time);
+    setHoverPct(pct);
+  };
+
+  const handleProgressPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const { time, pct } = calcTimeFromClientX(e.clientX);
+    setHoverTime(time);
+    setHoverPct(pct);
+    if (isScrubbing) {
+      setScrubTime(time);
+    }
+  };
+
+  const handleProgressPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isScrubbing) return;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    const { time } = calcTimeFromClientX(e.clientX);
+    setIsScrubbing(false);
+    setScrubTime(null);
+    seekTo(time);
+  };
+
+  const effectiveDisplayTime = isScrubbing && scrubTime !== null ? scrubTime : currentTime;
+  const effectiveProgressPct = duration > 0 ? Math.min(100, (effectiveDisplayTime / duration) * 100) : 0;
+
+  const playModeLabel =
+    playMode === 'single'
+      ? td('单曲循环', 'Repeat One')
+      : playMode === 'shuffle'
+      ? td('随机播放', 'Shuffle')
+      : td('列表循环', 'Repeat All');
 
   const handleSendDanmaku = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -704,74 +807,138 @@ export default function Interests() {
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
               {/* Left 5 Cols: Tactile Vinyl Turntable Card — Fixed Balanced Height */}
-              <div className="lg:col-span-5 lg:h-[500px] designer-card rounded-2xl p-5 sm:p-7 flex flex-col justify-between">
+              <div className="lg:col-span-5 lg:h-[520px] designer-card rounded-2xl p-5 sm:p-7 flex flex-col justify-between">
                 <div className="flex items-center justify-between text-[11px] font-mono designer-text-muted pb-3 border-b designer-hairline shrink-0">
                   <span>TURNTABLE // MODEL HYX-LP01</span>
-                  <span className="text-[#8A6F48] dark:text-[#C8A97E]">
-                    {isPlaying ? '● 33⅓ RPM SPINNING' : '○ STANDBY'}
+                  <span className="inline-flex items-center gap-2 text-[#8A6F48] dark:text-[#C8A97E]">
+                    {isPlaying ? (
+                      <>
+                        <span className="inline-flex items-end gap-[2px] h-3" aria-hidden="true">
+                          <span className="w-[2px] h-full rounded-full bg-current eq-bar" />
+                          <span
+                            className="w-[2px] h-full rounded-full bg-current eq-bar"
+                            style={{ animationDelay: '0.18s' }}
+                          />
+                          <span
+                            className="w-[2px] h-full rounded-full bg-current eq-bar"
+                            style={{ animationDelay: '0.36s' }}
+                          />
+                          <span
+                            className="w-[2px] h-full rounded-full bg-current eq-bar"
+                            style={{ animationDelay: '0.52s' }}
+                          />
+                        </span>
+                        <span>33⅓ RPM</span>
+                      </>
+                    ) : (
+                      <span>○ STANDBY</span>
+                    )}
                   </span>
                 </div>
 
-                {/* Spinning Vinyl Platter + Tonearm (Click Platter to Play/Pause) */}
-                <div className="relative my-4 flex-1 flex items-center justify-center">
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    data-sfx="custom"
-                    onClick={() => {
-                      playVinylNeedle(!isPlaying);
-                      togglePlay();
-                    }}
-                    title={td('点击黑胶唱片播放 / 暂停', 'Click vinyl disc to Play / Pause')}
-                    className={`relative w-44 h-44 sm:w-56 sm:h-56 rounded-full bg-[#141413] border-4 border-[#2C2B28] shadow-xl flex items-center justify-center cursor-pointer transition-transform hover:scale-[1.02] active:scale-[0.99] ${
-                      isPlaying ? 'animate-spin' : ''
-                    }`}
-                    style={{ animationDuration: '10s' }}
-                  >
-                    {/* Vinyl Grooves */}
-                    <div className="absolute inset-3 rounded-full border border-white/10 pointer-events-none" />
-                    <div className="absolute inset-7 rounded-full border border-white/10 pointer-events-none" />
-                    <div className="absolute inset-11 rounded-full border border-white/10 pointer-events-none" />
+                {/* Spinning Vinyl Platter + Precision Bronze Tonearm */}
+                <div className="relative my-3 flex-1 flex items-center justify-center select-none">
+                  {/* Subtle recessed platter deck */}
+                  <div className="relative p-2 rounded-full bg-[#EFECE6]/70 dark:bg-[#1C1B19] border designer-hairline shadow-inner">
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      data-sfx="custom"
+                      onClick={() => {
+                        playVinylNeedle(!isPlaying);
+                        togglePlay();
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === ' ' || e.key === 'Enter') {
+                          e.preventDefault();
+                          playVinylNeedle(!isPlaying);
+                          togglePlay();
+                        }
+                      }}
+                      title={td('点击或按空格播放 / 暂停', 'Click or press Space to Play / Pause')}
+                      aria-label={isPlaying ? td('暂停黑胶', 'Pause vinyl') : td('播放黑胶', 'Play vinyl')}
+                      className="relative w-44 h-44 sm:w-52 sm:h-52 rounded-full border-[3px] border-[#262522] shadow-[0_14px_32px_rgba(15,15,14,0.28)] dark:shadow-[0_16px_38px_rgba(0,0,0,0.65)] flex items-center justify-center cursor-pointer transition-transform duration-300 hover:scale-[1.018] active:scale-[0.985] overflow-hidden"
+                    >
+                      {/* Rotating Disc Layer (animationPlayState freezes smoothly without angle snap) */}
+                      <div
+                        className="absolute inset-0 rounded-full vinyl-grooves flex items-center justify-center vinyl-spin"
+                        style={{ animationPlayState: isPlaying ? 'running' : 'paused' }}
+                      >
+                        {/* Subtle pressed track bands */}
+                        <div className="absolute inset-[18px] rounded-full border border-white/[0.06] pointer-events-none" />
+                        <div className="absolute inset-[36px] rounded-full border border-white/[0.08] pointer-events-none" />
+                        <div className="absolute inset-[54px] rounded-full border border-white/[0.05] pointer-events-none" />
 
-                    {/* Album Center Label */}
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden border-2 border-[#8A6F48] relative">
-                      {currentMusic?.coverUrl ? (
-                        <img
-                          src={getImageUrl(currentMusic.coverUrl)}
-                          alt={currentMusic.title}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-[#8A6F48] flex items-center justify-center">
-                          <Disc className="w-8 h-8 text-white" />
+                        {/* Album Center Label */}
+                        <div className="w-[68px] h-[68px] sm:w-[78px] sm:h-[78px] rounded-full overflow-hidden border-[2.5px] border-[#8A6F48] shadow-md relative bg-[#1C1B18]">
+                          {currentMusic?.coverUrl ? (
+                            <img
+                              src={getImageUrl(currentMusic.coverUrl)}
+                              alt={currentMusic.title}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-[#8A6F48] flex items-center justify-center">
+                              <Disc className="w-7 h-7 text-white" />
+                            </div>
+                          )}
+                          {/* Inner bronze ring */}
+                          <div className="pointer-events-none absolute inset-1.5 rounded-full border border-white/25" />
                         </div>
-                      )}
-                      <div className="absolute inset-0 m-auto w-3 h-3 rounded-full bg-[#FAF9F5] border border-black/30" />
+                      </div>
+
+                      {/* Stationary Silk Specular Sheen Reflection */}
+                      <div className="pointer-events-none absolute inset-0 rounded-full vinyl-sheen" />
+
+                      {/* Center Metallic Spindle */}
+                      <div className="pointer-events-none relative z-10 w-3.5 h-3.5 rounded-full bg-gradient-to-br from-[#FAF9F5] to-[#B8B2A6] border border-black/40 shadow-sm" />
                     </div>
                   </div>
 
-                  {/* Minimalist Tonearm */}
+                  {/* Precision Machined Bronze Tonearm */}
                   <div
-                    className="pointer-events-none absolute top-1 sm:top-2 right-3 sm:right-6 w-14 sm:w-16 h-20 sm:h-24 origin-top-right transition-transform duration-500"
-                    style={{ transform: isPlaying ? 'rotate(24deg)' : 'rotate(4deg)' }}
+                    className="pointer-events-none absolute top-1 sm:top-2 right-2 sm:right-5 w-16 h-32 origin-[48px_16px] transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]"
+                    style={{ transform: isPlaying ? 'rotate(24deg)' : 'rotate(2deg)' }}
                   >
-                    <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-[#8A6F48] ml-auto" />
-                    <div className="w-0.5 h-16 sm:h-20 bg-[#8A6F48] ml-auto mr-1.5" />
+                    {/* Pivot Base Housing */}
+                    <div className="absolute top-1 right-1 w-7 h-7 rounded-full bg-[#E6E2D8] dark:bg-[#2A2925] border border-[#8A6F48]/45 shadow-md flex items-center justify-center">
+                      <div className="w-3.5 h-3.5 rounded-full bg-gradient-to-br from-[#C8A97E] to-[#7D623D] border border-black/20" />
+                    </div>
+                    {/* Counterweight */}
+                    <div className="absolute top-0 right-[15px] w-2 h-2.5 rounded-sm bg-[#5F5E58] dark:bg-[#9E9C94]" />
+                    {/* Tonearm Tube */}
+                    <div className="absolute top-6 right-[17px] w-[2.5px] h-[74px] bg-gradient-to-b from-[#C8A97E] via-[#8A6F48] to-[#6E5634] rounded-full shadow-sm" />
+                    {/* Angled Headshell + Cartridge */}
+                    <div className="absolute top-[94px] right-[14px] w-3.5 h-6 bg-[#1F1E1C] dark:bg-[#E8E4DA] border border-[#8A6F48] rounded-[3px] rotate-[18deg] shadow-md flex flex-col items-center justify-end pb-0.5">
+                      <div className="w-1.5 h-1 rounded-full bg-[#C8A97E]" />
+                    </div>
                   </div>
                 </div>
 
-                {/* Track Info & Progress */}
+                {/* Track Info, Interactive Scrubbing Progress & Full Control Deck */}
                 <div>
-                  <div className="flex items-baseline justify-between mb-2">
+                  <div className="flex items-baseline justify-between gap-3 mb-2">
                     <div className="min-w-0">
-                      <h3 className="text-lg font-semibold designer-text-primary truncate">
-                        {td(
-                          currentMusic?.title || '如果呢',
-                          TRACK_EN_META[currentMusic?.title || '如果呢']?.titleEn ||
-                            currentMusic?.title ||
-                            'What If (Ru Guo Ne)',
-                        )}
-                      </h3>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <h3 className="text-lg font-serif font-medium designer-text-primary truncate">
+                          {td(
+                            currentMusic?.title || '如果呢',
+                            TRACK_EN_META[currentMusic?.title || '如果呢']?.titleEn ||
+                              currentMusic?.title ||
+                              'What If (Ru Guo Ne)',
+                          )}
+                        </h3>
+                        <a
+                          href={getQqMusicLink(currentMusic)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={td('前往 QQ 音乐收听完整原曲', 'Listen to full track on QQ Music')}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full designer-pill text-[10px] font-mono text-[#8A6F48] dark:text-[#D2B488] hover:designer-text-primary shrink-0 transition-colors"
+                        >
+                          <span>{td('QQ原曲', 'QQ Music')}</span>
+                          <ExternalLink className="w-2.5 h-2.5" />
+                        </a>
+                      </div>
                       <p className="text-xs font-mono designer-text-muted truncate">
                         {td(
                           currentMusic?.artist || '郑润泽',
@@ -781,62 +948,164 @@ export default function Interests() {
                         )}
                       </p>
                     </div>
-                    <span className="text-xs font-mono designer-text-muted shrink-0">
-                      {formatTime(currentTime)} / {formatTime(duration)}
+                    <span className="text-xs font-mono designer-text-muted shrink-0 tabular-nums">
+                      {formatTime(effectiveDisplayTime)} / {formatTime(duration)}
                     </span>
                   </div>
 
+                  {/* Interactive Scrubbable Progress Bar with Hover Time Preview */}
                   <div
-                    onClick={(e) => {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-                      seekTo(ratio * (duration || 165));
+                    ref={progressBarRef}
+                    role="slider"
+                    tabIndex={0}
+                    aria-label={td('播放进度', 'Playback progress')}
+                    aria-valuemin={0}
+                    aria-valuemax={Math.round(duration || 165)}
+                    aria-valuenow={Math.round(effectiveDisplayTime)}
+                    onPointerDown={handleProgressPointerDown}
+                    onPointerMove={handleProgressPointerMove}
+                    onPointerUp={handleProgressPointerUp}
+                    onPointerLeave={() => {
+                      if (!isScrubbing) setHoverTime(null);
                     }}
-                    className="h-1.5 bg-[#E6E2D8] dark:bg-[#2A2925] rounded-full cursor-pointer overflow-hidden mb-5"
+                    onKeyDown={(e) => {
+                      if (e.key === 'ArrowRight') {
+                        e.preventDefault();
+                        seekTo(currentTime + 5);
+                      } else if (e.key === 'ArrowLeft') {
+                        e.preventDefault();
+                        seekTo(currentTime - 5);
+                      }
+                    }}
+                    className="group relative py-2.5 mb-2.5 cursor-pointer touch-none select-none"
                   >
-                    <div
-                      className="h-full bg-[#8A6F48] dark:bg-[#C8A97E] rounded-full transition-all"
-                      style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
-                    />
+                    {/* Hover / Scrub Timestamp Tooltip */}
+                    {hoverTime !== null && (
+                      <div
+                        className="pointer-events-none absolute -top-5 -translate-x-1/2 px-1.5 py-0.5 rounded bg-[#141413] text-[#FAF9F5] dark:bg-[#F2F0EA] dark:text-[#141413] text-[10px] font-mono tabular-nums shadow-sm whitespace-nowrap"
+                        style={{ left: `${Math.max(8, Math.min(92, hoverPct))}%` }}
+                      >
+                        {formatTime(hoverTime)}
+                      </div>
+                    )}
+
+                    {/* Track Rail */}
+                    <div className="relative h-1.5 bg-[#E6E2D8] dark:bg-[#2A2925] rounded-full overflow-visible">
+                      <div
+                        className={`h-full bg-[#8A6F48] dark:bg-[#C8A97E] rounded-full ${
+                          isScrubbing ? '' : 'transition-[width] duration-200 ease-linear'
+                        }`}
+                        style={{ width: `${effectiveProgressPct}%` }}
+                      />
+                      {/* Tactile Thumb Dot */}
+                      <div
+                        className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full bg-[#FAF9F5] dark:bg-[#171715] border-2 border-[#8A6F48] dark:border-[#D2B488] shadow-sm transition-transform duration-150 ${
+                          isScrubbing
+                            ? 'scale-110 opacity-100'
+                            : 'scale-75 opacity-0 group-hover:opacity-100 group-hover:scale-100'
+                        }`}
+                        style={{ left: `${effectiveProgressPct}%` }}
+                      />
+                    </div>
                   </div>
 
-                  {/* Controls */}
-                  <div className="flex items-center justify-center gap-4">
+                  {/* Full Control Deck: Mode | Prev / Play / Next | Volume */}
+                  <div className="flex items-center justify-between gap-2">
+                    {/* Play Mode Switcher */}
                     <button
                       type="button"
-                      onClick={playPrev}
-                      aria-label="Previous track"
-                      className="p-2.5 rounded-full designer-btn-secondary"
-                    >
-                      <SkipBack className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      data-sfx="custom"
                       onClick={() => {
-                        playVinylNeedle(!isPlaying);
-                        togglePlay();
+                        playToggleSwitch(true);
+                        cyclePlayMode();
                       }}
-                      aria-label={isPlaying ? 'Pause' : 'Play'}
-                      className="px-6 py-2.5 rounded-full designer-btn-primary font-mono text-xs font-medium flex items-center gap-2"
+                      title={`${td('播放模式', 'Play Mode')}: ${playModeLabel}`}
+                      aria-label={playModeLabel}
+                      className={`p-2 rounded-full border transition-colors ${
+                        playMode === 'list'
+                          ? 'border-transparent designer-text-muted hover:designer-text-primary hover:bg-[#EFECE6] dark:hover:bg-[#242420]'
+                          : 'border-[#8A6F48]/40 bg-[#EFECE6]/80 dark:bg-[#24231F] text-[#8A6F48] dark:text-[#D2B488]'
+                      }`}
                     >
-                      {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                      <span>{isPlaying ? 'PAUSE' : 'PLAY LP'}</span>
+                      {playMode === 'single' ? (
+                        <Repeat1 className="w-4 h-4" />
+                      ) : playMode === 'shuffle' ? (
+                        <Shuffle className="w-4 h-4" />
+                      ) : (
+                        <Repeat className="w-4 h-4" />
+                      )}
                     </button>
-                    <button
-                      type="button"
-                      onClick={playNext}
-                      aria-label="Next track"
-                      className="p-2.5 rounded-full designer-btn-secondary"
-                    >
-                      <SkipForward className="w-4 h-4" />
-                    </button>
+
+                    {/* Center Transport Controls */}
+                    <div className="flex items-center justify-center gap-2.5 sm:gap-3">
+                      <button
+                        type="button"
+                        onClick={playPrev}
+                        aria-label={td('上一首', 'Previous track')}
+                        className="p-2.5 rounded-full designer-btn-secondary"
+                      >
+                        <SkipBack className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        data-sfx="custom"
+                        onClick={() => {
+                          playVinylNeedle(!isPlaying);
+                          togglePlay();
+                        }}
+                        aria-label={isPlaying ? 'Pause' : 'Play'}
+                        className="px-5 sm:px-6 py-2.5 rounded-full designer-btn-primary font-mono text-xs font-medium flex items-center gap-2"
+                      >
+                        {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                        <span>{isPlaying ? 'PAUSE' : 'PLAY LP'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={playNext}
+                        aria-label={td('下一首', 'Next track')}
+                        className="p-2.5 rounded-full designer-btn-secondary"
+                      >
+                        <SkipForward className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Volume Mute + Compact Slider */}
+                    <div className="flex items-center gap-1.5 group/vol">
+                      <button
+                        type="button"
+                        onClick={toggleMute}
+                        title={
+                          isMuted || volume === 0
+                            ? td('取消静音', 'Unmute')
+                            : `${td('音量', 'Volume')} ${Math.round(volume * 100)}%`
+                        }
+                        aria-label={isMuted || volume === 0 ? td('取消静音', 'Unmute') : td('静音', 'Mute')}
+                        className="p-2 rounded-full designer-text-muted hover:designer-text-primary hover:bg-[#EFECE6] dark:hover:bg-[#242420] transition-colors"
+                      >
+                        {isMuted || volume === 0 ? (
+                          <VolumeX className="w-4 h-4 text-[#8A6F48] dark:text-[#C8A97E]" />
+                        ) : volume < 0.5 ? (
+                          <Volume1 className="w-4 h-4" />
+                        ) : (
+                          <Volume2 className="w-4 h-4" />
+                        )}
+                      </button>
+                      <input
+                        type="range"
+                        min={0}
+                        max={1}
+                        step={0.02}
+                        value={isMuted ? 0 : volume}
+                        onChange={(e) => setVolume(parseFloat(e.target.value))}
+                        aria-label={td('调节音量', 'Volume control')}
+                        className="hidden sm:block w-14 h-1 accent-[#8A6F48] dark:accent-[#C8A97E] bg-[#E6E2D8] dark:bg-[#2A2925] rounded-full cursor-pointer"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Right 7 Cols: Synchronized Scrolling Lyrics + Curated Tracklist Switcher */}
-              <div className="lg:col-span-7 lg:h-[500px] designer-card rounded-2xl p-5 sm:p-7 flex flex-col">
+              <div className="lg:col-span-7 lg:h-[520px] designer-card rounded-2xl p-5 sm:p-7 flex flex-col">
                 <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono designer-text-muted pb-3 mb-3 border-b designer-hairline shrink-0">
                   <div className="flex items-center gap-2">
                     <span className="text-[#8A6F48] dark:text-[#C8A97E] font-semibold">
@@ -911,33 +1180,51 @@ export default function Interests() {
 
                 <div className="relative flex-1 min-h-0">
                   {audioRightPane === 'lyrics' ? (
-                    <div
-                      ref={lyricsViewportRef}
-                      className="h-[310px] lg:h-full relative overflow-hidden rounded-xl bg-[#FAF9F5]/75 dark:bg-[#121210]/80 border designer-hairline"
-                    >
+                    <div className="h-[320px] lg:h-full relative rounded-xl bg-[#FAF9F5]/75 dark:bg-[#121210]/80 border designer-hairline overflow-hidden">
                       {/* Top & Bottom Soft Fade Masks */}
-                      <div className="pointer-events-none absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-[#FAF9F5] dark:from-[#121210] to-transparent z-10" />
-                      <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#FAF9F5] dark:from-[#121210] to-transparent z-10" />
+                      <div className="pointer-events-none absolute top-0 left-0 right-0 h-14 bg-gradient-to-b from-[#FAF9F5] dark:from-[#121210] to-transparent z-10" />
+                      <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-14 bg-gradient-to-t from-[#FAF9F5] dark:from-[#121210] to-transparent z-10" />
+
+                      {/* Return-to-active-lyric floating pill when user scrolls manually */}
+                      {isUserScrollingLyrics && parsedLyrics.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsUserScrollingLyrics(false);
+                            if (userScrollTimerRef.current) {
+                              window.clearTimeout(userScrollTimerRef.current);
+                              userScrollTimerRef.current = null;
+                            }
+                            scrollLyricsToActive('smooth');
+                          }}
+                          className="absolute bottom-3 right-3 z-20 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#141413]/90 text-[#FAF9F5] dark:bg-[#F2F0EA]/90 dark:text-[#141413] text-[11px] font-mono shadow-md hover:scale-[1.03] transition-transform cursor-pointer"
+                        >
+                          <Crosshair className="w-3 h-3" />
+                          <span>{td('回到当前句', 'Sync Line')}</span>
+                        </button>
+                      )}
 
                       {parsedLyrics.length > 0 ? (
                         <div
-                          className="absolute w-full transition-transform duration-700 ease-out"
-                          style={{
-                            transform: `translateY(${
-                              lyricsViewportHeight / 2 -
-                              19 -
-                              Math.max(0, currentLyricIndex) * 38
-                            }px)`,
-                          }}
+                          ref={lyricsViewportRef}
+                          onWheel={handleLyricsUserScroll}
+                          onTouchMove={handleLyricsUserScroll}
+                          className="h-full overflow-y-auto px-4 sm:px-8 py-[115px] space-y-2.5 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                         >
                           {parsedLyrics.map((line, index) => {
                             const isActive = index === currentLyricIndex;
+                            const distance = Math.abs(index - currentLyricIndex);
                             const isPassed = index < currentLyricIndex;
                             return (
-                              <div
+                              <button
                                 key={index}
+                                type="button"
+                                ref={(el) => {
+                                  lyricsLineRefs.current[index] = el;
+                                }}
                                 onClick={() => {
                                   if (line.time >= 0) {
+                                    setIsUserScrollingLyrics(false);
                                     seekTo(line.time);
                                   }
                                 }}
@@ -946,18 +1233,20 @@ export default function Interests() {
                                     ? td('点击跳转到该句歌词进度', 'Click to seek to this lyric line')
                                     : undefined
                                 }
-                                className={`h-[38px] flex items-center justify-center text-center px-4 sm:px-8 w-full transition-all duration-500 ${
-                                  line.time >= 0 ? 'cursor-pointer' : 'cursor-default'
+                                className={`block w-full text-center px-3 py-1.5 rounded-lg transition-all duration-500 whitespace-normal leading-relaxed ${
+                                  line.time >= 0 ? 'cursor-pointer hover:bg-[#EFECE6]/60 dark:hover:bg-[#1E1E1B]/70' : 'cursor-default'
                                 } ${
                                   isActive
-                                    ? 'text-[#8A6F48] dark:text-[#D2B488] font-semibold text-sm sm:text-base scale-[1.04]'
+                                    ? 'text-[#8A6F48] dark:text-[#D2B488] font-serif font-medium text-[15px] sm:text-[17px] scale-[1.02]'
+                                    : distance === 1
+                                    ? 'designer-text-secondary opacity-85 text-xs sm:text-sm'
                                     : isPassed
-                                    ? 'designer-text-muted opacity-50 text-xs sm:text-sm'
-                                    : 'designer-text-secondary text-xs sm:text-sm hover:designer-text-primary'
+                                    ? 'designer-text-muted opacity-40 text-xs sm:text-[13px]'
+                                    : 'designer-text-muted opacity-55 text-xs sm:text-[13px] hover:opacity-90'
                                 }`}
                               >
-                                <span className="truncate w-full">{line.text}</span>
-                              </div>
+                                {line.text}
+                              </button>
                             );
                           })}
                         </div>
@@ -1023,8 +1312,19 @@ export default function Interests() {
 
                             <div className="flex items-center gap-2 shrink-0 font-mono text-xs">
                               {isCurrent && isPlaying ? (
-                                <span className="px-2.5 py-0.5 rounded-full bg-[#8A6F48] text-white text-[10px]">
-                                  PLAYING
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#8A6F48] text-white text-[10px]">
+                                  <span className="inline-flex items-end gap-[1.5px] h-2.5" aria-hidden="true">
+                                    <span className="w-[1.5px] h-full rounded-full bg-white eq-bar" />
+                                    <span
+                                      className="w-[1.5px] h-full rounded-full bg-white eq-bar"
+                                      style={{ animationDelay: '0.2s' }}
+                                    />
+                                    <span
+                                      className="w-[1.5px] h-full rounded-full bg-white eq-bar"
+                                      style={{ animationDelay: '0.4s' }}
+                                    />
+                                  </span>
+                                  <span>PLAYING</span>
                                 </span>
                               ) : (
                                 <span className="designer-text-muted text-[11px]">PLAY →</span>
@@ -1038,8 +1338,18 @@ export default function Interests() {
                 </div>
 
                 <div className="mt-4 pt-3.5 border-t designer-hairline flex items-center justify-between text-[11px] font-mono designer-text-muted shrink-0">
-                  <span>LRC SYNC ENGINE</span>
-                  <span>STEREO 44.1KHZ</span>
+                  <span>
+                    {isSynthFallback
+                      ? 'WEB AUDIO LOFI SYNTH'
+                      : 'HI-FI STEREO 44.1KHZ'}
+                  </span>
+                  <span>
+                    {playMode === 'single'
+                      ? 'MODE // REPEAT ONE'
+                      : playMode === 'shuffle'
+                      ? 'MODE // SHUFFLE'
+                      : 'MODE // REPEAT ALL'}
+                  </span>
                 </div>
               </div>
             </div>
@@ -1129,7 +1439,11 @@ export default function Interests() {
                             </button>
 
                             {expandedMovieNotes[movie.id] && (
-                              <p className="mt-2 text-xs designer-text-secondary leading-relaxed font-serif italic">
+                              <p
+                                className={`mt-2 text-xs designer-text-secondary leading-relaxed font-serif ${
+                                  language === 'en' ? 'italic' : 'not-italic'
+                                }`}
+                              >
                                 {td(movie.noteZh, movie.noteEn)}
                               </p>
                             )}

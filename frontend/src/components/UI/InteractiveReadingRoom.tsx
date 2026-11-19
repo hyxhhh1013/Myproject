@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import * as THREE from 'three';
-import { BookOpen, ChevronLeft, ChevronRight, RotateCcw, Hand } from 'lucide-react';
+import { BookOpen, ChevronLeft, ChevronRight, RotateCcw, Hand, ExternalLink } from 'lucide-react';
 import { useI18n } from '../../i18n/i18nContext';
 
 // ============================================================================
@@ -65,6 +65,7 @@ interface BookData {
   foilColor: string;
   ribbonColor: string;
   rating: string;
+  repoUrl?: string;
   quoteZh: string;
   marginaliaZh: string;
   takeawaysZh: { title: string; body: string }[];
@@ -73,114 +74,45 @@ interface BookData {
 
 const CURATED_BOOKS: BookData[] = [
   {
-    id: 'thinking-fast-slow',
+    id: 'ai-agent-book',
     code: 'VOL. 01',
-    isbn: 'ISBN 978-0-374-53355-7',
-    titleZh: '思考，快与慢',
-    titleEn: 'Thinking, Fast and Slow',
-    author: 'Daniel Kahneman',
-    year: '2011',
-    categoryZh: '认知心理学 · 决策模型',
-    categoryEn: 'Cognitive Psychology',
+    isbn: 'GITHUB // bojieli/ai-agent-book',
+    titleZh: '深入理解 AI Agent',
+    titleEn: 'Understanding AI Agents: Design & Practice',
+    author: '李博杰',
+    year: '2026',
+    categoryZh: 'AI Agent · 工程架构',
+    categoryEn: 'AI Agent Engineering',
     coverBg: '#1D2C24',
     spineColor: '#121D18',
     foilColor: '#DFBF84',
     ribbonColor: '#8B3A2F',
     rating: '★★★★★',
+    repoUrl: 'https://github.com/bojieli/ai-agent-book',
     quoteZh:
-      '系统 1 的直觉反应与系统 2 的慢思考推理，恰似大模型直觉式 Token 生成与 Agent 慢思考推理链（Reasoning Loop）的镜像。',
+      '真正可用的 AI Agent 不是一次性的 Prompt 魔法，而是由上下文工程、工具契约、状态编排与可观测评测共同托起的软件系统。',
     marginaliaZh:
-      '读完这本书后，我对大模型幻觉（Hallucination）有了全新的直觉：单次补全本质上是“系统 1”在高速联想，而引入工具调用、检索溯源（Hybrid RAG）与多步反思状态图，正是在工程上为 AI 补齐“系统 2”的慢思考能力。',
+      '全书开源正文与按章配套代码把“模型能力”与“工程落地”之间的断层讲得很透彻。对照自己做「禾书耕文」多智能体与洋葱教育 FDE 驻场交付的踩坑经验，边读边复盘，常有豁然开朗之感。',
     takeawaysZh: [
       {
-        title: '锚定效应与上下文窗口',
-        body: '人脑极易被最初看到的数字或信息锚定；同样，Prompt 开头与检索召回的 Top-3 证据块会强烈锚定模型的后续推演方向。',
+        title: '上下文工程与记忆分层',
+        body: '上下文窗口是稀缺注意力资源：合理裁剪工具返回、区分工作记忆与长期检索记忆，远比盲目堆长 Prompt 有效。',
       },
       {
-        title: '可得性启发与检索偏差',
-        body: '人们误把“容易想起的”当成“最常见的”。做科研 RAG 时必须引入 BM25 + 向量双路召回与重排，打破单一语义偏差。',
+        title: '工具契约与可控执行边界',
+        body: '优秀的 Tool Schema 应当自解释、幂等且具备清晰的错误回传语义，让模型能自我纠错，并在写操作前引入硬闸确认。',
       },
       {
-        title: '事前验尸（Pre-mortem）机制',
-        body: '在项目上线前先假设系统已经失败，倒推所有薄弱环节——这套方法让我提前在洋葱教育 FDE 交付中设计了写库硬闸。',
+        title: '可观测性与评测驱动迭代',
+        body: '把每一步推理、检索召回和工具耗时做成 Trace，用离线评测集验证改动，才能让 Agent 从 Demo 走向稳定生产。',
       },
     ],
     impactZh:
-      '这本书直接塑造了我在「禾书耕文」中设计 LangGraph 分章节验证与引文溯源状态机的底层思路——永远不要盲信直觉，给关键结论加上可观测的核验步骤。',
-  },
-  {
-    id: 'atomic-habits',
-    code: 'VOL. 02',
-    isbn: 'ISBN 978-0-7352-1129-2',
-    titleZh: '原子习惯',
-    titleEn: 'Atomic Habits',
-    author: 'James Clear',
-    year: '2018',
-    categoryZh: '行为科学 · 复利系统',
-    categoryEn: 'Behavioral Systems',
-    coverBg: '#32251D',
-    spineColor: '#1E1610',
-    foilColor: '#E5B87B',
-    ribbonColor: '#8C3B2B',
-    rating: '★★★★★',
-    quoteZh: '你不会升到你目标的高度，你会落到你系统（Systems）的高度。',
-    marginaliaZh:
-      '做独立开发和长期科研项目时，单靠一时兴起的热情很难走远。把大工程拆成每天可验证的小提交（Micro-commits）、自动化脚本和清晰的工作流，才是持续产出的真正护城河。',
-    takeawaysZh: [
-      {
-        title: '1% 的每日复利曲线',
-        body: '每天优化 1%，一年后是 37 倍的跃迁。前端体验的打磨也是如此：微交互、阴影层次、音效反馈叠加起来就是质变。',
-      },
-      {
-        title: '降低好行为的启动摩擦',
-        body: '把开发环境、快捷指令（⌘K）和自动化部署做成一键触发，阻力越低，创意落地越快。',
-      },
-      {
-        title: '身份认同驱动行为',
-        body: '不要说“我想写一个好项目”，而是以“造物者与工匠”的身份标准去审视每一行代码与每一个像素。',
-      },
-    ],
-    impactZh:
-      '从日均 2 亿 Token 的工程迭代速度，到这套个人门户不断打磨的细节，本质上都是在用“系统”而非“意志力”推动每一次版本进化。',
-  },
-  {
-    id: 'design-of-everyday-things',
-    code: 'VOL. 03',
-    isbn: 'ISBN 978-0-465-05065-9',
-    titleZh: '设计心理学',
-    titleEn: 'The Design of Everyday Things',
-    author: 'Don Norman',
-    year: '1988',
-    categoryZh: '人机交互 · 工业设计',
-    categoryEn: 'HCI & Industrial Design',
-    coverBg: '#1F2835',
-    spineColor: '#131922',
-    foilColor: '#DBBE90',
-    ribbonColor: '#984638',
-    rating: '★★★★★',
-    quoteZh: '好的设计应当具备清晰的可感知性（Affordance）与意符，无需说明书即可自然交互。',
-    marginaliaZh:
-      '每次写完一个新组件（比如这本可以弯曲翻页的 3D 精装书，或者黑胶唱机），我都会问自己：访客第一次看到它，不看文字提示就知道可以点哪里、会有什么反馈吗？',
-    takeawaysZh: [
-      {
-        title: '可感知性（Affordance）与意符',
-        body: '微微翘起的柔性纸角暗示“可拖拽翻页”，唱片上的唱针暗示“点击播放”，好界面用物理隐喻说话。',
-      },
-      {
-        title: '即时多感官反馈',
-        body: '按钮按下时的清脆机械声、翻页时的纸张沙沙声、快门按下的咔嚓声，让数字界面拥有真实触感。',
-      },
-      {
-        title: '防错约束（Constraints）',
-        body: '与其指责用户点错，不如通过视觉层级和硬闸确认（如 Agent 写库确认卡片）让误操作不可能发生。',
-      },
-    ],
-    impactZh:
-      '它是我做前端视觉和交互设计时的案头圣经——技术负责让系统跑通，而设计心理学负责让系统“好用且让人会心一笑”。',
+      '开源仓库（bojieli/ai-agent-book）既是案头参考手册，也是我持续打磨 Agent 工作流架构、混合 RAG 与实时 SSE 交互的工程标尺。',
   },
   {
     id: 'sapiens',
-    code: 'VOL. 04',
+    code: 'VOL. 02',
     isbn: 'ISBN 978-0-06-231609-7',
     titleZh: '人类简史',
     titleEn: 'Sapiens',
@@ -192,7 +124,7 @@ const CURATED_BOOKS: BookData[] = [
     spineColor: '#221311',
     foilColor: '#E8C28E',
     ribbonColor: '#B88D52',
-    rating: '★★★★☆',
+    rating: '★★★★★',
     quoteZh: '语言与共同想象构建了人类协作网络；而在 AI 时代，自然语言正在直接构建软件系统。',
     marginaliaZh:
       '从认知革命到农业革命再到人工智能时代，人类每一次跨越边界都源于“新叙事工具”的诞生。今天我们用自然语言编排多智能体协作，某种意义上也是在续写这场认知革命。',
@@ -212,6 +144,76 @@ const CURATED_BOOKS: BookData[] = [
     ],
     impactZh:
       '提醒我在埋头写代码之余，始终抬头看历史、人文与真实世界——也是我热爱摄影、记录城市烟火气的精神底色。',
+  },
+  {
+    id: 'product-and-market',
+    code: 'VOL. 03',
+    isbn: 'READING // PRODUCT & MARKET',
+    titleZh: '产品与市场',
+    titleEn: 'Product & Market',
+    author: '产品思维 · 商业洞察',
+    year: '在读',
+    categoryZh: '产品策略 · 市场匹配',
+    categoryEn: 'Product & Market Fit',
+    coverBg: '#1F2835',
+    spineColor: '#131922',
+    foilColor: '#DBBE90',
+    ribbonColor: '#984638',
+    rating: '★★★★★',
+    quoteZh: '技术决定产品的能力上限，而对真实需求与市场结构的洞察，决定产品能否穿过周期活下来。',
+    marginaliaZh:
+      '工程师很容易陷入“拿着锤子找钉子”的惯性里。读产品与市场相关思考时，我越来越意识到：先验证痛点是否高频且刚需，再决定用多复杂的架构去解，往往比炫技重要十倍。',
+    takeawaysZh: [
+      {
+        title: '从功能清单回到用户场景',
+        body: '用户买单的从来不是“我用了多前沿的模型”，而是任务耗时从 2 小时缩短到 3 分钟的确定性结果。',
+      },
+      {
+        title: '找到真正的 PMF 信号',
+        body: '比起一次性尝鲜流量，留存、复访和用户主动把工具嵌入日常工作流，才是产品站稳脚跟的真实信号。',
+      },
+      {
+        title: '技术与商业的双向翻译',
+        body: '做好 FDE 与 AI 产品工程，核心能力之一就是把业务方的模糊诉求拆成可量化指标，再把技术边界清晰地讲给市场。',
+      },
+    ],
+    impactZh:
+      '帮助我在做独立项目和驻场交付时跳出纯代码视角，用“用户价值 + 商业闭环”重新审视每一个功能优先级。',
+  },
+  {
+    id: 'elon-musk',
+    code: 'VOL. 04',
+    isbn: 'ISBN 978-1-9821-8128-4',
+    titleZh: '埃隆·马斯克传',
+    titleEn: 'Elon Musk',
+    author: 'Walter Isaacson',
+    year: '2023',
+    categoryZh: '科技传记 · 第一性原理',
+    categoryEn: 'Biography · First Principles',
+    coverBg: '#32251D',
+    spineColor: '#1E1610',
+    foilColor: '#E5B87B',
+    ribbonColor: '#8C3B2B',
+    rating: '★★★★★',
+    quoteZh: '把所有需求质疑一遍，删掉一切不必要的部件和流程，最后再谈加速与自动化。',
+    marginaliaZh:
+      '抛开争议去看书里记录的一线工程细节，最震撼的还是极致的“第一性原理”和直面物理极限的迭代速度——不是凭空喊口号，而是直接扎进产线和代码里拆解瓶颈。',
+    takeawaysZh: [
+      {
+        title: '五步工程工作法',
+        body: '质疑需求 → 删除多余步骤 → 简化优化 → 加速周期 → 最后才自动化。顺序反了，只会高效地制造不必要的复杂度。',
+      },
+      {
+        title: '第一性原理拆解成本',
+        body: '不被行业惯例和“大家一直都这么做”束缚，回到最底层的算力、延迟与体验约束重新推导最优解。',
+      },
+      {
+        title: '紧贴一线的造物节奏',
+        body: '设计者与实现者不能割裂——缩短从想法到可运行原型的反馈环，才能在真实碰撞中打磨出好系统。',
+      },
+    ],
+    impactZh:
+      '不断提醒自己保持高标准与高执行密度：敢于质疑冗余设计、用最小闭环快速验证，把工程野心落到每一次实打实的交付里。',
   },
 ];
 
@@ -1328,14 +1330,27 @@ export const InteractiveReadingRoom: React.FC = () => {
               {book.rating}
             </span>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowFlipHint((v) => !v)}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full designer-pill text-[11px] designer-text-muted hover:designer-text-primary transition-colors"
-          >
-            <Hand className="w-3 h-3 text-[#8A6F48]" />
-            <span>{showFlipHint ? td('收起提示', 'Hide Tip') : td('翻页提示', 'Tip')}</span>
-          </button>
+          <div className="flex items-center gap-2">
+            {book.repoUrl && (
+              <a
+                href={book.repoUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full designer-pill text-[11px] text-[#8A6F48] dark:text-[#D2B488] hover:designer-text-primary transition-colors"
+              >
+                <span>{td('GitHub 开源主仓库', 'GitHub Repo')}</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowFlipHint((v) => !v)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full designer-pill text-[11px] designer-text-muted hover:designer-text-primary transition-colors"
+            >
+              <Hand className="w-3 h-3 text-[#8A6F48]" />
+              <span>{showFlipHint ? td('收起提示', 'Hide Tip') : td('翻页提示', 'Tip')}</span>
+            </button>
+          </div>
         </div>
 
         {showFlipHint && (

@@ -130,35 +130,51 @@ html.dark[data-skin="cobalt"] {
 }
 
 /* Base Body & Font Stack */
+:root {
+  --font-sans: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  --font-serif: 'Newsreader', 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', Georgia, serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
 html {
   overflow-x: clip;
   -webkit-tap-highlight-color: transparent;
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-synthesis-style: none;
   background-color: var(--bg-canvas);
   color: var(--text-primary);
-  line-height: 1.65;
+  line-height: 1.7;
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   overflow-x: clip;
 }
 
 .font-mono {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-family: var(--font-mono) !important;
   font-variant-numeric: tabular-nums;
 }
 
 .designer-heading {
-  font-family: 'Inter', 'Noto Serif SC', sans-serif;
+  font-family: var(--font-serif);
+  font-optical-sizing: auto;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.designer-accent-serif,
+.font-serif-editorial {
+  font-family: var(--font-serif);
+  font-optical-sizing: auto;
   color: var(--text-primary);
 }
 
-.designer-accent-serif {
-  font-family: 'Instrument Serif', 'Noto Serif SC', Georgia, serif;
-  color: var(--text-primary);
+html[lang^="zh"] .designer-heading {
+  letter-spacing: -0.01em;
 }
 
 /* Semantic Designer Classes */
@@ -518,4 +534,60 @@ html {
   100% {
     transform: translateX(100%);
   }
+}
+
+/* ==========================================================================
+   VINYL TURNTABLE & EQUALIZER CRAFT ANIMATIONS
+   ========================================================================== */
+@keyframes vinyl-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.vinyl-spin {
+  animation: vinyl-spin 11s linear infinite;
+  will-change: transform;
+}
+
+.vinyl-grooves {
+  background:
+    repeating-radial-gradient(
+      circle at center,
+      rgba(255, 255, 255, 0.045) 0px,
+      rgba(255, 255, 255, 0.045) 1px,
+      transparent 1px,
+      transparent 3.5px
+    ),
+    radial-gradient(circle at center, #181816 0%, #10100F 65%, #1D1C1A 100%);
+}
+
+.vinyl-sheen {
+  background: conic-gradient(
+    from 25deg,
+    transparent 0deg,
+    rgba(255, 255, 255, 0.09) 32deg,
+    transparent 68deg,
+    transparent 180deg,
+    rgba(255, 255, 255, 0.07) 215deg,
+    transparent 255deg,
+    transparent 360deg
+  );
+}
+
+@keyframes eq-bounce {
+  0%, 100% {
+    transform: scaleY(0.28);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+.eq-bar {
+  transform-origin: bottom;
+  animation: eq-bounce 0.85s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
 }

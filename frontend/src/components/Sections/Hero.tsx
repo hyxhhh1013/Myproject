@@ -11,7 +11,7 @@ import { playSuccessChime } from '../../utils/soundEffects';
 const DEFAULT_AVATAR = 'https://avatars.githubusercontent.com/hyxhhh1013';
 
 export const Hero: React.FC = () => {
-  const { t, td } = useI18n();
+  const { language, t, td } = useI18n();
   const [copied, setCopied] = useState(false);
 
   const [heroData, setHeroData] = useState<{
@@ -102,15 +102,23 @@ export const Hero: React.FC = () => {
             </div>
 
             {/* Giant Centered Editorial Headline */}
-            <h1 className="designer-heading text-[2.5rem] sm:text-6xl lg:text-[72px] xl:text-[80px] font-normal tracking-[-0.035em] leading-[1.1] mb-5 sm:mb-7">
+            <h1 className="designer-heading text-[2.5rem] sm:text-6xl lg:text-[72px] xl:text-[80px] font-normal tracking-[-0.025em] leading-[1.14] mb-5 sm:mb-7">
               <span className="designer-text-secondary/85 font-light">{t('hero.greeting')}</span>
-              <span className="designer-accent-serif italic font-normal block sm:inline mt-1 sm:mt-0">
+              <span
+                className={`designer-accent-serif block sm:inline mt-1 sm:mt-0 ${
+                  language === 'en' ? 'italic font-normal' : 'not-italic font-medium'
+                }`}
+              >
                 {td(heroData.name, 'Huang Yixuan')}
               </span>
             </h1>
 
             {/* Signature Manifesto Quote */}
-            <p className="text-base sm:text-xl lg:text-[23px] leading-[1.65] tracking-[-0.015em] font-serif italic designer-text-secondary max-w-2xl mb-7 sm:mb-10 px-1 sm:px-0">
+            <p
+              className={`text-base sm:text-xl lg:text-[22px] leading-[1.75] font-serif designer-text-secondary max-w-2xl mb-7 sm:mb-10 px-1 sm:px-0 ${
+                language === 'en' ? 'italic tracking-[-0.01em]' : 'not-italic tracking-[0.01em]'
+              }`}
+            >
               {td(
                 '“我坚信在不久的将来，最好的编程语言一定是自然语言——而扎实的工程化能力让它真正落地。”',
                 '“I firmly believe that in the near future, the best programming language will be natural language — and solid engineering brings it to life.”',
