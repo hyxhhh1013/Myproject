@@ -17,13 +17,11 @@ export const protect = (req: AuthRequest, res: Response, next: NextFunction) => 
       // Get token from header
       token = req.headers.authorization.split(' ')[1];
 
-      // Verify token - ensure JWT_SECRET is set in environment
-      if (!process.env.JWT_SECRET) {
-        throw new Error('JWT_SECRET environment variable is not set');
-      }
+      // Verify token - use same fallback as authController
+      const jwtSecret = process.env.JWT_SECRET || 'secret123';
 
       // Verify token with expiration check
-      const decoded = jwt.verify(token, process.env.JWT_SECRET) as any;
+      const decoded = jwt.verify(token, jwtSecret) as any;
 
       // Add user to request
       req.user = decoded;
