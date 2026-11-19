@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Loader2, Save, Eye, EyeOff, Settings as SettingsIcon, Key } from 'lucide-react';
+import { message as toast } from 'antd';
 import axios from '../../utils/axiosConfig';
 
 interface SiteConfig {
@@ -86,10 +87,11 @@ const Settings = () => {
     try {
       setConfigSaving(true);
       await axios.put(`/api/siteConfig`, config);
-      setMessage({ type: 'success', text: '配置已保存' });
-      setTimeout(() => setMessage(null), 3000);
+      toast.success('网站配置已保存');
+      setMessage(null);
     } catch (error) {
       console.error('Failed to save config:', error);
+      toast.error('保存失败，请重试');
       setMessage({ type: 'error', text: '保存失败，请重试' });
     } finally {
       setConfigSaving(false);
@@ -100,24 +102,23 @@ const Settings = () => {
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validation
     if (!formData.oldPassword || !formData.newPassword || !formData.confirmPassword) {
-      setMessage({ type: 'error', text: '请填写所有字段' });
+      setMessage({ type: 'error', text: '请填写所有密码字段' });
       return;
     }
 
     if (formData.newPassword.length < 6) {
-      setMessage({ type: 'error', text: '新密码需要至少6个字母' });
+      setMessage({ type: 'error', text: '新密码至少需要 6 位字符' });
       return;
     }
 
     if (formData.newPassword !== formData.confirmPassword) {
-      setMessage({ type: 'error', text: '两次输入的密码不一致' });
+      setMessage({ type: 'error', text: '两次输入的新密码不一致' });
       return;
     }
 
     if (formData.oldPassword === formData.newPassword) {
-      setMessage({ type: 'error', text: '新密码不能与会故密码相同' });
+      setMessage({ type: 'error', text: '新密码不能与当前密码相同' });
       return;
     }
 
@@ -128,14 +129,16 @@ const Settings = () => {
         newPassword: formData.newPassword,
         confirmPassword: formData.confirmPassword
       });
-      setMessage({ type: 'success', text: '密码修改成功，请重新登录' });
+      toast.success('密码修改成功，即将跳转至登录页');
+      setMessage({ type: 'success', text: '密码修改成功，即将跳转至登录页' });
       setFormData({ oldPassword: '', newPassword: '', confirmPassword: '' });
       setTimeout(() => {
-        // Redirect to login
         window.location.href = '/login';
-      }, 2000);
-    } catch (error: any) {
-      const errorMsg = error.response?.data?.message || '修改密码失败，请重试';
+      }, 1800);
+    } catch (error: unknown) {
+      const errObj = error as { response?: { data?: { message?: string } } };
+      const errorMsg = errObj.response?.data?.message || '修改密码失败，请重试';
+      toast.error(errorMsg);
       setMessage({ type: 'error', text: errorMsg });
     } finally {
       setPasswordLoading(false);
@@ -144,123 +147,133 @@ const Settings = () => {
 
   return (
     <div className="space-y-6 max-w-4xl">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-white">设置</h2>
-        <p className="text-gray-500 dark:text-gray-400 mt-1">配置网站信息和账户安全</p>
+      <div className="flex items-center justify-between border-b border-[#E6E2D8] dark:border-[#262522]">
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => { setActiveTab('site'); setMessage(null); }}
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'site'
+                ? 'border-[#8A6F48] text-[#141413] dark:border-[#C8A97E] dark:text-[#F0EFEA]'
+                : 'border-transparent text-[#6E6A63] hover:text-[#141413] dark:text-[#9E9A92] dark:hover:text-[#F0EFEA]'
+            }`}
+          >
+            <SettingsIcon size={16} className="text-[#8A6F48] dark:text-[#C8A97E]" />
+            网站配置
+          </button>
+          <button
+            type="button"
+            onClick={() => { setActiveTab('password'); setMessage(null); }}
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'password'
+                ? 'border-[#8A6F48] text-[#141413] dark:border-[#C8A97E] dark:text-[#F0EFEA]'
+                : 'border-transparent text-[#6E6A63] hover:text-[#141413] dark:text-[#9E9A92] dark:hover:text-[#F0EFEA]'
+            }`}
+          >
+            <Key size={16} className="text-[#8A6F48] dark:text-[#C8A97E]" />
+            账户安全
+          </button>
+        </div>
+        <span className="hidden sm:inline text-[11px] font-mono text-[#8C877E]">
+          SYSTEM // {activeTab === 'site' ? 'SITE CONFIG' : 'SECURITY'}
+        </span>
       </div>
 
       {message && (
-        <div className={`p-4 rounded-lg border ${message.type === 'success' ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300 border-green-200 dark:border-green-800' : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300 border-red-200 dark:border-red-800'}`}>
+        <div className={`px-4 py-3 rounded-xl border text-sm ${
+          message.type === 'success'
+            ? 'bg-emerald-50/80 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+            : 'bg-rose-50/80 text-rose-800 dark:bg-rose-950/30 dark:text-rose-300 border-rose-200 dark:border-rose-800'
+        }`}>
           {message.text}
         </div>
       )}
 
-      {/* 选项卡导航 */}
-      <div className="flex border-b border-gray-200 dark:border-gray-700">
-        <button
-          onClick={() => setActiveTab('site')}
-          className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'site' ? 'border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}`}
-        >
-          <SettingsIcon size={18} />
-          网站配置
-        </button>
-        <button
-          onClick={() => setActiveTab('password')}
-          className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'password' ? 'border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}`}
-        >
-          <Key size={18} />
-          修改密码
-        </button>
-      </div>
-
       {/* 选项卡内容 */}
       {activeTab === 'site' ? (
-        <form onSubmit={handleConfigSubmit} className="space-y-6">
+        <form onSubmit={handleConfigSubmit} className="space-y-5">
           {configLoading ? (
-            <div className="flex justify-center items-center h-96">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            <div className="flex justify-center items-center h-64">
+              <Loader2 className="w-7 h-7 animate-spin text-[#8A6F48]" />
             </div>
           ) : (
             <>
-              {/* Site Title */}
-              <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-                <label htmlFor="siteTitle" className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
-                  网站标题 *
-                </label>
-                <input
-                  type="text"
-                  id="siteTitle"
-                  name="siteTitle"
-                  value={config.siteTitle}
-                  onChange={handleConfigChange}
-                  placeholder="例如: 奋辉.Dev"
-                  className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                  required
-                />
-                <p className="text-xs text-gray-500 mt-2">网站的主体标题，用于浏览器选项卡和SEO</p>
+              <div className="bg-white dark:bg-[#161614] p-6 rounded-xl border border-[#E6E2D8] dark:border-[#262522] space-y-5">
+                <div>
+                  <label htmlFor="siteTitle" className="block text-sm font-medium text-[#141413] dark:text-[#F0EFEA] mb-1.5">
+                    网站标题 *
+                  </label>
+                  <input
+                    type="text"
+                    id="siteTitle"
+                    name="siteTitle"
+                    value={config.siteTitle}
+                    onChange={handleConfigChange}
+                    placeholder="例如：奕轩.Dev"
+                    className="w-full px-3.5 py-2.5 bg-[#FAF9F5] dark:bg-[#1D1D1A] border border-[#E6E2D8] dark:border-[#2B2A26] rounded-lg text-sm focus:outline-none focus:ring-2 transition-all"
+                    required
+                  />
+                  <p className="text-xs text-[#8C877E] mt-1.5">用于浏览器标签页标题与搜索引擎展示</p>
+                </div>
+
+                <div>
+                  <label htmlFor="seoKeywords" className="block text-sm font-medium text-[#141413] dark:text-[#F0EFEA] mb-1.5">
+                    SEO 关键词 *
+                  </label>
+                  <textarea
+                    id="seoKeywords"
+                    name="seoKeywords"
+                    value={config.seoKeywords}
+                    onChange={handleConfigChange}
+                    placeholder="例如：黄奕轩, FDE, AI 全栈开发, Agent, RAG"
+                    rows={2}
+                    className="w-full px-3.5 py-2.5 bg-[#FAF9F5] dark:bg-[#1D1D1A] border border-[#E6E2D8] dark:border-[#2B2A26] rounded-lg text-sm focus:outline-none focus:ring-2 transition-all"
+                    required
+                  />
+                  <p className="text-xs text-[#8C877E] mt-1.5">核心检索词，以英文逗号分隔</p>
+                </div>
+
+                <div>
+                  <label htmlFor="seoDescription" className="block text-sm font-medium text-[#141413] dark:text-[#F0EFEA] mb-1.5">
+                    SEO 站点简介 *
+                  </label>
+                  <textarea
+                    id="seoDescription"
+                    name="seoDescription"
+                    value={config.seoDescription}
+                    onChange={handleConfigChange}
+                    placeholder="例如：黄奕轩个人主页，展示 AI 全栈工程项目、研究实践与摄影作品"
+                    rows={3}
+                    className="w-full px-3.5 py-2.5 bg-[#FAF9F5] dark:bg-[#1D1D1A] border border-[#E6E2D8] dark:border-[#2B2A26] rounded-lg text-sm focus:outline-none focus:ring-2 transition-all"
+                    required
+                  />
+                  <p className="text-xs text-[#8C877E] mt-1.5">搜索引擎结果摘要展示的站点描述</p>
+                </div>
+
+                <div>
+                  <label htmlFor="icpCode" className="block text-sm font-medium text-[#141413] dark:text-[#F0EFEA] mb-1.5">
+                    ICP 备案号
+                  </label>
+                  <input
+                    type="text"
+                    id="icpCode"
+                    name="icpCode"
+                    value={config.icpCode || ''}
+                    onChange={handleConfigChange}
+                    placeholder="例如：湘ICP备xxxxxxxx号（选填）"
+                    className="w-full px-3.5 py-2.5 bg-[#FAF9F5] dark:bg-[#1D1D1A] border border-[#E6E2D8] dark:border-[#2B2A26] rounded-lg text-sm focus:outline-none focus:ring-2 transition-all"
+                  />
+                  <p className="text-xs text-[#8C877E] mt-1.5">展示于站点页脚的备案编号（可留空）</p>
+                </div>
               </div>
 
-              {/* SEO Keywords */}
-              <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-                <label htmlFor="seoKeywords" className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
-                  SEO关键词 *
-                </label>
-                <textarea
-                  id="seoKeywords"
-                  name="seoKeywords"
-                  value={config.seoKeywords}
-                  onChange={handleConfigChange}
-                  placeholder="例如: 个人网站,全栈开发,React,Node.js"
-                  rows={3}
-                  className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                  required
-                />
-                <p className="text-xs text-gray-500 mt-2">你的核心关键词，以逗号分隔</p>
-              </div>
-
-              {/* SEO Description */}
-              <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-                <label htmlFor="seoDescription" className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
-                  SEO描述 *
-                </label>
-                <textarea
-                  id="seoDescription"
-                  name="seoDescription"
-                  value={config.seoDescription}
-                  onChange={handleConfigChange}
-                  placeholder="例如: 奋辉的个人网站，展示个人作品、技术与技术希望"
-                  rows={3}
-                  className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                  required
-                />
-                <p className="text-xs text-gray-500 mt-2">搜索引擎结果中所夺的描述</p>
-              </div>
-
-              {/* ICP Code */}
-              <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-                <label htmlFor="icpCode" className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
-                  ICP备案事业号
-                </label>
-                <input
-                  type="text"
-                  id="icpCode"
-                  name="icpCode"
-                  value={config.icpCode || ''}
-                  onChange={handleConfigChange}
-                  placeholder="例如: 豆ICP备123456789号"
-                  className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                />
-                <p className="text-xs text-gray-500 mt-2">中国大陆网站的ICP备案事业号（可不填）</p>
-              </div>
-
-              {/* Save Button */}
-              <div className="flex gap-4">
+              <div className="flex justify-end">
                 <button
                   type="submit"
                   disabled={configSaving}
-                  className="flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#141413] dark:bg-[#F0EFEA] text-[#FAF9F5] dark:text-[#141413] hover:opacity-90 rounded-lg text-sm font-medium transition-opacity disabled:opacity-50"
                 >
-                  {configSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                  {configSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                   {configSaving ? '保存中...' : '保存配置'}
                 </button>
               </div>
@@ -268,103 +281,97 @@ const Settings = () => {
           )}
         </form>
       ) : (
-        <form onSubmit={handlePasswordSubmit} className="space-y-6">
-          {/* Old Password */}
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-            <label htmlFor="oldPassword" className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
-              旧密码 *
-            </label>
-            <div className="relative">
-              <input
-                type={showPasswords.old ? 'text' : 'password'}
-                id="oldPassword"
-                name="oldPassword"
-                value={formData.oldPassword}
-                onChange={handlePasswordChange}
-                placeholder="输入你的旧密码"
-                className="w-full px-4 py-2 pr-12 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPasswords(prev => ({ ...prev, old: !prev.old }))}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-              >
-                {showPasswords.old ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
+        <form onSubmit={handlePasswordSubmit} className="space-y-5">
+          <div className="bg-white dark:bg-[#161614] p-6 rounded-xl border border-[#E6E2D8] dark:border-[#262522] space-y-5">
+            <div>
+              <label htmlFor="oldPassword" className="block text-sm font-medium text-[#141413] dark:text-[#F0EFEA] mb-1.5">
+                当前密码 *
+              </label>
+              <div className="relative">
+                <input
+                  type={showPasswords.old ? 'text' : 'password'}
+                  id="oldPassword"
+                  name="oldPassword"
+                  value={formData.oldPassword}
+                  onChange={handlePasswordChange}
+                  placeholder="请输入当前登录密码"
+                  className="w-full px-3.5 py-2.5 pr-11 bg-[#FAF9F5] dark:bg-[#1D1D1A] border border-[#E6E2D8] dark:border-[#2B2A26] rounded-lg text-sm focus:outline-none focus:ring-2 transition-all"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPasswords(prev => ({ ...prev, old: !prev.old }))}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8C877E] hover:text-[#141413] dark:hover:text-[#F0EFEA]"
+                >
+                  {showPasswords.old ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
-            <p className="text-xs text-gray-500 mt-2">为了安全起见，我们需要你确认会故密码</p>
-          </div>
 
-          {/* New Password */}
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-            <label htmlFor="newPassword" className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
-              新密码 *
-            </label>
-            <div className="relative">
-              <input
-                type={showPasswords.new ? 'text' : 'password'}
-                id="newPassword"
-                name="newPassword"
-                value={formData.newPassword}
-                onChange={handlePasswordChange}
-                placeholder="设置新密码（至少6个字母）"
-                className="w-full px-4 py-2 pr-12 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPasswords(prev => ({ ...prev, new: !prev.new }))}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-              >
-                {showPasswords.new ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
+            <div>
+              <label htmlFor="newPassword" className="block text-sm font-medium text-[#141413] dark:text-[#F0EFEA] mb-1.5">
+                新密码 *
+              </label>
+              <div className="relative">
+                <input
+                  type={showPasswords.new ? 'text' : 'password'}
+                  id="newPassword"
+                  name="newPassword"
+                  value={formData.newPassword}
+                  onChange={handlePasswordChange}
+                  placeholder="设置新密码（至少 6 位字符）"
+                  className="w-full px-3.5 py-2.5 pr-11 bg-[#FAF9F5] dark:bg-[#1D1D1A] border border-[#E6E2D8] dark:border-[#2B2A26] rounded-lg text-sm focus:outline-none focus:ring-2 transition-all"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPasswords(prev => ({ ...prev, new: !prev.new }))}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8C877E] hover:text-[#141413] dark:hover:text-[#F0EFEA]"
+                >
+                  {showPasswords.new ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+              <p className="text-xs text-[#8C877E] mt-1.5">新密码不能与当前密码相同，建议包含字母与数字</p>
             </div>
-            <p className="text-xs text-gray-500 mt-2">密码不能伴旧密码相同，且至少6个字母</p>
-          </div>
 
-          {/* Confirm Password */}
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-            <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
-              确认新密码 *
-            </label>
-            <div className="relative">
-              <input
-                type={showPasswords.confirm ? 'text' : 'password'}
-                id="confirmPassword"
-                name="confirmPassword"
-                value={formData.confirmPassword}
-                onChange={handlePasswordChange}
-                placeholder="再次输入新密码"
-                className="w-full px-4 py-2 pr-12 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPasswords(prev => ({ ...prev, confirm: !prev.confirm }))}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-              >
-                {showPasswords.confirm ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
+            <div>
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-[#141413] dark:text-[#F0EFEA] mb-1.5">
+                确认新密码 *
+              </label>
+              <div className="relative">
+                <input
+                  type={showPasswords.confirm ? 'text' : 'password'}
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handlePasswordChange}
+                  placeholder="再次输入新密码"
+                  className="w-full px-3.5 py-2.5 pr-11 bg-[#FAF9F5] dark:bg-[#1D1D1A] border border-[#E6E2D8] dark:border-[#2B2A26] rounded-lg text-sm focus:outline-none focus:ring-2 transition-all"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPasswords(prev => ({ ...prev, confirm: !prev.confirm }))}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8C877E] hover:text-[#141413] dark:hover:text-[#F0EFEA]"
+                >
+                  {showPasswords.confirm ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Submit Button */}
-          <div className="flex gap-4">
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-xs text-[#8C877E]">
+              修改密码后将自动跳转至登录页，请使用新密码重新登录。
+            </p>
             <button
               type="submit"
               disabled={passwordLoading}
-              className="flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#141413] dark:bg-[#F0EFEA] text-[#FAF9F5] dark:text-[#141413] hover:opacity-90 rounded-lg text-sm font-medium transition-opacity disabled:opacity-50 shrink-0"
             >
-              {passwordLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-              {passwordLoading ? '修改中...' : '修改密码'}
+              {passwordLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              {passwordLoading ? '提交中...' : '更新密码'}
             </button>
-          </div>
-
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-            <p className="text-sm text-blue-800 dark:text-blue-300">
-              <strong>提示:</strong> 修改密码后，会程动需改登录和重新索汗。为了您的账户安全，会程动每30天宝需修改一次密码。
-            </p>
           </div>
         </form>
       )}
