@@ -5,7 +5,8 @@ import {
   updateMusic,
   deleteMusic,
   updateMusicOrder,
-  resolveNeteaseMusic
+  resolveNeteaseMusic,
+  syncQqPlaylist,
 } from '../controllers/musicController';
 import { protect } from '../middleware/authMiddleware';
 import { cacheMiddleware, clearCache } from '../middleware/cache';
@@ -13,6 +14,7 @@ import { cacheMiddleware, clearCache } from '../middleware/cache';
 const router = Router();
 
 router.get('/resolve', resolveNeteaseMusic);
+router.post('/sync-qq-playlist', protect, (req, res, next) => { syncQqPlaylist(req, res, next); clearCache('/api/music'); });
 router.get('/', cacheMiddleware(300), getMusic);
 router.post('/', protect, (req, res, next) => { createMusic(req, res, next); clearCache('/api/music'); });
 router.put('/:id', protect, (req, res, next) => { updateMusic(req, res, next); clearCache('/api/music'); });

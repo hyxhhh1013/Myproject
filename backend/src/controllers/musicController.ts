@@ -186,3 +186,242 @@ export const updateMusicOrder = asyncHandler(async (req: Request, res: Response)
   logger.info('Music order updated successfully', { updatedCount: musicIds.length });
   res.json({ status: 'success', message: '排序更新成功' });
 });
+
+const QQ_HEADERS = {
+  Referer: 'https://y.qq.com/',
+  Origin: 'https://y.qq.com',
+  'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+};
+
+async function extractQqPlaylistId(rawInput: string): Promise<string | null> {
+  const trimmed = rawInput.trim();
+  if (!trimmed) return null;
+
+  // Direct numeric playlist ID
+  if (/^\d{5,15}$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  // Extract first URL if user pasted a full QQ Music share text
+  const urlMatch = trimmed.match(/https?:\/\/[^\s]+/i);
+  let targetUrl = urlMatch ? urlMatch[0] : trimmed;
+
+  const parseIdFromUrl = (u: string): string | null => {
+    const patterns = [
+      /playlist\/(\d{5,15})/i,
+      /[?&]id=(\d{5,15})/i,
+      /[?&]disstid=(\d{5,15})/i,
+      /taoge\.html[^#]*?id=(\d{5,15})/i,
+    ];
+    for (const re of patterns) {
+      const m = u.match(re);
+      if (m?.[1]) return m[1];
+    }
+    return null;
+  };
+
+  const directId = parseIdFromUrl(targetUrl);
+  if (directId) return directId;
+
+  // Resolve short share link (e.g. https://c6.y.qq.com/base/fcgi-bin/u?__=xxxx)
+  if (/^https?:\/\//i.test(targetUrl)) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 6000);
+      const resp = await fetch(targetUrl, {
+        redirect: 'follow',
+        headers: QQ_HEADERS,
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      const finalId = parseIdFromUrl(resp.url);
+      if (finalId) return finalId;
+
+      const html = await resp.text();
+      const htmlMatch = html.match(/(?:disstid|playlistId|taogeId)["':=\s]+(\d{5,15})/i);
+      if (htmlMatch?.[1]) return htmlMatch[1];
+    } catch (err) {
+      logger.warn('Failed to resolve QQ Music short link', { targetUrl, err });
+    }
+  }
+
+  return null;
+}
+
+async function fetchQqLyrics(songmid: string): Promise<string> {
+  if (!songmid) return '';
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
+    const resp = await fetch(
+      `https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg?songmid=${encodeURIComponent(songmid)}&format=json&nobase64=1`,
+      { headers: QQ_HEADERS, signal: controller.signal },
+    );
+    clearTimeout(timeout);
+    if (!resp.ok) return '';
+
+    const text = await resp.text();
+    const jsonStr = text.trim().replace(/^MusicJsonCallback\(/, '').replace(/\)\s*;?$/, '');
+    const parsed = JSON.parse(jsonStr) as { lyric?: string };
+    if (!parsed.lyric) return '';
+
+    const rawLyric = parsed.lyric.trim();
+    // If QQ still returned base64 despite nobase64=1, decode it
+    if (!rawLyric.includes('[') && /^[A-Za-z0-9+/=\s]+$/.test(rawLyric)) {
+      return Buffer.from(rawLyric, 'base64').toString('utf-8').trim();
+    }
+    return rawLyric;
+  } catch {
+    return '';
+  }
+}
+
+export const syncQqPlaylist = asyncHandler(async (req: Request, res: Response) => {
+  const { playlistInput, replaceExisting = true, limit = 20 } = req.body as {
+    playlistInput?: string;
+    replaceExisting?: boolean;
+    limit?: number;
+  };
+
+  if (!playlistInput || typeof playlistInput !== 'string') {
+    return res.status(400).json({ error: '请提供 QQ 音乐公开歌单链接或歌单 ID' });
+  }
+
+  const playlistId = await extractQqPlaylistId(playlistInput);
+  if (!playlistId) {
+    return res.status(400).json({
+      error: '无法识别 QQ 音乐歌单 ID，请粘贴公开歌单分享链接（如 y.qq.com/n/ryqq/playlist/xxx）或纯数字歌单 ID',
+    });
+  }
+
+  const maxTracks = Math.max(1, Math.min(50, Number(limit) || 20));
+
+  const apiUrl = `https://c.y.qq.com/qzone/fcg-bin/fcg_ucc_getcdinfo_byids_cp.fcg?type=1&json=1&utf8=1&onlysong=0&disstid=${encodeURIComponent(
+    playlistId,
+  )}&format=json`;
+
+  let cdData: any = null;
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    const resp = await fetch(apiUrl, { headers: QQ_HEADERS, signal: controller.signal });
+    clearTimeout(timeout);
+    if (!resp.ok) {
+      return res.status(502).json({ error: `QQ 音乐接口响应异常 (${resp.status})` });
+    }
+    const rawText = await resp.text();
+    const cleaned = rawText.trim().replace(/^playlistinfoCallback\(/, '').replace(/\)\s*;?$/, '');
+    cdData = JSON.parse(cleaned);
+  } catch (err) {
+    logger.error('Failed to fetch QQ Music playlist', { playlistId, err });
+    return res.status(502).json({ error: '拉取 QQ 音乐歌单失败，请检查网络或确认歌单已设为公开' });
+  }
+
+  const cd = Array.isArray(cdData?.cdlist) ? cdData.cdlist[0] : null;
+  const rawSongs: any[] = Array.isArray(cd?.songlist) ? cd.songlist : [];
+  if (!cd || rawSongs.length === 0) {
+    return res.status(404).json({
+      error: '未获取到歌单曲目，请确认该 QQ 音乐歌单已设为「公开」且包含歌曲',
+    });
+  }
+
+  const playlistName = String(cd.dissname || `QQ 音乐歌单 ${playlistId}`);
+  const selectedSongs = rawSongs.slice(0, maxTracks);
+
+  // Preserve manually configured MP3 URLs for tracks with matching title+artist
+  const existingTracks = await prisma.music.findMany();
+  const existingUrlByKey = new Map<string, string>();
+  for (const item of existingTracks) {
+    if (item.url && item.url.trim()) {
+      const key = `${item.title.trim().toLowerCase()}::${(item.artist || '').trim().toLowerCase()}`;
+      existingUrlByKey.set(key, item.url.trim());
+    }
+  }
+
+  // Fetch LRC lyrics in small concurrent batches (4 at a time)
+  const preparedTracks: Array<{
+    title: string;
+    artist: string;
+    coverUrl: string | null;
+    platform: string;
+    url: string | null;
+    lyrics: string | null;
+    description: string | null;
+    playlistId: string;
+    playlistType: string;
+    orderIndex: number;
+    isVisible: boolean;
+  }> = [];
+
+  for (let i = 0; i < selectedSongs.length; i += 4) {
+    const batch = selectedSongs.slice(i, i + 4);
+    const batchResults = await Promise.all(
+      batch.map(async (song, batchOffset) => {
+        const idx = i + batchOffset;
+        const title = String(song.songname || song.name || '未命名歌曲').trim();
+        const singers = Array.isArray(song.singer)
+          ? song.singer.map((s: any) => s?.name).filter(Boolean).join(' / ')
+          : '';
+        const artist = singers || '未知歌手';
+        const albummid = String(song.albummid || song.album?.mid || '').trim();
+        const songmid = String(song.songmid || song.mid || '').trim();
+        const coverUrl = albummid
+          ? `https://y.gtimg.cn/music/photo_new/T002R300x300M000${albummid}.jpg`
+          : null;
+        const detailUrl = songmid ? `https://y.qq.com/n/ryqq/songDetail/${songmid}` : null;
+        const lyrics = await fetchQqLyrics(songmid);
+        const key = `${title.toLowerCase()}::${artist.toLowerCase()}`;
+        const preservedUrl = existingUrlByKey.get(key) || null;
+
+        return {
+          title,
+          artist,
+          coverUrl,
+          platform: 'qq',
+          url: preservedUrl,
+          lyrics: lyrics || null,
+          description: detailUrl,
+          playlistId,
+          playlistType: 'qq_playlist',
+          orderIndex: idx,
+          isVisible: true,
+        };
+      }),
+    );
+    preparedTracks.push(...batchResults);
+  }
+
+  const createdTracks = await prisma.$transaction(async (tx) => {
+    if (replaceExisting) {
+      await tx.music.deleteMany({
+        where: {
+          OR: [{ playlistType: 'qq_playlist' }, { platform: 'qq' }],
+        },
+      });
+    }
+    const inserted = [];
+    for (const track of preparedTracks) {
+      const row = await tx.music.create({ data: track });
+      inserted.push(row);
+    }
+    return inserted;
+  });
+
+  logger.info('Synced QQ Music playlist successfully', {
+    playlistId,
+    playlistName,
+    syncedCount: createdTracks.length,
+  });
+
+  res.json({
+    status: 'success',
+    message: `已同步 QQ 音乐歌单「${playlistName}」（共 ${createdTracks.length} 首）`,
+    data: {
+      playlistId,
+      playlistName,
+      syncedCount: createdTracks.length,
+      tracks: createdTracks,
+    },
+  });
+});

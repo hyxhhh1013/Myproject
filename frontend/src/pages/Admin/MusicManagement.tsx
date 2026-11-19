@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Trash2, Search, Filter, Loader2, ExternalLink, Edit, Plus, X, Eye, EyeOff } from 'lucide-react';
+import { Trash2, Search, Filter, Loader2, ExternalLink, Edit, Plus, X, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { message } from 'antd';
 import axios from '../../utils/axiosConfig';
 
@@ -47,6 +47,11 @@ const MusicManagement = () => {
   const [editingMusic, setEditingMusic] = useState<Music | null>(null);
   const [formData, setFormData] = useState(initialFormData);
   const [submitting, setSubmitting] = useState(false);
+  const [showQqSyncModal, setShowQqSyncModal] = useState(false);
+  const [qqPlaylistInput, setQqPlaylistInput] = useState('');
+  const [qqSyncLimit, setQqSyncLimit] = useState(20);
+  const [qqReplaceExisting, setQqReplaceExisting] = useState(true);
+  const [syncingQq, setSyncingQq] = useState(false);
 
   const platforms = [
     { value: 'netease', label: '网易云音乐' },
@@ -98,6 +103,108 @@ const MusicManagement = () => {
     setShowModal(false);
     setEditingMusic(null);
     setFormData(initialFormData);
+  };
+
+  const handleSyncQqPlaylist = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!qqPlaylistInput.trim()) {
+      message.warning('请粘贴 QQ 音乐公开歌单链接或歌单 ID');
+      return;
+    }
+
+    try {
+      setSyncingQq(true);
+      try {
+        const res = await axios.post('/api/music/sync-qq-playlist', {
+          playlistInput: qqPlaylistInput.trim(),
+          limit: qqSyncLimit,
+          replaceExisting: qqReplaceExisting,
+        });
+        message.success(res.data?.message || 'QQ 音乐歌单同步成功');
+        setShowQqSyncModal(false);
+        await fetchMusics();
+        return;
+      } catch (primaryErr: any) {
+        const status = primaryErr?.response?.status;
+        // Fallback when dev frontend proxies to an older backend without /sync-qq-playlist
+        if (status !== 404 && status !== 405) {
+          throw primaryErr;
+        }
+      }
+
+      const resolveResp = await fetch('/__dev/qq-playlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          playlistInput: qqPlaylistInput.trim(),
+          limit: qqSyncLimit,
+        }),
+      });
+      const resolved = await resolveResp.json();
+      if (!resolveResp.ok || !resolved?.data?.tracks?.length) {
+        throw new Error(resolved?.error || '未能解析 QQ 音乐歌单');
+      }
+
+      const { playlistName, tracks } = resolved.data as {
+        playlistName: string;
+        tracks: Array<{
+          title: string;
+          artist: string;
+          coverUrl: string;
+          platform: string;
+          url: string;
+          lyrics: string;
+          description: string;
+          orderIndex: number;
+          isVisible: boolean;
+        }>;
+      };
+
+      const preservedUrlByKey = new Map<string, string>();
+      for (const m of musics) {
+        if (m.url && m.url.trim()) {
+          preservedUrlByKey.set(
+            `${m.title.trim().toLowerCase()}::${(m.artist || '').trim().toLowerCase()}`,
+            m.url.trim(),
+          );
+        }
+      }
+
+      if (qqReplaceExisting) {
+        const oldQqTracks = musics.filter((m) => m.platform === 'qq');
+        for (const old of oldQqTracks) {
+          await axios.delete(`/api/music/${old.id}`).catch(() => {});
+        }
+      }
+
+      for (const track of tracks) {
+        const key = `${track.title.toLowerCase()}::${track.artist.toLowerCase()}`;
+        const customUrl = preservedUrlByKey.get(key) || undefined;
+        await axios.post('/api/music', {
+          platform: 'qq',
+          title: track.title,
+          artist: track.artist,
+          coverUrl: track.coverUrl || undefined,
+          url: customUrl,
+          lyrics: track.lyrics || undefined,
+          description: track.description || undefined,
+          orderIndex: track.orderIndex,
+          isVisible: true,
+        });
+      }
+
+      message.success(`已同步 QQ 音乐歌单「${playlistName}」（共 ${tracks.length} 首）`);
+      setShowQqSyncModal(false);
+      await fetchMusics();
+    } catch (error: any) {
+      const errMsg =
+        error?.response?.data?.error ||
+        error?.message ||
+        '同步失败，请确认歌单已设为公开并重试';
+      message.error(errMsg);
+    } finally {
+      setSyncingQq(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -193,14 +300,24 @@ const MusicManagement = () => {
           <div className="text-sm text-gray-500 bg-gray-50 dark:bg-gray-800 p-3 rounded-lg border border-gray-100 dark:border-gray-700 flex-1">
             共 {musics.length} 个音乐
           </div>
-          <button 
-            onClick={() => handleOpenModal()}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors w-full sm:w-auto"
-          >
-            <Plus size={20} />
-            <span className="hidden sm:inline">添加音乐</span>
-            <span className="sm:hidden">添加</span>
-          </button>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => setShowQqSyncModal(true)}
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-100 px-4 py-2 rounded-lg transition-colors"
+            >
+              <RefreshCw size={18} />
+              <span>同步 QQ 歌单</span>
+            </button>
+            <button
+              onClick={() => handleOpenModal()}
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              <Plus size={20} />
+              <span className="hidden sm:inline">添加音乐</span>
+              <span className="sm:hidden">添加</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -520,6 +637,99 @@ const MusicManagement = () => {
                         <span className="sm:hidden">添加</span>
                       </>
                     )
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {showQqSyncModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full">
+            <div className="border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                一键同步 QQ 音乐公开歌单
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowQqSyncModal(false)}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSyncQqPlaylist} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                  QQ 音乐歌单链接或歌单 ID
+                </label>
+                <input
+                  type="text"
+                  value={qqPlaylistInput}
+                  onChange={(e) => setQqPlaylistInput(e.target.value)}
+                  placeholder="粘贴分享链接（y.qq.com / c6.y.qq.com）或纯数字歌单 ID"
+                  className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                  支持直接粘贴 QQ 音乐 App 分享文本。系统会自动拉取歌名、歌手、专辑封面、LRC 歌词与原曲直达链接；若同名曲目已配置本地 MP3 音源会自动保留。
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                    同步曲目上限
+                  </label>
+                  <select
+                    value={qqSyncLimit}
+                    onChange={(e) => setQqSyncLimit(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm"
+                  >
+                    <option value={10}>前 10 首</option>
+                    <option value={20}>前 20 首（推荐）</option>
+                    <option value={30}>前 30 首</option>
+                    <option value={50}>前 50 首</option>
+                  </select>
+                </div>
+
+                <label className="flex items-center gap-2.5 pt-6 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={qqReplaceExisting}
+                    onChange={(e) => setQqReplaceExisting(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                    覆盖旧的 QQ 同步曲目
+                  </span>
+                </label>
+              </div>
+
+              <div className="flex gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  type="button"
+                  onClick={() => setShowQqSyncModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  取消
+                </button>
+                <button
+                  type="submit"
+                  disabled={syncingQq}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {syncingQq ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>拉取歌单与歌词中...</span>
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-4 h-4" />
+                      <span>开始同步</span>
+                    </>
                   )}
                 </button>
               </div>
