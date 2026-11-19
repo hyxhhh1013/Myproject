@@ -1,5 +1,3 @@
-// 翻译文件
-
 export const translations = {
   en: {
     // Header
@@ -11,147 +9,108 @@ export const translations = {
     'header.photos': 'Photos',
     'header.contact': 'Contact',
     'header.interests': 'Interests',
-    'header.name': '奕轩.Dev',
-    
+    'header.name': 'Yixuan.Dev',
+    'header.cmdk': 'Command',
+
     // Hero Section
-    'hero.title': 'Hello, I am <span class="text-blue-400">Huang Yixuan</span>',
-    'hero.subtitle': 'A Computer Science student, creator in the AI era.',
-    'hero.description': 'This records all my projects, practices and growth experiences.',
-    'hero.viewProjects': 'View My Projects',
-    'hero.viewResume': 'View Resume',
-    'hero.contactMe': 'Contact Me',
-    'hero.projectPreview': 'Selected Project Preview',
-    
-    // Project Card
-    'project.responsibilities': 'My Responsibilities',
-    'project.challenges': 'Challenges & Solutions',
-    'project.problem': 'Problem',
-    'project.solution': 'Solution',
-    'project.github': 'GitHub Source',
-    'project.demo': 'Full Demo',
-    
-    // Projects Section
-    'projects.title': 'Project Cases',
-    'projects.subtitle': 'Real project practice with engineering thinking',
-    
-    // Skills Section
-    'skills.title': 'Professional Skills',
-    'skills.subtitle': 'Core technology stack and capability distribution',
-    'skills.frontend': 'Frontend Core',
-    'skills.other': 'General Skills',
-    'skills.chart': 'Skill Distribution',
-    
+    'hero.greeting': 'Hello, I am ',
+    'hero.name': 'Huang Yixuan',
+    'hero.subtitle': 'CS Undergraduate @ HNUA · AI-Native Full-Stack Builder & FDE Intern',
+    'hero.description': 'Building agentic workflows, RAG systems, and delightful web products where natural language meets engineering.',
+    'hero.viewProjects': 'Explore Projects',
+    'hero.viewResume': 'Resume',
+    'hero.contactMe': 'Get in Touch',
+    'hero.askAi': 'Ask XiaoXuan AI',
+    'hero.projectPreview': 'Featured Interactive Builds',
+
+    // Holographic ID Card
+    'idcard.status': 'Available for AI / Full-Stack Internships',
+    'idcard.role': 'AI Agent & Full-Stack Engineer',
+    'idcard.school': 'Hunan Agricultural Univ. · CS \'28',
+    'idcard.flipToBack': 'Flip Card for Details & QR',
+    'idcard.flipToFront': 'Flip Back to Portrait',
+    'idcard.quote': '"The hottest new programming language is natural language — backed by solid engineering."',
+    'idcard.copyEmail': 'Copy Email',
+    'idcard.copied': 'Email Copied!',
+    'idcard.moodCoding': 'Coding Mode: Deep Focus',
+    'idcard.moodChill': 'Chill Mode: Creative Vibes',
+
     // About Section
     'about.title': 'About Me',
-    'about.subtitle': 'Personal Profile',
+    'about.subtitle': 'Bento Snapshot · Who I Am & How I Build',
     'about.info.name': 'Name',
     'about.info.status': 'Status',
     'about.info.email': 'Email',
     'about.info.location': 'Location',
     'about.info.experience': 'Experience',
     'about.info.mbti': 'MBTI',
-    
+    'about.education.title': 'Education',
+    'about.education.school': 'Hunan Agricultural University',
+    'about.education.major': 'B.Eng. in Computer Science & Technology',
+    'about.education.time': 'Class of 2028 (Enrolled 2024)',
+    'about.github.title': 'Open Source & GitHub Activity',
+    'about.github.commits': 'Recent Contributions & Repositories',
+
+    // Skills Section
+    'skills.title': 'Skills & Capability Graph',
+    'skills.subtitle': 'Click any technology node to highlight the real projects it powers',
+    'skills.frontend': 'Active Engineering Stack',
+    'skills.other': 'Life & Field Attributes (Click to Trigger Easter Eggs!)',
+    'skills.chart': '6-Axis Capability Radar',
+    'skills.linkedProjects': 'Powered Projects & Practices',
+    'skills.clearFilter': 'Clear Selection',
+
+    // Projects Section
+    'projects.title': 'Featured Projects',
+    'projects.subtitle': 'Production-tested full-stack & AI agent systems with architecture breakdowns',
+    'project.tabOverview': 'Product Overview',
+    'project.tabArchitecture': 'Architecture & Challenges',
+    'project.responsibilities': 'Core Contributions',
+    'project.challenges': 'Engineering Challenges & Solutions',
+    'project.problem': 'Pain Point',
+    'project.solution': 'Architecture Solution',
+    'project.github': 'Source Code',
+    'project.privateRepo': 'Private / Enterprise Repo',
+    'project.demo': 'Live Demo',
+
     // Experience Section
     'experience.title': 'Experiences & Practices',
-    'experience.subtitle': 'Exploration and practice in different fields have shaped who I am today',
-    'experience.showMore': 'View More Experiences',
+    'experience.subtitle': 'From forward-deployed engineering (FDE) to AI4Science research & field leadership',
+    'experience.showMore': 'View All Experiences',
     'experience.showLess': 'Show Less',
-    'experience.practicalExperience': 'Practical Experience',
-    'experience.educationBackground': 'Education Background',
-    
+    'experience.present': 'Present',
+
     // Photos Section
     'photos.title': 'Photography Works',
-    'photos.subtitle': 'Aesthetic ability and personal interests',
-    'photos.loadMore': 'Load More',
+    'photos.subtitle': 'Capturing light, street geometry, and everyday stories across cities',
+    'photos.loadMore': 'Load More Photos',
     'photos.loading': 'Loading...',
-    'photos.noPhotos': 'No photos in this category',
-    'photos.showAll': 'All',
-    'photos.scenery': 'Scenery',
-    'photos.city': 'City',
-    'photos.daily': 'Daily',
-    
+    'photos.noPhotos': 'No photos in this category yet',
+    'photos.shownAll': 'All {count} photos displayed',
+    'photos.cat.all': 'All',
+    'photos.cat.scenery': 'Scenery',
+    'photos.cat.city': 'City',
+    'photos.cat.life': 'Life',
+    'photos.cat.portrait': 'Portrait',
+    'photos.cat.daily': 'Daily',
+    'photos.cat.other': 'Uncategorized',
+
     // Contact Section
     'contact.title': 'Contact Me',
-    'contact.subtitle': 'Whether it is project cooperation, recruitment needs or just chatting, you are welcome to contact me!',
+    'contact.subtitle': 'Open for AI/Full-stack internships, project collaborations, or a coffee chat!',
     'contact.letsTalk': 'Let\'s Start a Conversation',
-    'contact.youCanReach': 'You can send an email through the form below, or find me through social media',
-    'contact.form.name': 'Name',
-    'contact.form.email': 'Email',
-    'contact.form.subject': 'Subject',
+    'contact.youCanReach': 'Send a message directly via the form on the right (or below on mobile), or connect with me via GitHub and email.',
+    'contact.form.name': 'Your Name',
+    'contact.form.email': 'Email Address',
+    'contact.form.subject': 'Subject / Topic',
     'contact.form.message': 'Message',
     'contact.form.send': 'Send Message',
-    
+
     // Interests Page
-    'interests.title': 'Daily Life & Interests',
-    'interests.music': 'Music',
-    'interests.movies': 'Movies',
-    'interests.travel': 'Travel',
-    
-    // Admin Pages
-    'admin.dashboard': 'Dashboard',
-    'admin.photos': 'Photos Management',
-    'admin.projects': 'Projects Management',
-    'admin.messages': 'Messages Management',
-    'admin.music': 'Music Management',
-    'admin.movies': 'Movies Management',
-    'admin.travel': 'Travel Management',
-    'admin.home': 'Home Page Management',
-    'admin.interests': 'Interests Management',
-    'admin.skills': 'Skills Management',
-    'admin.experience': 'Experience Management',
-    
-    // Login Page
-    'login.title': 'Login',
-    'login.email': 'Email',
-    'login.password': 'Password',
-    'login.submit': 'Login',
-    'login.forgotPassword': 'Forgot Password?',
-    
-    // Demo Pages
-    'demo.weather': 'WeatherCast',
-    'demo.todo': 'TaskMaster',
-    'demo.pomodoro': 'FocusFlow',
-    'demo.notes': 'LiteNote',
-    
-    // Common
-    'common.loading': 'Loading...',
-    'common.submit': 'Submit',
-    'common.cancel': 'Cancel',
-    'common.save': 'Save',
-    'common.delete': 'Delete',
-    'common.edit': 'Edit',
-    'common.add': 'Add',
-    'common.view': 'View',
-    'common.back': 'Back',
-    'common.next': 'Next',
-    'common.previous': 'Previous',
-    'common.search': 'Search',
-    'common.filter': 'Filter',
-    'common.category': 'Category',
-    'common.title': 'Title',
-    'common.description': 'Description',
-    'common.technology': 'Technology',
-    'common.date': 'Date',
-    'common.company': 'Company',
-    'common.position': 'Position',
-    'common.city': 'City',
-    'common.country': 'Country',
-    'common.rating': 'Rating',
-    'common.year': 'Year',
-    'common.likes': 'Likes',
-    'common.comments': 'Comments',
-    'common.share': 'Share',
-    'common.copy': 'Copy',
-    'common.copied': 'Copied!',
-    'common.success': 'Success',
-    'common.error': 'Error',
-    'common.warning': 'Warning',
-    'common.info': 'Information',
-    'common.ok': 'OK',
-    'common.yes': 'Yes',
-    'common.no': 'No',
+    'interests.title': 'Digital Garden & Media Center',
+    'interests.subtitle': 'Music I code to, films that inspire me, footsteps & live danmaku wall',
   },
-  
+
   zh: {
     // Header
     'header.home': '首页',
@@ -163,145 +122,126 @@ export const translations = {
     'header.contact': '联系',
     'header.interests': '日常与兴趣',
     'header.name': '奕轩.Dev',
-    
+    'header.cmdk': '命令面板',
+
     // Hero Section
-    'hero.title': '你好，我是<span class="text-blue-400">黄奕轩</span>',
-    'hero.subtitle': '计算机科学与技术专业在读学生，AI 时代的新一代创作者。',
-    'hero.description': '这里记录了我创作出的各种项目与实践及我的成长经历。',
+    'hero.greeting': '你好，我是 ',
+    'hero.name': '黄奕轩',
+    'hero.subtitle': '计算机科学与技术专业在读 · AI 时代的全栈创作者 & FDE 实践者',
+    'hero.description': '专注于将大模型 Agent、RAG 工程与细腻的前端交互结合，把想法快速落地为真实可用的产品。',
     'hero.viewProjects': '查看我的项目',
     'hero.viewResume': '查看简历',
     'hero.contactMe': '联系我',
-    'hero.projectPreview': '精选项目预览',
-    
-    // Project Card
-    'project.responsibilities': '我的职责',
-    'project.challenges': '难点与解决方案',
-    'project.problem': '问题',
-    'project.solution': '解决方案',
-    'project.github': 'GitHub 源码',
-    'project.demo': '完整演示',
-    
-    // Projects Section
-    'projects.title': '项目案例',
-    'projects.subtitle': '具备工程化思维的真实项目实践',
-    
-    // Skills Section
-    'skills.title': '专业技能',
-    'skills.subtitle': '核心技术栈与能力分布',
-    'skills.frontend': '前端核心',
-    'skills.other': '通用技能',
-    'skills.chart': '技能分布',
-    
+    'hero.askAi': '问问 AI 小轩',
+    'hero.projectPreview': '精选交互式作品预览',
+
+    // Holographic ID Card
+    'idcard.status': '2024级本科在读 · 可实习 / 远程协作',
+    'idcard.role': 'AI Agent & 全栈开发工程师',
+    'idcard.school': '湖南农业大学 · 计算机科学与技术 \'28',
+    'idcard.flipToBack': '点击翻转查看名片背面',
+    'idcard.flipToFront': '翻转回正面人像',
+    'idcard.quote': '“我坚信在不久的将来，最流行的编程语言一定是自然语言——而工程化能力让它真正落地。”',
+    'idcard.copyEmail': '复制邮箱',
+    'idcard.copied': '已复制邮箱！',
+    'idcard.moodCoding': 'Coding 模式：深度编码',
+    'idcard.moodChill': 'Chill 模式：灵感漫游',
+
     // About Section
     'about.title': '关于我',
-    'about.subtitle': '个人简介',
+    'about.subtitle': 'Bento 全景档案 · 个人简介、实时状态与开源足迹',
     'about.info.name': '姓名',
-    'about.info.status': '状态',
-    'about.info.email': '邮箱',
-    'about.info.location': '现居地',
-    'about.info.experience': '经验',
+    'about.info.status': '当前状态',
+    'about.info.email': '联系邮箱',
+    'about.info.location': '现居城市',
+    'about.info.experience': '工程经验',
     'about.info.mbti': 'MBTI',
-    
+    'about.education.title': '教育背景',
+    'about.education.school': '湖南农业大学',
+    'about.education.major': '计算机科学与技术专业（本科）',
+    'about.education.time': '2024 级在读 · 预计 2028 年毕业',
+    'about.github.title': 'GitHub 开源动态',
+    'about.github.commits': '近期仓库与代码贡献热力图',
+
+    // Skills Section
+    'skills.title': '专业技能与技术图谱',
+    'skills.subtitle': '点击任意技术节点，即可高亮查看它所驱动的真实落地项目',
+    'skills.frontend': '在用核心技术栈',
+    'skills.other': '人间观察与隐藏属性（点击触发互动彩蛋！）',
+    'skills.chart': '六维能力分布雷达',
+    'skills.linkedProjects': '该技术驱动的实战项目',
+    'skills.clearFilter': '重置筛选',
+
+    // Projects Section
+    'projects.title': '项目案例',
+    'projects.subtitle': '具备工程化思维与真实用户场景的落地项目实践',
+    'project.tabOverview': '产品概览 & 预览',
+    'project.tabArchitecture': '架构拆解 & 难点突破',
+    'project.responsibilities': '我的核心职责',
+    'project.challenges': '工程难点与解决方案',
+    'project.problem': '核心痛点',
+    'project.solution': '架构方案',
+    'project.github': 'GitHub 源码',
+    'project.privateRepo': '私有 / 企业级仓库',
+    'project.demo': '完整演示',
+
     // Experience Section
     'experience.title': '经历与实践',
-    'experience.subtitle': '在不同领域的探索与实践，塑造了今天的我',
+    'experience.subtitle': '从 FDE 驻场工程师、科研 AI 实验室到一线团队负责人的多维探索',
     'experience.showMore': '查看更多经历',
-    'experience.showLess': '收起',
-    'experience.practicalExperience': '实践经历',
-    'experience.educationBackground': '教育背景',
-    
+    'experience.showLess': '收起部分经历',
+    'experience.present': '至今',
+
     // Photos Section
     'photos.title': '摄影作品',
-    'photos.subtitle': '审美能力与个人兴趣展示',
-    'photos.loadMore': '加载更多',
+    'photos.subtitle': '光影构图、城市几何与日常瞬间的审美记录',
+    'photos.loadMore': '加载更多作品',
     'photos.loading': '加载中...',
     'photos.noPhotos': '暂无该分类照片',
-    'photos.showAll': '全部',
-    'photos.scenery': '风景',
-    'photos.city': '城市',
-    'photos.daily': '日常',
-    
+    'photos.shownAll': '已显示全部 {count} 张照片',
+    'photos.cat.all': '全部',
+    'photos.cat.scenery': '风景',
+    'photos.cat.city': '城市',
+    'photos.cat.life': '生活',
+    'photos.cat.portrait': '人像',
+    'photos.cat.daily': '日常',
+    'photos.cat.other': '未分类',
+
     // Contact Section
     'contact.title': '联系我',
-    'contact.subtitle': '有项目合作、招聘需求或单纯聊天，都欢迎联系我！',
+    'contact.subtitle': '无论是实习机会、项目合作还是技术交流，随时欢迎与我联系！',
     'contact.letsTalk': '让我们开始对话',
-    'contact.youCanReach': '您可以通过下方的表单发送邮件，或者通过社交媒体找到我',
-    'contact.form.name': '姓名',
-    'contact.form.email': '邮箱',
-    'contact.form.subject': '主题',
-    'contact.form.message': '消息',
+    'contact.youCanReach': '您可以通过右侧（移动端为下方）的表单直接发送留言，或通过 GitHub 与邮箱找到我。',
+    'contact.form.name': '您的称呼',
+    'contact.form.email': '联系邮箱',
+    'contact.form.subject': '交流主题',
+    'contact.form.message': '留言内容',
     'contact.form.send': '发送消息',
-    
+
     // Interests Page
-    'interests.title': '日常与兴趣',
-    'interests.music': '音乐',
-    'interests.movies': '电影',
-    'interests.travel': '旅行',
-    
-    // Admin Pages
-    'admin.dashboard': '仪表盘',
-    'admin.photos': '照片管理',
-    'admin.projects': '项目管理',
-    'admin.messages': '消息管理',
-    'admin.music': '音乐管理',
-    'admin.movies': '电影管理',
-    'admin.travel': '旅行管理',
-    'admin.home': '首页管理',
-    'admin.interests': '兴趣管理',
-    'admin.skills': '技能管理',
-    'admin.experience': '经历管理',
-    
-    // Login Page
-    'login.title': '登录',
-    'login.email': '邮箱',
-    'login.password': '密码',
-    'login.submit': '登录',
-    'login.forgotPassword': '忘记密码？',
-    
-    // Demo Pages
-    'demo.weather': 'WeatherCast',
-    'demo.todo': 'TaskMaster',
-    'demo.pomodoro': 'FocusFlow',
-    'demo.notes': 'LiteNote',
-    
-    // Common
-    'common.loading': '加载中...',
-    'common.submit': '提交',
-    'common.cancel': '取消',
-    'common.save': '保存',
-    'common.delete': '删除',
-    'common.edit': '编辑',
-    'common.add': '添加',
-    'common.view': '查看',
-    'common.back': '返回',
-    'common.next': '下一页',
-    'common.previous': '上一页',
-    'common.search': '搜索',
-    'common.filter': '筛选',
-    'common.category': '分类',
-    'common.title': '标题',
-    'common.description': '描述',
-    'common.technology': '技术',
-    'common.date': '日期',
-    'common.company': '公司',
-    'common.position': '职位',
-    'common.city': '城市',
-    'common.country': '国家',
-    'common.rating': '评分',
-    'common.year': '年份',
-    'common.likes': '点赞',
-    'common.comments': '评论',
-    'common.share': '分享',
-    'common.copy': '复制',
-    'common.copied': '已复制！',
-    'common.success': '成功',
-    'common.error': '错误',
-    'common.warning': '警告',
-    'common.info': '信息',
-    'common.ok': '确定',
-    'common.yes': '是',
-    'common.no': '否',
-  }
+    'interests.title': '数字花园 · 日常与兴趣',
+    'interests.subtitle': '陪伴编码的黑胶歌单、光影收藏、城市足迹与实时弹幕墙',
+  },
 };
 
 export type Language = keyof typeof translations;
+
+// 照片分类稳定 Key 映射，避免语言切换导致过滤条件失效
+export const PHOTO_CATEGORY_KEY_MAP: Record<string, string> = {
+  '全部': 'all',
+  'All': 'all',
+  'all': 'all',
+  '风景': 'scenery',
+  'Scenery': 'scenery',
+  'landscape': 'scenery',
+  '城市': 'city',
+  'City': 'city',
+  'city': 'city',
+  '生活': 'life',
+  'Life': 'life',
+  '人像': 'portrait',
+  'Portrait': 'portrait',
+  '日常': 'daily',
+  'Daily': 'daily',
+  'daily': 'daily',
+};

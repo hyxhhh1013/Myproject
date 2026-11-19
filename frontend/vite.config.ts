@@ -47,12 +47,14 @@ export default defineConfig({
     open: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: process.env.VITE_PROXY_TARGET || 'https://hyxhhh.site',
         changeOrigin: true,
+        secure: true,
       },
       '/uploads': {
-        target: 'http://localhost:3001',
+        target: process.env.VITE_PROXY_TARGET || 'https://hyxhhh.site',
         changeOrigin: true,
+        secure: true,
       },
     },
   },

@@ -2,114 +2,514 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom Styles */
+/* ==========================================================================
+   DESIGNER COLOR TOKENS & TYPOGRAPHY SYSTEM
+   Inspired by Rauno Freiberg, Paco Coursey, Linear, Kinfolk & Dieter Rams
+   ========================================================================== */
+
+:root,
+html[data-skin="editorial"] {
+  --bg-canvas: #FAF9F5;
+  --bg-alt: #F3F1EC;
+  --bg-card: #FFFFFF;
+  --bg-pill: #EFECE6;
+  --border-hairline: rgba(20, 20, 19, 0.085);
+  --text-primary: #141413;
+  --text-secondary: #5F5E58;
+  --text-muted: #8E8C84;
+  --accent-primary: #141413;
+  --accent-fg: #FAF9F5;
+  --accent-label: #8A6F48;
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), 0 8px 24px rgba(0, 0, 0, 0.025);
+}
+
+html.dark[data-skin="editorial"] {
+  --bg-canvas: #0D0D0C;
+  --bg-alt: #121210;
+  --bg-card: #171715;
+  --bg-pill: #232320;
+  --border-hairline: rgba(255, 255, 255, 0.13);
+  --text-primary: #F4F2EC;
+  --text-secondary: #C8C5BC;
+  --text-muted: #A19E94;
+  --accent-primary: #F4F2EC;
+  --accent-fg: #0D0D0C;
+  --accent-label: #D2B488;
+  --card-shadow: 0 1px 0 inset rgba(255, 255, 255, 0.06), 0 16px 36px rgba(0, 0, 0, 0.45);
+}
+
+/* SKIN 02: LINEAR OBSIDIAN (曜石微光) */
+html[data-skin="titanium"],
+html.dark[data-skin="titanium"] {
+  --bg-canvas: #09090B;
+  --bg-alt: #0D0D10;
+  --bg-card: #131317;
+  --bg-pill: #1E1E24;
+  --border-hairline: rgba(255, 255, 255, 0.12);
+  --text-primary: #F4F4F5;
+  --text-secondary: #C4C4CC;
+  --text-muted: #9E9EA8;
+  --accent-primary: #F4F4F5;
+  --accent-fg: #09090B;
+  --accent-label: #C4C4CC;
+  --card-shadow: 0 1px 0 inset rgba(255, 255, 255, 0.07), 0 20px 40px rgba(0, 0, 0, 0.55);
+}
+
+html:not(.dark)[data-skin="titanium"] {
+  --bg-canvas: #F8F8FA;
+  --bg-alt: #F1F1F4;
+  --bg-card: #FFFFFF;
+  --bg-pill: #EAEAEE;
+  --border-hairline: rgba(24, 24, 27, 0.085);
+  --text-primary: #09090B;
+  --text-secondary: #52525B;
+  --text-muted: #71717A;
+  --accent-primary: #18181B;
+  --accent-fg: #FFFFFF;
+  --accent-label: #52525B;
+}
+
+/* SKIN 03: KINFOLK GALLERY MOSS (画廊松墨) */
+html[data-skin="forest"] {
+  --bg-canvas: #F4F3EE;
+  --bg-alt: #ECEAE2;
+  --bg-card: #FAF9F5;
+  --bg-pill: #E5E2D7;
+  --border-hairline: rgba(28, 46, 38, 0.1);
+  --text-primary: #16241D;
+  --text-secondary: #526159;
+  --text-muted: #7D8A82;
+  --accent-primary: #1C3329;
+  --accent-fg: #FAF9F5;
+  --accent-label: #9E553F;
+  --card-shadow: 0 2px 12px rgba(22, 36, 29, 0.04);
+}
+
+html.dark[data-skin="forest"] {
+  --bg-canvas: #0B120E;
+  --bg-alt: #0F1813;
+  --bg-card: #14201A;
+  --bg-pill: #1C2C24;
+  --border-hairline: rgba(210, 230, 220, 0.13);
+  --text-primary: #E8EFEA;
+  --text-secondary: #B8C9BF;
+  --text-muted: #8FA397;
+  --accent-primary: #D8E6DD;
+  --accent-fg: #0B120E;
+  --accent-label: #D89179;
+}
+
+/* SKIN 04: BRAUN DIETER RAMS (工业暖灰) */
+html[data-skin="cobalt"] {
+  --bg-canvas: #ECEBE6;
+  --bg-alt: #E2E0D8;
+  --bg-card: #F5F4F0;
+  --bg-pill: #DCDAD0;
+  --border-hairline: rgba(30, 30, 28, 0.12);
+  --text-primary: #1C1C1A;
+  --text-secondary: #575652;
+  --text-muted: #828079;
+  --accent-primary: #222220;
+  --accent-fg: #F5F4F0;
+  --accent-label: #E0531F;
+  --card-shadow: 0 1px 0 rgba(255, 255, 255, 0.7) inset, 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+html.dark[data-skin="cobalt"] {
+  --bg-canvas: #141413;
+  --bg-alt: #1A1A18;
+  --bg-card: #21211E;
+  --bg-pill: #2C2C28;
+  --border-hairline: rgba(255, 255, 255, 0.13);
+  --text-primary: #F0F0ED;
+  --text-secondary: #C6C5BE;
+  --text-muted: #9D9C94;
+  --accent-primary: #E0531F;
+  --accent-fg: #FFFFFF;
+  --accent-label: #EC6A3B;
+}
+
+/* Base Body & Font Stack */
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  line-height: 1.65;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
 }
 
-/* Section Title */
-.section-title {
-  @apply text-3xl font-bold text-gray-800 mb-6;
+.font-mono {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Card Styles */
-.card {
-  @apply bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-300;
+.designer-heading {
+  font-family: 'Inter', 'Noto Serif SC', sans-serif;
+  color: var(--text-primary);
 }
 
-/* Button Styles */
-.btn {
-  @apply px-4 py-2 rounded-lg font-medium transition-all duration-200;
+.designer-accent-serif {
+  font-family: 'Instrument Serif', 'Noto Serif SC', Georgia, serif;
+  color: var(--text-primary);
 }
 
-.btn-primary {
-  @apply bg-blue-600 text-white hover:bg-blue-700;
+/* Semantic Designer Classes */
+.designer-section-hero {
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
 }
 
-.btn-secondary {
-  @apply bg-gray-200 text-gray-800 hover:bg-gray-300;
+.designer-card {
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-hairline);
+  box-shadow: var(--card-shadow);
+  transition:
+    border-color 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* Skill Bar */
-.skill-bar {
-  @apply w-full bg-gray-200 rounded-full h-2.5 mb-4;
+.designer-card:hover {
+  border-color: rgba(138, 111, 72, 0.26);
 }
 
-.skill-bar-fill {
-  @apply bg-blue-600 h-2.5 rounded-full transition-all duration-500;
+.designer-hairline {
+  border-color: var(--border-hairline) !important;
 }
 
-/* Timeline Styles */
-.timeline {
-  @apply relative pl-8 border-l-2 border-gray-200;
+.designer-text-primary {
+  color: var(--text-primary);
 }
 
-.timeline-item {
-  @apply mb-8 relative;
+.designer-text-secondary {
+  color: var(--text-secondary);
 }
 
-.timeline-dot {
-  @apply absolute -left-10 top-0 w-4 h-4 bg-blue-600 rounded-full border-4 border-white;
+.designer-text-muted {
+  color: var(--text-muted);
 }
 
-.timeline-date {
-  @apply text-sm text-gray-500 font-medium mb-1;
+.designer-accent-text {
+  color: var(--accent-label);
 }
 
-.timeline-title {
-  @apply text-lg font-bold text-gray-800 mb-2;
+/* ==========================================================================
+   PRECISION TACTILE BUTTONS & CONTROLS (Rauno / Braun / Linear Craft)
+   ========================================================================== */
+
+.designer-pill {
+  background-color: var(--bg-pill);
+  color: var(--text-primary);
+  border: 1px solid var(--border-hairline);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.65) inset,
+    0 1px 2px rgba(20, 20, 19, 0.035);
+  transition:
+    transform 0.15s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    box-shadow 0.2s ease,
+    color 0.2s ease;
 }
 
-.timeline-subtitle {
-  @apply text-md text-gray-600 mb-2;
+html.dark .designer-pill {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 1px 3px rgba(0, 0, 0, 0.35);
 }
 
-.timeline-description {
-  @apply text-gray-700;
+button.designer-pill:hover,
+a.designer-pill:hover {
+  border-color: rgba(138, 111, 72, 0.48) !important;
+  transform: translateY(-0.5px);
 }
 
-/* Project Card */
-.project-card {
-  @apply card mb-8;
+button.designer-pill:active,
+a.designer-pill:active {
+  transform: translateY(1px) scale(0.982);
 }
 
-.project-title {
-  @apply text-xl font-bold text-gray-800 mb-2;
+.designer-btn-primary {
+  position: relative;
+  background-color: var(--accent-primary);
+  color: var(--accent-fg);
+  border: 1px solid rgba(20, 20, 19, 0.9);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.2) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.25) inset,
+    0 2px 5px rgba(20, 20, 19, 0.14),
+    0 1px 1px rgba(20, 20, 19, 0.18);
+  transition:
+    transform 0.16s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 0.2s ease,
+    opacity 0.2s ease;
 }
 
-.project-description {
-  @apply text-gray-700 mb-4;
+html.dark .designer-btn-primary {
+  border-color: rgba(255, 255, 255, 0.85);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.45) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.2) inset,
+    0 4px 12px rgba(0, 0, 0, 0.45);
 }
 
-.project-technologies {
-  @apply flex flex-wrap gap-2 mb-4;
+.designer-btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.26) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.25) inset,
+    0 6px 16px rgba(20, 20, 19, 0.2),
+    0 2px 4px rgba(138, 111, 72, 0.18);
 }
 
-.project-tech-tag {
-  @apply bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium;
+.designer-btn-primary:active:not(:disabled) {
+  transform: translateY(1px) scale(0.982);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.25) inset,
+    0 1px 2px rgba(20, 20, 19, 0.1);
 }
 
-.project-links {
-  @apply flex space-x-4;
+.designer-btn-secondary {
+  position: relative;
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-hairline);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.85) inset,
+    0 1px 2px rgba(20, 20, 19, 0.04);
+  transition:
+    transform 0.16s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    box-shadow 0.2s ease,
+    color 0.2s ease;
 }
 
-/* Contact Form */
-.form-group {
-  @apply mb-4;
+html.dark .designer-btn-secondary {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 2px 6px rgba(0, 0, 0, 0.35);
 }
 
-.form-label {
-  @apply block text-gray-700 font-medium mb-2;
+.designer-btn-secondary:hover:not(:disabled) {
+  background-color: var(--bg-pill);
+  border-color: rgba(138, 111, 72, 0.5) !important;
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 4px 12px rgba(20, 20, 19, 0.06);
 }
 
-.form-input {
-  @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+html.dark .designer-btn-secondary:hover:not(:disabled) {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.09) inset,
+    0 4px 12px rgba(0, 0, 0, 0.45);
 }
 
-.form-textarea {
-  @apply form-input resize-vertical min-h-[150px];
+.designer-btn-secondary:active:not(:disabled) {
+  transform: translateY(1px) scale(0.982);
+  box-shadow: 0 1px 2px rgba(20, 20, 19, 0.05) inset;
+}
+
+/* Directional Icon Micro-Choreography inside Tactile Buttons */
+.designer-btn-primary svg,
+.designer-btn-secondary svg,
+.designer-pill svg {
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.designer-btn-primary:hover .lucide-arrow-up-right,
+.designer-btn-secondary:hover .lucide-arrow-up-right,
+.designer-pill:hover .lucide-arrow-up-right,
+.designer-btn-primary:hover .lucide-external-link,
+.designer-btn-secondary:hover .lucide-external-link {
+  transform: translate(2px, -2px);
+}
+
+.designer-btn-primary:hover .lucide-rotate-cw,
+.designer-btn-secondary:hover .lucide-rotate-cw {
+  transform: rotate(45deg);
+}
+
+.designer-btn-primary:hover .lucide-send,
+.designer-btn-secondary:hover .lucide-send {
+  transform: translate(2px, -1.5px);
+}
+
+.designer-btn-secondary:hover .lucide-chevron-down {
+  transform: translateY(1.5px);
+}
+
+.designer-btn-secondary:hover .lucide-chevron-up {
+  transform: translateY(-1.5px);
+}
+
+/* Accessible Warm Bronze Focus Ring */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--bg-canvas),
+    0 0 0 3.5px var(--accent-label);
+}
+
+/* Harmonize All Sections (About, Skills, Projects, Experience, Photos, Contact, Header, Footer) */
+section#about,
+section#projects,
+section#photos,
+footer {
+  background-color: var(--bg-canvas) !important;
+  border-bottom: 1px solid var(--border-hairline);
+}
+
+section#skills,
+section#experience,
+section#contact {
+  background-color: var(--bg-alt) !important;
+  border-bottom: 1px solid var(--border-hairline);
+}
+
+/* Restyle Section Cards & Buttons to Match Designer Minimalist Aesthetic (Zero Neon Blue) */
+section .bg-blue-600,
+footer .bg-blue-600 {
+  background-color: var(--accent-primary) !important;
+  color: var(--accent-fg) !important;
+}
+
+section .text-blue-600,
+section .dark\:text-blue-400,
+header .text-blue-600,
+header .dark\:text-blue-400 {
+  color: var(--accent-label) !important;
+}
+
+section .bg-blue-50,
+section .dark\:bg-blue-900\/30,
+section .dark\:bg-blue-900\/25 {
+  background-color: var(--bg-pill) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-hairline) !important;
+}
+
+section .text-blue-300 {
+  color: var(--accent-fg) !important;
+}
+
+section .from-blue-600 {
+  --tw-gradient-from: var(--accent-primary) var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: var(--accent-label) var(--tw-gradient-to-position) !important;
+}
+
+/* ==========================================================================
+   EDITORIAL STUDIO ADMIN HARMONIZATION
+   Unifies all /admin/* sub-pages into the warm paper / ink / bronze tokens
+   ========================================================================== */
+.admin-studio-scope .bg-blue-600,
+.admin-studio-scope .bg-indigo-600 {
+  background-color: #141413 !important;
+  color: #FAF9F5 !important;
+}
+
+.admin-studio-scope .bg-blue-600:hover,
+.admin-studio-scope .hover\:bg-blue-700:hover,
+.admin-studio-scope .bg-indigo-600:hover {
+  background-color: #2A2926 !important;
+}
+
+html.dark .admin-studio-scope .bg-blue-600,
+html.dark .admin-studio-scope .bg-indigo-600 {
+  background-color: #F0EFEA !important;
+  color: #141413 !important;
+}
+
+html.dark .admin-studio-scope .bg-blue-600:hover,
+html.dark .admin-studio-scope .hover\:bg-blue-700:hover {
+  background-color: #DFDDD5 !important;
+}
+
+.admin-studio-scope .text-blue-600,
+.admin-studio-scope .text-blue-700,
+.admin-studio-scope .text-indigo-600 {
+  color: #8A6F48 !important;
+}
+
+html.dark .admin-studio-scope .text-blue-400,
+html.dark .admin-studio-scope .text-blue-300,
+html.dark .admin-studio-scope .text-blue-600 {
+  color: #C8A97E !important;
+}
+
+.admin-studio-scope .bg-blue-50,
+.admin-studio-scope .bg-indigo-50 {
+  background-color: #F3F1EC !important;
+  color: #524E48 !important;
+}
+
+html.dark .admin-studio-scope .dark\:bg-blue-900\/20,
+html.dark .admin-studio-scope .dark\:bg-blue-900\/30 {
+  background-color: #22211E !important;
+  color: #C8A97E !important;
+}
+
+.admin-studio-scope .border-gray-100,
+.admin-studio-scope .border-gray-200 {
+  border-color: #E6E2D8 !important;
+}
+
+html.dark .admin-studio-scope .dark\:bg-gray-800 {
+  background-color: #161614 !important;
+}
+
+html.dark .admin-studio-scope .dark\:border-gray-700,
+html.dark .admin-studio-scope .dark\:border-gray-600 {
+  border-color: #262522 !important;
+}
+
+.admin-studio-scope .bg-gray-50 {
+  background-color: #FAF9F5 !important;
+}
+
+html.dark .admin-studio-scope .dark\:bg-gray-700\/50,
+html.dark .admin-studio-scope .dark\:bg-gray-700 {
+  background-color: #1D1D1A !important;
+}
+
+.admin-studio-scope input:focus,
+.admin-studio-scope textarea:focus,
+.admin-studio-scope select:focus {
+  --tw-ring-color: rgba(138, 111, 72, 0.35) !important;
+  border-color: #8A6F48 !important;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+::selection {
+  background-color: rgba(138, 111, 72, 0.22);
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
 }

@@ -1,52 +1,45 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { Header } from './Header';
 import { Footer } from './Footer';
 import { Dock } from './Dock';
+import { CommandPalette } from '../UI/CommandPalette';
+import axios from '../../utils/axiosConfig';
+import { playTactileClick } from '../../utils/soundEffects';
 
 export const Layout = ({ children }: { children: React.ReactNode }) => {
-  // 状态管理：鼠标位置
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-  
-  // 处理鼠标移动
-  const handleMouseMove = (e: MouseEvent) => {
-    setMousePosition({ x: e.clientX, y: e.clientY });
-  };
-  
-  // 监听鼠标移动事件
   useEffect(() => {
-    window.addEventListener('mousemove', handleMouseMove);
+    const visited = sessionStorage.getItem('site_visited');
+    if (!visited) {
+      axios.post('/api/siteConfig/view').catch(() => {});
+      sessionStorage.setItem('site_visited', 'true');
+    }
+  }, []);
+
+  // Global Tactile Audio Delegation — ONLY on explicit click/press (no noisy hover sounds)
+  useEffect(() => {
+    const handlePointerDown = (e: PointerEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      const interactive = target.closest('button, a, [role="button"]');
+      if (!interactive) return;
+      if (interactive.getAttribute('data-sfx') === 'custom') return;
+      if ((interactive as HTMLButtonElement).disabled) return;
+      playTactileClick();
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown, { passive: true });
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('pointerdown', handlePointerDown);
     };
   }, []);
-  
+
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 transition-colors duration-300 font-sans text-gray-900 dark:text-gray-100 selection:bg-blue-100 dark:selection:bg-blue-900 selection:text-blue-900 dark:selection:text-blue-100 relative overflow-hidden" 
-         style={{
-           '--mouse-x': `${mousePosition.x}px`,
-           '--mouse-y': `${mousePosition.y}px`
-         } as React.CSSProperties}>
-      {/* 动态流体背�?*/}
-      <div className="absolute inset-0 overflow-hidden z-0">
-        {/* 彩色光晕 */}
-        <div className="blob blob-1"></div>
-        <div className="blob blob-2"></div>
-        <div className="blob blob-3"></div>
-        <div className="blob blob-4"></div>
-        
-        {/* 光标跟随聚光灯效�?*/}
-        <div className="cursor-spotlight"></div>
-      </div>
-      
+    <div className="min-h-screen bg-[#FAF9F5] dark:bg-[#0D0D0C] text-[#141413] dark:text-[#F0EFEA] transition-colors duration-300 font-sans">
       <Header />
-      <main className="relative z-10">
-        {children}
-      </main>
+      <main>{children}</main>
       <Footer />
       <Dock />
+      <CommandPalette />
     </div>
   );
 };
-
-
-

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ImageWithFallback } from '../UI/ImageWithFallback';
+import { useI18n } from '../../i18n/i18nContext';
 
 // Define interface locally to avoid circular dependencies or complex refactoring
 interface PhotoData {
@@ -17,6 +18,7 @@ interface PhotoWallProps {
 }
 
 export const PhotoWall: React.FC<PhotoWallProps> = ({ photos }) => {
+  const { language, td } = useI18n();
   // Generate random rotations for each photo once on mount (or use a deterministic hash based on ID)
   // We'll use a simple deterministic function to keep it consistent during re-renders
   const getRotation = (id: number) => {
@@ -34,9 +36,11 @@ export const PhotoWall: React.FC<PhotoWallProps> = ({ photos }) => {
 
   // Helper function to format date safely
   const formatDate = (dateString: string) => {
-    if (!dateString) return '未知日期';
+    if (!dateString) return td('未知日期', 'Unknown Date');
     const date = new Date(dateString);
-    return isNaN(date.getTime()) ? '未知日期' : date.toLocaleDateString();
+    return isNaN(date.getTime())
+      ? td('未知日期', 'Unknown Date')
+      : date.toLocaleDateString(language === 'en' ? 'en-US' : 'zh-CN');
   };
 
   const [selectedPhoto, setSelectedPhoto] = useState<PhotoData | null>(null);
@@ -78,18 +82,18 @@ export const PhotoWall: React.FC<PhotoWallProps> = ({ photos }) => {
         <div className="flex items-center justify-between mb-2 md:mb-0">
           <div className="w-full">
             <h3 className="text-xl md:text-2xl font-bold text-gray-800 drop-shadow-sm" style={{ fontFamily: 'cursive' }}>
-              旅行 · 记忆
+              {td('旅行 · 记忆', 'Travel · Polaroid Memories')}
             </h3>
-            <div className="w-24 h-1 bg-blue-500 mx-auto mt-2 rounded-full opacity-80 rotate-1"></div>
+            <div className="w-24 h-1 bg-[#8A6F48] mx-auto mt-2 rounded-full opacity-80 rotate-1"></div>
           </div>
           {photos.length > (isMobile ? 4 : 6) && (
             <motion.button
               onClick={() => setIsExpanded(!isExpanded)}
-              className="text-xs md:text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1 mt-4 md:mt-0"
+              className="text-xs md:text-sm font-medium text-[#8A6F48] hover:text-[#141413] transition-colors flex items-center gap-1 mt-4 md:mt-0"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              {isExpanded ? '收起' : '展开'}
+              {isExpanded ? td('收起', 'Collapse') : td('展开', 'Expand')}
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`}><path d="m6 9 6 6 6-6"/></svg>
             </motion.button>
           )}
@@ -151,11 +155,11 @@ export const PhotoWall: React.FC<PhotoWallProps> = ({ photos }) => {
       {photos.length > (isMobile ? 4 : 6) && !isExpanded && (
         <motion.button
           onClick={() => setIsExpanded(true)}
-          className="mt-6 w-full py-2 flex items-center justify-center gap-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors"
+          className="mt-6 w-full py-2 flex items-center justify-center gap-2 text-sm font-medium text-[#8A6F48] bg-[#FAF9F5] hover:bg-[#F3F1EC] rounded-xl transition-colors"
           whileHover={{ scale: 1.01 }}
           whileTap={{ scale: 0.99 }}
         >
-          查看全部 {photos.length} 张照片
+          {td(`查看全部 ${photos.length} 张照片`, `View All ${photos.length} Photos`)}
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
         </motion.button>
       )}

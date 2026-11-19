@@ -1,7 +1,7 @@
-// 语言切换组件
-
+import React from 'react';
 import { useI18n } from '../../i18n/i18nContext';
 import { Globe } from 'lucide-react';
+import { playToggleSwitch } from '../../utils/soundEffects';
 
 interface LanguageToggleProps {
   className?: string;
@@ -11,22 +11,23 @@ export const LanguageToggle: React.FC<LanguageToggleProps> = ({ className = '' }
   const { language, setLanguage } = useI18n();
 
   const toggleLanguage = () => {
+    playToggleSwitch(language === 'zh');
     setLanguage(language === 'zh' ? 'en' : 'zh');
   };
 
   return (
     <button
+      type="button"
+      data-sfx="custom"
       onClick={toggleLanguage}
-      className={`px-3 py-2 rounded-full bg-white/5 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-all duration-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${className}`}
-      aria-label="Toggle Language"
-      title={language === 'zh' ? '切换到英文' : 'Switch to Chinese'}
+      className={`h-8 inline-flex items-center justify-center gap-1.5 px-2.5 rounded-md text-xs transition-colors hover:bg-[#141413]/[0.05] dark:hover:bg-white/[0.06] whitespace-nowrap shrink-0 group ${className}`}
+      aria-label={language === 'zh' ? 'Switch to English' : '切换到中文'}
+      title={language === 'zh' ? 'Switch to English' : '切换到中文'}
     >
-      <div className="flex items-center justify-center">
-        <Globe className="w-4 h-4 text-gray-600 dark:text-gray-300 mr-2" />
-        <span className="text-sm font-bold text-gray-600 dark:text-gray-300">
-          {language === 'zh' ? 'EN' : '中文'}
-        </span>
-      </div>
+      <Globe className="w-3.5 h-3.5 text-[#8A6F48] dark:text-[#C8A97E] shrink-0 transition-transform duration-300 group-hover:rotate-12" />
+      <span className="text-[11px] font-mono font-medium designer-text-secondary group-hover:designer-text-primary whitespace-nowrap">
+        {language === 'zh' ? 'EN' : '中文'}
+      </span>
     </button>
   );
 };

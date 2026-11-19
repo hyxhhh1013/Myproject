@@ -1,479 +1,500 @@
-import { useState, useRef, useEffect } from 'react';
-import axios from 'axios';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Code, Terminal, Trophy, Phone, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import axios from '../../utils/axiosConfig';
+import {
+  Calendar,
+  Maximize2,
+  ChevronLeft,
+  ChevronRight,
+  ArrowUpRight,
+} from 'lucide-react';
 import Lightbox from 'yet-another-react-lightbox';
-import "yet-another-react-lightbox/styles.css";
+import Captions from 'yet-another-react-lightbox/plugins/captions';
+import 'yet-another-react-lightbox/styles.css';
+import 'yet-another-react-lightbox/plugins/captions.css';
+import { getImageUrl } from '../../utils/imageUtils';
 import { ImageWithFallback } from '../UI/ImageWithFallback';
 import { useI18n } from '../../i18n/i18nContext';
-import { NowComponent } from '../UI/NowComponent';
+import { ONION_FDE_BLUEPRINT_SVG } from '../../utils/projectBlueprints';
 
-// Import images
-// Unicom
-import unicomImg1 from '../../assets/images/experiences/06eefaf1b3712646432e2f5011dd0be2.jpg';
-import unicomImg2 from '../../assets/images/experiences/19875c2fd413d3e85176455737c06d0c.jpg';
-import unicomImg3 from '../../assets/images/experiences/9a4c01fbafbeffd11b3bc809181b0f02.jpg';
+interface ExperienceItem {
+  id: number;
+  indexCode: string;
+  position: string;
+  positionEn: string;
+  company: string;
+  companyEn: string;
+  dateLabel: string;
+  dateLabelEn: string;
+  tags: string[];
+  description: string;
+  descriptionEn: string;
+  linkUrl?: string;
+  linkLabel?: string;
+  images: string[];
+}
 
-// Startup
-import startupImg1 from '../../assets/images/experiences/1d19c0a21fdbfc7dd3847fad6aa7d99.jpg';
-import startupImg2 from '../../assets/images/experiences/45056586f58781714fbb8bae6e88640.jpg';
-import startupImg3 from '../../assets/images/experiences/fee1dcaea04d70de6f4bc84a6353ca5.jpg';
+const DEFAULT_EXPERIENCES: ExperienceItem[] = [
+  {
+    id: 1,
+    indexCode: '01',
+    position: 'FDE 驻场工程师',
+    positionEn: 'Forward-Deployed Engineer (FDE Intern)',
+    company: '湖南洋葱教育科技有限公司 · 教育培训经营中台',
+    companyEn: 'Hunan Onion Education Technology Co., Ltd.',
+    dateLabel: '2026.06 — 至今',
+    dateLabelEn: 'JUN 2026 — PRESENT',
+    tags: ['LangGraph', 'FastAPI', 'React', '巨量引擎 API'],
+    description:
+      '连续驻场 15 周对接 8 个部门，沉淀 45 份业务流程文档。落地 35 个只读工具的经营 Agent、家教与雅思双线全链路中台（FastAPI 100+ 路由）及巨量引擎 19 条 API 投流归因。',
+    descriptionEn:
+      'On-site for 15 weeks across 8 teams. Shipped a 35-tool Operations Agent, full-link Tutoring & IELTS middle platform across 100+ FastAPI routes, and 19 Ocean Engine ad attribution APIs.',
+    images: [ONION_FDE_BLUEPRINT_SVG],
+  },
+  {
+    id: 2,
+    indexCode: '02',
+    position: '农业科研 AI 写作系统 · 独立负责',
+    positionEn: 'Agricultural AI Writing System · Lead Developer',
+    company: 'AIFA 实验室（湖南农业大学 · 农业人工智能实验室）',
+    companyEn: 'AIFA Lab · Hunan Agricultural University',
+    dateLabel: '2026.03 — 至今',
+    dateLabelEn: 'MAR 2026 — PRESENT',
+    tags: ['Next.js 16', 'LangGraph', 'Hybrid RAG'],
+    description:
+      '把论文初稿从手写约 1 个月缩短至约 3 天（已出 10+ 篇初稿）。用 LangGraph 构建 46 工具可恢复写作循环，收录 2,749 篇文献（17.6 万知识块），支持 5 套期刊模板导出。',
+    descriptionEn:
+      'Reduced paper first-draft time from ~1 month to ~3 days (10+ drafts). Built a 46-tool LangGraph loop over 2,749 papers (176k chunks) with 5 journal export templates.',
+    linkUrl: 'https://ai4science.hyxhhh.site/',
+    linkLabel: 'ai4science.hyxhhh.site',
+    images: [],
+  },
+  {
+    id: 3,
+    indexCode: '03',
+    position: '学生团队负责人 · 一线调研',
+    positionEn: 'Student Team Leader · Supply-Chain Research',
+    company: '智慧农业创新中心',
+    companyEn: 'Smart Agriculture Innovation Center',
+    dateLabel: '2026.03 — 至今',
+    dateLabelEn: 'MAR 2026 — PRESENT',
+    tags: ['Supply Chain', 'Field Research', 'Team Lead'],
+    description:
+      '撰写山姆会员店供应链调研报告，汇报红星农批与东升农场一线调研成果，参与编书并在暑期科创营分享调研方法论。',
+    descriptionEn:
+      'Authored the Sam\'s Club supply-chain report, presented findings on Hongxing Market & Dongsheng Farm, and shared field methodology at the Summer Innovation Camp.',
+    images: [],
+  },
+  {
+    id: 4,
+    indexCode: '04',
+    position: '全栈门户 & AI 助手 · 独立开发',
+    positionEn: 'Full-Stack Portal & AI Guide · Indie Developer',
+    company: '个人项目 · hyxhhh.site',
+    companyEn: 'Personal Project · hyxhhh.site',
+    dateLabel: '2025.12 — 至今',
+    dateLabelEn: 'DEC 2025 — PRESENT',
+    tags: ['React 18', 'Express', 'Prisma', '智谱 GLM'],
+    description:
+      '11 个后台 CMS 模块 + 智谱 GLM 服务端 SSE 流式助手。照片上传经 Sharp 自动转 WebP 并提取 EXIF，支持中英文按需翻译缓存，Nginx/PM2 生产部署。',
+    descriptionEn:
+      '11 CMS modules + server-side GLM SSE assistant, automated Sharp WebP/EXIF pipeline, on-demand translation caching, and Nginx/PM2 deployment.',
+    linkUrl: 'https://hyxhhh.site/',
+    linkLabel: 'hyxhhh.site',
+    images: [],
+  },
+  {
+    id: 5,
+    indexCode: '05',
+    position: '「沃·创计划」第五期实习',
+    positionEn: '"Wo-Chuang Plan" Cohort 5 Intern',
+    company: '中国联通长沙市分公司（芙蓉区分公司）',
+    companyEn: 'China Unicom Changsha Branch',
+    dateLabel: '2025.07 — 2025.08',
+    dateLabelEn: 'JUL 2025 — AUG 2025',
+    tags: ['China Unicom', 'Operations'],
+    description:
+      '参加长沙联通「沃·创计划」第五期暑期实习，在芙蓉区分公司参与一线业务实践与数字化运营协作。',
+    descriptionEn:
+      'Participated in China Unicom Changsha Branch\'s "Wo-Chuang Plan" Cohort 5 summer internship at the Furong District Branch.',
+    images: [],
+  },
+];
 
-// Lab
-import labImg1 from '../../assets/images/experiences/1b0ac42167f193334210d15b520f15b0.jpg';
-import labImg2 from '../../assets/images/experiences/ea82875e36aeef70b7511314f66f1c55.jpg';
+const FDE_MODULES = [
+  {
+    code: '01 / AGENT',
+    titleZh: '经营 Agent（35 个只读工具）',
+    titleEn: 'Operations Agent (35 Read-Only Tools)',
+    descZh: '到账、退费、课消、转化、投流与看板同口径直接问；异常仅拟任务草稿，人工确认后才写库。',
+    descEn: 'Unified with dashboard metrics across 35 read-only tools; anomalies draft tasks requiring human approval.',
+  },
+  {
+    code: '02 / PIPELINE',
+    titleZh: '整线绑定（驻场 15 周 · 8 部门）',
+    titleEn: 'Full-Line Integration (15 Weeks · 8 Teams)',
+    descZh: '覆盖引流、签单、排课、售后与财务核对（FastAPI 100+ 路由），沉淀 45 份同日更新业务流程。',
+    descEn: 'Covered lead-to-finance workflows across 100+ FastAPI routes with 45 same-day updated process docs.',
+  },
+  {
+    code: '03 / WORKFLOW',
+    titleZh: '家教与雅思双线 & 三级审批硬闸',
+    titleEn: 'Dual-Line Conversion & Server Hard Gates',
+    descZh: '家教与雅思共用一库、表前缀隔离；电子合同签审才落档，消课三级审批与课酬按日指派做在服务端。',
+    descEn: 'Shared DB with table-prefix isolation; server-side hard gates for e-contracts and 3-tier approval.',
+  },
+  {
+    code: '04 / ATTRIBUTION',
+    titleZh: '投流回台（巨量引擎 19 条 API）',
+    titleEn: 'Ad Attribution (19 Ocean Engine APIs)',
+    descZh: '按账户、计划、广告、素材四层按日拉回消耗与线索成本；改预算须人工确认，单次不超 ±20%。',
+    descEn: '4-level daily ad spend & CPL attribution via 19 official APIs; budget edits capped at ±20% with HITL.',
+  },
+];
 
-// Community
-import communityImg1 from '../../assets/images/experiences/4164fc01048f0bc04ee55121f0ebf346.jpg';
-import communityImg2 from '../../assets/images/experiences/a894e545c49e4cc4be1685d2545e2258.jpg';
-import communityImg3 from '../../assets/images/experiences/e799e6dceadd8bcdea6bc8e9201e0e4b.jpg';
-
-// Map hardcoded images to companies for now (until we have real image uploads)
-const imageMap: Record<string, string[]> = {
-  "中国联通": [unicomImg1, unicomImg2, unicomImg3],
-  "自主创业": [startupImg1, startupImg2, startupImg3],
-  "湖南农业大学": [labImg1, labImg2],
-  "开源社区/ Trae": [communityImg1, communityImg2, communityImg3]
+const TECH_TAG_EN_MAP: Record<string, string> = {
+  '巨量引擎 API': 'Ocean Engine API',
+  '巨量引擎': 'Ocean Engine API',
+  '智谱 GLM': 'Zhipu GLM-4',
 };
 
-const iconMap: Record<string, any> = {
-  "中国联通": Phone,
-  "自主创业": Trophy,
-  "湖南农业大学": Terminal,
-  "开源社区/ Trae": Code
-};
+const FeaturedResidencyCard: React.FC<{
+  item: ExperienceItem;
+  onOpenLightbox: (images: string[], idx: number) => void;
+}> = ({ item, onOpenLightbox }) => {
+  const { td } = useI18n();
+  const [imgIndex, setImgIndex] = useState(0);
+  const images = item.images && item.images.length > 0 ? item.images : [];
 
-const colorMap: Record<string, string> = {
-  "中国联通": "bg-green-500",
-  "自主创业": "bg-yellow-500",
-  "湖南农业大学": "bg-red-500",
-  "开源社区/ Trae": "bg-blue-500"
-};
-
-const ITEMS_PER_PAGE = 3;
-
-const TimelineItem = ({ data, index }: { data: any, index: number }) => {
-  const isEven = index % 2 === 0;
-  // Odd item (index 0, 2...): Text Left, Image Right
-  // Even item (index 1, 3...): Image Left, Text Right
-  const isTextLeft = isEven;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: isTextLeft ? -50 : 50 }}
-      whileInView={{ opacity: 1, x: 0 }}
-      viewport={{ once: true, margin: "-100px" }}
-      transition={{ duration: 0.6, type: "spring", bounce: 0.4 }}
-      className={`flex flex-col md:flex-row items-center justify-between w-full mb-16 md:mb-32 relative group`}
-    >
-      {/* Center Line Dot (Desktop) */}
-      <div className="hidden md:block absolute left-1/2 transform -translate-x-1/2 w-5 h-5 rounded-full bg-white/5 dark:bg-gray-900 border-4 border-blue-500 z-20 shadow-[0_0_15px_rgba(59,130,246,0.6)] group-hover:scale-125 group-hover:shadow-[0_0_25px_rgba(59,130,246,0.9)] transition-all duration-300"></div>
-      
-      {/* Left Side Container */}
-      <div className={`w-full md:w-[45%] md:pr-12`}>
-        {isTextLeft ? (
-           <ExperienceText data={data} align="right" />
-        ) : (
-           <ExperienceImage data={data} />
-        )}
-      </div>
-
-      {/* Spacer for Center Line */}
-      <div className="hidden md:block md:w-[10%]"></div>
-
-      {/* Right Side Container */}
-      <div className={`w-full md:w-[45%] md:pl-12`}>
-         {isTextLeft ? (
-            <ExperienceImage data={data} />
-         ) : (
-            <ExperienceText data={data} align="left" />
-         )}
-      </div>
-    </motion.div>
-  );
-};
-
-const ExperienceText = ({ data, align }: { data: any, align: 'left' | 'right' }) => (
-  <div className={`bg-white/5 dark:bg-gray-800 p-8 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 ${align === 'right' ? 'md:text-right' : 'md:text-left'}`}>
-    <div className={`flex items-center mb-4 ${align === 'right' ? 'md:justify-end' : 'md:justify-start'}`}>
-      <span className="text-sm font-bold text-blue-600 dark:text-blue-400 px-3 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-full border border-blue-100 dark:border-blue-800">
-        {data.date}
-      </span>
-    </div>
-    
-    <h3 className={`text-2xl font-bold text-gray-800 dark:text-white mb-2 flex items-center gap-3 ${align === 'right' ? 'md:flex-row-reverse' : 'md:flex-row'}`}>
-      <data.icon className={`w-6 h-6 ${data.color.replace('bg-', 'text-')} flex-shrink-0`} />
-      {data.title}
-    </h3>
-    
-    <p className="text-base font-semibold text-gray-500 dark:text-gray-400 mb-4">{data.company}</p>
-    
-    <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed text-justify">
-      {data.description}
-    </p>
-  </div>
-);
-
-const ExperienceImage = ({ data }: { data: any }) => {
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-
-  const nextImage = (e: React.MouseEvent) => {
+  const handlePrev = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setCurrentImageIndex((prev) => (prev + 1) % data.images.length);
+    setImgIndex((prev) => (prev - 1 + images.length) % images.length);
   };
 
-  const prevImage = (e: React.MouseEvent) => {
+  const handleNext = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setCurrentImageIndex((prev) => (prev - 1 + data.images.length) % data.images.length);
-  };
-
-  return (
-    <div className="relative group overflow-hidden rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 max-w-[400px] mx-auto w-full aspect-[4/3]">
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={currentImageIndex}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.5 }}
-          className="w-full h-full"
-        >
-          <ImageWithFallback
-            src={data.images[currentImageIndex]}
-            alt={data.title}
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-          />
-        </motion.div>
-      </AnimatePresence>
-      
-      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center backdrop-blur-[2px]">
-        <span className="text-white font-bold text-lg tracking-wider px-6 py-2 border border-white/30 bg-white/5/10 backdrop-blur-md rounded-full transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300 mb-4">
-          {data.caption}
-        </span>
-        
-        {/* Navigation Dots */}
-        {data.images.length > 1 && (
-          <div className="flex gap-2 mt-4">
-            {data.images.map((_: any, idx: number) => (
-              <div 
-                key={idx}
-                className={`w-2 h-2 rounded-full transition-all duration-300 ${idx === currentImageIndex ? 'bg-white/5 w-4' : 'bg-white/5/50'}`}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Navigation Arrows */}
-      {data.images.length > 1 && (
-        <>
-          <button 
-            onClick={prevImage}
-            className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/30 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/50 z-10"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <button 
-            onClick={nextImage}
-            className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/30 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/50 z-10"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
-        </>
-      )}
-    </div>
-  );
-};
-
-// Mobile Version
-const MobileTimelineItem = ({ data }: { data: any, index: number }) => {
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-
-  const handleScroll = () => {
-    if (scrollContainerRef.current) {
-      const scrollLeft = scrollContainerRef.current.scrollLeft;
-      const width = scrollContainerRef.current.offsetWidth;
-      // Calculate index based on scroll position and item width (approx 85% + gap)
-      // Since items are centered, this rough calculation works well enough for dots
-      const newIndex = Math.round(scrollLeft / (width * 0.85));
-      if (newIndex >= 0 && newIndex < data.images.length && newIndex !== currentImageIndex) {
-        setCurrentImageIndex(newIndex);
-      }
-    }
+    setImgIndex((prev) => (prev + 1) % images.length);
   };
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 18 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      transition={{ duration: 0.5 }}
-      className="relative mb-12 last:mb-0 pl-6 border-l-2 border-gray-200 dark:border-gray-700 ml-3"
+      transition={{ duration: 0.45 }}
+      className="designer-card rounded-2xl overflow-hidden mb-6"
     >
-      <div className="absolute -left-[8px] top-0 w-4 h-4 rounded-full bg-blue-600 border-2 border-white dark:border-gray-900 ring-2 ring-blue-100 dark:ring-blue-900/30"></div>
-      
-      <div className="bg-white/5 dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col">
-         {/* Header Section */}
-         <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 relative">
-            <div className="flex justify-between items-start">
-               <div>
-                  <h3 className="text-base font-bold text-gray-800 dark:text-white flex items-center gap-1.5 mb-1">
-                     <data.icon className={`w-4 h-4 ${data.color.replace('bg-', 'text-')}`} />
-                     {data.title}
-                  </h3>
-                  <span className="text-gray-500 dark:text-gray-400 font-medium text-xs block">{data.company}</span>
-               </div>
-               <span className="text-xs font-bold px-2.5 py-0.75 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 rounded-full border border-blue-100 dark:border-blue-800 whitespace-nowrap">
-                 {data.date}
-               </span>
+      {/* Top Bar */}
+      <div className="px-6 py-3 border-b designer-hairline bg-[#FAF9F5] dark:bg-[#141412] flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono">
+        <div className="flex items-center gap-2.5">
+          <span className="px-2 py-0.5 rounded bg-[#141413] text-[#FAF9F5] dark:bg-[#F2F0EA] dark:text-[#141413] font-semibold">
+            RESIDENCY // {item.indexCode}
+          </span>
+          <span className="text-[#8A6F48] dark:text-[#C8A97E] font-medium flex items-center gap-1.5">
+            <Calendar className="w-3 h-3 stroke-[1.5]" />
+            {td(item.dateLabel, item.dateLabelEn)}
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {['React', 'Vite', 'TypeScript', 'FastAPI', 'LangGraph', 'PostgreSQL', '巨量引擎 API'].map(
+            (tech) => (
+              <span
+                key={tech}
+                className="px-2 py-0.5 rounded bg-[#F3F1EC] dark:bg-[#22221F] designer-text-secondary border designer-hairline text-[10px]"
+              >
+                {td(tech, TECH_TAG_EN_MAP[tech] || tech)}
+              </span>
+            ),
+          )}
+        </div>
+      </div>
+
+      {/* 12-Col Split Body */}
+      <div className="grid grid-cols-1 lg:grid-cols-12">
+        {/* Left 7 Cols: Concise 2x2 Modules */}
+        <div className="lg:col-span-7 p-6 border-b lg:border-b-0 lg:border-r designer-hairline flex flex-col justify-between">
+          <div>
+            <div className="mb-4">
+              <h3 className="text-xl font-semibold tracking-tight designer-text-primary">
+                {td(item.position, item.positionEn)}
+              </h3>
+              <p className="text-xs font-mono text-[#8A6F48] dark:text-[#C8A97E] mt-0.5">
+                {td(item.company, item.companyEn)}
+              </p>
             </div>
-         </div>
-  
-         {/* Image Section */}
-         <div className="relative group bg-transparent dark:bg-gray-900 py-3">
-           <div 
-              ref={scrollContainerRef}
-              onScroll={handleScroll}
-              className="w-full flex overflow-x-auto snap-x snap-mandatory scrollbar-hide px-4 gap-2 pb-1.5"
-           >
-              {data.images.map((img: string, idx: number) => (
-                <div 
-                  key={idx} 
-                  className="min-w-[88%] aspect-[3/2] snap-center relative rounded-lg overflow-hidden shadow-sm border border-gray-200 dark:border-gray-700"
-                  onClick={() => setLightboxOpen(true)}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {FDE_MODULES.map((mod) => (
+                <div
+                  key={mod.code}
+                  className="p-3.5 rounded-xl bg-[#F6F4EF] dark:bg-[#1E1E1B] border designer-hairline"
                 >
-                   <ImageWithFallback
-                     src={img}
-                     alt={data.title}
-                     className="w-full h-full object-cover"
-                   />
-                   <div className="absolute inset-0 bg-black/0 active:bg-black/10 transition-colors flex items-center justify-center">
-                      <ZoomIn className="text-white opacity-0 active:opacity-100 w-6 h-6 drop-shadow-md" />
-                   </div>
+                  <div className="text-[10px] font-mono text-[#8A6F48] dark:text-[#C8A97E] mb-0.5">
+                    {mod.code}
+                  </div>
+                  <h4 className="text-xs sm:text-sm font-semibold designer-text-primary mb-1">
+                    {td(mod.titleZh, mod.titleEn)}
+                  </h4>
+                  <p className="text-xs designer-text-secondary leading-relaxed">
+                    {td(mod.descZh, mod.descEn)}
+                  </p>
                 </div>
               ))}
-           </div>
-           
-           {/* Navigation Dots */}
-           {data.images.length > 1 && (
-              <div className="flex justify-center gap-1.5 mt-1.5 mb-1">
-                {data.images.map((_: any, idx: number) => (
-                  <div 
-                    key={idx}
-                    className={`h-1.25 rounded-full transition-all duration-300 ${idx === currentImageIndex ? 'bg-blue-500 w-4' : 'bg-gray-300 dark:bg-gray-600 w-1.5'}`}
-                  />
-                ))}
-              </div>
-           )}
-         </div>
-  
-         {/* Description Section */}
-         <div className="p-4 pt-2">
-           <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 leading-relaxed text-justify">
-             {data.description}
-           </p>
-         </div>
+            </div>
+          </div>
+        </div>
 
-         <Lightbox
-            open={lightboxOpen}
-            close={() => setLightboxOpen(false)}
-            slides={data.images.map((src: string) => ({ src }))}
-            index={currentImageIndex}
-         />
+        {/* Right 5 Cols: Photo Preview + 4 Compact Numbers */}
+        <div className="lg:col-span-5 flex flex-col justify-between bg-[#FAF9F5]/50 dark:bg-[#121210]/50">
+          {images.length > 0 && (
+            <div
+              onClick={() => onOpenLightbox(images, imgIndex)}
+              className="relative h-52 sm:h-56 border-b designer-hairline overflow-hidden cursor-pointer group bg-[#141413]"
+            >
+              <ImageWithFallback
+                src={images[imgIndex]}
+                thumbnailSrc={images[imgIndex]}
+                alt={td(item.position, item.positionEn)}
+                adaptiveFrame={true}
+                className="transition-transform duration-700 group-hover:scale-[1.03]"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent flex items-end justify-between p-3.5">
+                <span className="text-xs font-mono text-white">
+                  {td('洋葱教育驻场交付现场', 'Onion Education On-Site Residency')}
+                </span>
+                <Maximize2 className="w-3.5 h-3.5 text-white shrink-0 stroke-[1.5]" />
+              </div>
+
+              {images.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handlePrev}
+                    aria-label="Previous photo"
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-black/55 hover:bg-black/80 text-white flex items-center justify-center transition-colors z-10"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleNext}
+                    aria-label="Next photo"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-black/55 hover:bg-black/80 text-white flex items-center justify-center transition-colors z-10"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 divide-x divide-y designer-hairline flex-1">
+            {[
+              { val: '15 Weeks', label: td('连续驻场 · 对接 8 部门', 'On-Site · 8 Teams') },
+              { val: '35 Tools', label: td('经营 Agent 只读工具', 'Read-Only Agent Tools') },
+              { val: '100+ Routes', label: td('FastAPI 双业务线中台', 'FastAPI Middle Platform') },
+              { val: '19 APIs', label: td('巨量引擎四层投流归因', 'Ocean Engine APIs') },
+            ].map((stat, idx) => (
+              <div key={idx} className="p-3.5 flex flex-col justify-center">
+                <div className="text-base sm:text-lg font-mono font-bold designer-text-primary">
+                  {stat.val}
+                </div>
+                <div className="text-xs designer-text-secondary mt-0.5">{stat.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </motion.div>
   );
 };
 
-export const Experience = () => {
-  const { t } = useI18n();
-  const [experiences, setExperiences] = useState<any[]>([]);
-  const [showAll, setShowAll] = useState(false);
-  const [nowStatus, setNowStatus] = useState<any>({
-    status: '正在重构我的个人网站，探索 Glassmorphism 设计美学...',
-    isBusy: false,
-    listeningTo: 'Chill Lofi'
-  });
+const ChronicleGridCard: React.FC<{
+  item: ExperienceItem;
+  index: number;
+  onOpenLightbox: (images: string[], idx: number) => void;
+}> = ({ item, index, onOpenLightbox }) => {
+  const { td } = useI18n();
+  const images = item.images && item.images.length > 0 ? item.images : [];
 
-  // 本地经历数据
-  const localExperiences = [
-    {
-      id: 1,
-      company: "中国联通",
-      position: "前端开发实习生",
-      description: "参与了中国联通智慧校园项目的前端开发工作，负责学生管理系统的页面开发与优化。使用 React + TypeScript + Ant Design 构建了多个核心功能模块，包括学生信息管理、成绩查询、课程安排等。优化了系统的响应速度，减少了页面加载时间，提升了用户体验。",
-      startDate: "2022-07-01",
-      endDate: "2022-09-30",
-      title: "前端开发实习生",
-      date: "2022.07 - 2022.09",
-      icon: Phone,
-      color: "bg-green-500",
-      images: imageMap["中国联通"],
-      caption: "中国联通实习"
-    },
-    {
-      id: 2,
-      company: "自主创业",
-      position: "全栈开发工程师",
-      description: "自主创业期间，负责了多个项目的全栈开发工作，包括电商平台、教育管理系统、社区论坛等。从需求分析、架构设计到开发测试，全程参与项目生命周期。使�?React、Node.js、MySQL 等技术栈构建了高性能、可扩展�?Web 应用�?,
-      startDate: "2023-03-01",
-      endDate: "2024-01-31",
-      title: "全栈开发工程师",
-      date: "2023.03 - 2024.01",
-      icon: Trophy,
-      color: "bg-yellow-500",
-      images: imageMap["自主创业"],
-      caption: "自主创业经历"
-    },
-    {
-      id: 3,
-      company: "湖南农业大学",
-      position: "实验室助手/ 前端开发",
-      description: "在湖南农业大学信息科学技术学院实验室工作，负责实验室网站的开发与维护，以及相关科研项目的前端开发工作。参与了农业大数据平台的前端开发，使用 React + D3.js 构建了数据可视化图表，展示农业生产数据。",
-      startDate: "2024-03-01",
-      endDate: "2024-06-30",
-      title: "实验室助手/ 前端开发",
-      date: "2024.03 - 2024.06",
-      icon: Terminal,
-      color: "bg-red-500",
-      images: imageMap["湖南农业大学"],
-      caption: "实验室工作"
-    },
-    {
-      id: 4,
-      company: "开源社区/ Trae",
-      position: "前端开发工程师",
-      description: "参与开源社区贡献，主要负责 Trae AI 开发助手的前端开发工作。使用 React + TypeScript + Tailwind CSS 构建了现代化的 Web 界面，实现了代码编辑、实时协作、AI 辅助开发等核心功能。优化了界面的响应速度和用户体验，提升了产品的易用性。",
-      startDate: "2024-07-01",
-      endDate: "2024-12-31",
-      title: "前端开发工程师",
-      date: "2024.07 - 2024.12",
-      icon: Code,
-      color: "bg-blue-500",
-      images: imageMap["开源社区/ Trae"],
-      caption: "开源社区贡献"
-    }
-  ];
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.4, delay: index * 0.05 }}
+      className="designer-card rounded-2xl overflow-hidden flex flex-col justify-between h-full"
+    >
+      <div>
+        <div className="px-5 py-2.5 border-b designer-hairline bg-[#FAF9F5] dark:bg-[#141412] flex items-center justify-between gap-2 text-[11px] font-mono">
+          <span className="inline-flex items-center gap-1.5 text-[#8A6F48] dark:text-[#C8A97E] font-medium">
+            <Calendar className="w-3 h-3 stroke-[1.5]" />
+            {item.indexCode} // {td(item.dateLabel, item.dateLabelEn)}
+          </span>
+          <div className="flex gap-1">
+            {item.tags.slice(0, 2).map((tag) => (
+              <span
+                key={tag}
+                className="px-2 py-0.5 text-[10px] font-mono rounded bg-[#F3F1EC] dark:bg-[#22221F] designer-text-secondary border designer-hairline"
+              >
+                {td(tag, TECH_TAG_EN_MAP[tag] || tag)}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="p-5 flex items-start gap-4">
+          {images.length > 0 && (
+            <div
+              onClick={() => onOpenLightbox(images, 0)}
+              className="w-24 h-24 rounded-xl overflow-hidden border designer-hairline shrink-0 cursor-pointer group relative bg-[#141413]"
+            >
+              <ImageWithFallback
+                src={images[0]}
+                thumbnailSrc={images[0]}
+                alt={td(item.position, item.positionEn)}
+                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              />
+              <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <Maximize2 className="w-3.5 h-3.5 text-white" />
+              </div>
+            </div>
+          )}
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="text-base font-semibold tracking-tight designer-text-primary leading-snug">
+                {td(item.position, item.positionEn)}
+              </h3>
+              {item.linkUrl && (
+                <a
+                  href={item.linkUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-0.5 text-[11px] font-mono text-[#8A6F48] dark:text-[#C8A97E] hover:underline shrink-0"
+                >
+                  <span>{item.linkLabel || 'Link'}</span>
+                  <ArrowUpRight className="w-3 h-3" />
+                </a>
+              )}
+            </div>
+            <p className="text-xs font-mono text-[#8A6F48] dark:text-[#C8A97E] mt-0.5 mb-2">
+              {td(item.company, item.companyEn)}
+            </p>
+            <p className="text-xs designer-text-secondary leading-relaxed line-clamp-3">
+              {td(item.description, item.descriptionEn)}
+            </p>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+export const Experience: React.FC = () => {
+  const { t } = useI18n();
+  const [experiences, setExperiences] = useState<ExperienceItem[]>(DEFAULT_EXPERIENCES);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [lightboxSlides, setLightboxSlides] = useState<{ src: string }[]>([]);
+
+  const openLightbox = (images: string[], index: number) => {
+    setLightboxSlides(images.map((img) => ({ src: img })));
+    setLightboxIndex(index);
+    setLightboxOpen(true);
+  };
 
   useEffect(() => {
-    // 使用本地数据
-    setExperiences(localExperiences);
-
-    // 可选：尝试从后端获取最新数据，失败则使用本地数�?
     const fetchExperiences = async () => {
       try {
-        const response = await axios.get('/api/experiences');
-        const formattedData = response.data.map((exp: any) => ({
-          ...exp,
-          title: exp.position,
-          date: `${new Date(exp.startDate).getFullYear()}.${(new Date(exp.startDate).getMonth() + 1).toString().padStart(2, '0')} - ${exp.endDate ? `${new Date(exp.endDate).getFullYear()}.${(new Date(exp.endDate).getMonth() + 1).toString().padStart(2, '0')}` : '至今'}`,
-          // Map visuals based on company name for now
-          icon: iconMap[exp.company] || Code,
-          color: colorMap[exp.company] || "bg-gray-500",
-          images: imageMap[exp.company] || [],
-          caption: exp.description.substring(0, 10) + "..."
-        }));
-        setExperiences(formattedData);
-      } catch (error) {
-        console.log('使用本地经历数据');
-        // 保持使用本地数据
-      }
-    };
-
-    // 获取当下状态数据
-    const fetchNowStatus = async () => {
-      try {
-        const response = await axios.get('/api/profile/now');
-        setNowStatus(response.data);
-      } catch (error) {
-        console.log('使用本地当下状态数据');
-        // 保持使用本地数据
+        const response = await axios.get('/api/experience');
+        const data = response.data?.data || response.data || [];
+        if (Array.isArray(data) && data.length > 0) {
+          setExperiences((prev) =>
+            prev.map((defExp) => {
+              const found = data.find(
+                (d: any) =>
+                  d.company &&
+                  (d.company.includes(defExp.company.slice(0, 4)) ||
+                    defExp.company.includes(d.company.slice(0, 4))),
+              );
+              if (!found) return defExp;
+              let imgs: string[] = [];
+              if (Array.isArray(found.images) && found.images.length > 0) {
+                imgs = found.images.map((img: string) => getImageUrl(img));
+              } else if (typeof found.images === 'string' && found.images.trim().startsWith('[')) {
+                try {
+                  imgs = JSON.parse(found.images).map((img: string) => getImageUrl(img));
+                } catch {
+                  imgs = [];
+                }
+              }
+              return imgs.length > 0 ? { ...defExp, images: imgs } : defExp;
+            }),
+          );
+        }
+      } catch {
+        // Keep DEFAULT_EXPERIENCES
       }
     };
 
     fetchExperiences();
-    fetchNowStatus();
   }, []);
 
-  const displayedExperiences = showAll ? experiences : experiences.slice(0, ITEMS_PER_PAGE);
+  const featuredFde = experiences[0];
+  const chronicleItems = experiences.slice(1);
 
   return (
-    <section id="experience" className="py-24 bg-gray-50 dark:bg-gray-900 transition-colors duration-300 overflow-hidden">
+    <section
+      id="experience"
+      className="py-20 sm:py-24 transition-colors duration-300"
+    >
       <div className="container mx-auto px-6">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-20"
+          transition={{ duration: 0.5 }}
+          className="max-w-6xl mx-auto mb-10 pb-4 border-b designer-hairline flex flex-col sm:flex-row sm:items-end justify-between gap-4"
         >
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-800 dark:text-white mb-4">{t('experience.title')}</h2>
-          <div className="w-20 h-1.5 bg-blue-600 mx-auto rounded-full"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400 max-w-2xl mx-auto mb-8">
+          <div>
+            <div className="text-[11px] font-mono uppercase tracking-widest designer-accent-text mb-1.5">
+              04 // FDE RESIDENCY &amp; RESEARCH CHRONICLE
+            </div>
+            <h2 className="designer-heading text-3xl md:text-4xl font-normal tracking-[-0.02em]">
+              {t('experience.title')}
+            </h2>
+          </div>
+          <p className="designer-text-muted text-xs sm:text-sm font-mono max-w-md sm:text-right">
             {t('experience.subtitle')}
           </p>
-          
-          {/* 当下状态组件 */}
-          <div className="max-w-md mx-auto">
-            <NowComponent 
-              status={nowStatus.status} 
-              isBusy={nowStatus.isBusy} 
-              listeningTo={nowStatus.listeningTo} 
-            />
-          </div>
         </motion.div>
 
-        {/* Desktop Timeline */}
-        <div className="hidden md:block relative max-w-6xl mx-auto mt-12">
-          {/* Vertical Center Line */}
-          <div className="absolute left-1/2 transform -translate-x-1/2 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-blue-600 rounded-full opacity-30"></div>
-          
-          <AnimatePresence mode='wait'>
-            {displayedExperiences.map((exp, index) => (
-              <TimelineItem key={exp.company + index} data={exp} index={index} />
+        <div className="max-w-6xl mx-auto">
+          {featuredFde && (
+            <FeaturedResidencyCard item={featuredFde} onOpenLightbox={openLightbox} />
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
+            {chronicleItems.map((exp, index) => (
+              <ChronicleGridCard
+                key={exp.id}
+                item={exp}
+                index={index}
+                onOpenLightbox={openLightbox}
+              />
             ))}
-          </AnimatePresence>
+          </div>
         </div>
 
-        {/* Mobile Timeline */}
-        <div className="md:hidden max-w-lg mx-auto mt-12">
-          <AnimatePresence mode='wait'>
-            {displayedExperiences.map((exp, index) => (
-               <MobileTimelineItem key={exp.company + index} data={exp} index={index} />
-            ))}
-          </AnimatePresence>
-        </div>
-
-
-        {/* Show More Button */}
-        {experiences.length > ITEMS_PER_PAGE && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center mt-12 relative z-10"
-          >
-            <button
-              onClick={() => setShowAll(!showAll)}
-              className="px-8 py-3 bg-white/5 dark:bg-gray-800 text-blue-600 dark:text-blue-400 font-bold rounded-full shadow-lg hover:shadow-xl hover:bg-blue-50 dark:hover:bg-gray-700 transition-all transform hover:scale-105 flex items-center mx-auto border border-gray-100 dark:border-gray-700"
-            >
-              {showAll ? (
-                <>
-                  {t('experience.showLess')} <ChevronUp className="ml-2 w-4 h-4" />
-                </>
-              ) : (
-                <>
-                  {t('experience.showMore')} <ChevronDown className="ml-2 w-4 h-4" />
-                </>
-              )}
-            </button>
-          </motion.div>
-        )}
+        <Lightbox
+          open={lightboxOpen}
+          close={() => setLightboxOpen(false)}
+          index={lightboxIndex}
+          slides={lightboxSlides}
+          plugins={[Captions]}
+        />
       </div>
     </section>
   );
 };
-
-
-

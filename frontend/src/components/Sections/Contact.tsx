@@ -1,177 +1,233 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Send, Github, Linkedin, Mail, MapPin, Loader2 } from 'lucide-react';
-import axios from 'axios';
+import { Send, Github, Mail, MapPin, Loader2, Copy, Check } from 'lucide-react';
+import axios from '../../utils/axiosConfig';
 import { message } from 'antd';
 import { useI18n } from '../../i18n/i18nContext';
+import { playSuccessChime } from '../../utils/soundEffects';
 
-export const Contact = () => {
-  const { t } = useI18n();
+export const Contact = React.memo(() => {
+  const { t, td } = useI18n();
   const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     subject: '',
-    content: ''
+    content: '',
   });
-  
-  // Re-write form using name attributes
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-      setFormData({ ...formData, [e.target.name]: e.target.value });
+    setFormData((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
+  };
+
+  const handleCopyEmail = () => {
+    navigator.clipboard.writeText('hyxhhh1013@gmail.com');
+    playSuccessChime();
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.email || !formData.content) {
-        message.warning('请填写必要信息');
-        return;
+      message.warning(td('请填写姓名、邮箱和留言内容', 'Please fill in your name, email, and message'));
+      return;
     }
-    
+
     setLoading(true);
     try {
-        await axios.post('/messages', formData);
-        message.success('消息发送成功！');
-        setFormData({ name: '', email: '', subject: '', content: '' });
-    } catch (error) {
-        console.error('Send message failed:', error);
-        message.error('发送失败，请稍后重试');
+      await axios.post('/api/messages', {
+        ...formData,
+        subject: formData.subject || td('来自个人门户的留言', 'Website Contact Message'),
+      });
+      playSuccessChime();
+      message.success(td('消息发送成功！我会尽快回复您。', 'Message sent! I will get back to you soon.'));
+      setFormData({ name: '', email: '', subject: '', content: '' });
+    } catch (error: any) {
+      const errorMessage =
+        error.response?.data?.message || error.message || td('发送失败，请稍后重试', 'Failed to send');
+      message.error(errorMessage);
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
   };
 
   return (
-    <section id="contact" className="py-24 bg-gray-50 dark:bg-gray-900 transition-colors duration-300 relative overflow-hidden">
-      {/* Background Map Decoration (Abstract) */}
-      <div className="absolute inset-0 opacity-5 dark:opacity-10 pointer-events-none">
-         <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-            <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" strokeWidth="1"/>
-            </pattern>
-            <rect width="100%" height="100%" fill="url(#grid)" />
-         </svg>
-      </div>
-
+    <section
+      id="contact"
+      className="py-20 sm:py-28 transition-colors duration-300 relative overflow-hidden"
+    >
       <div className="container mx-auto px-6 relative z-10">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-16"
+          transition={{ duration: 0.5 }}
+          className="max-w-6xl mx-auto mb-12 pb-5 border-b designer-hairline flex flex-col sm:flex-row sm:items-end justify-between gap-4"
         >
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-800 dark:text-white mb-4">{t('contact.title')}</h2>
-          <div className="w-20 h-1.5 bg-blue-600 mx-auto rounded-full"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">
+          <div>
+            <div className="text-[11px] font-mono uppercase tracking-widest designer-accent-text mb-2">
+              06 // INITIATE DIALOGUE
+            </div>
+            <h2 className="designer-heading text-3xl md:text-4xl font-normal tracking-[-0.02em]">
+              {t('contact.title')}
+            </h2>
+          </div>
+          <p className="designer-text-muted text-xs sm:text-sm font-mono">
             {t('contact.subtitle')}
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 max-w-6xl mx-auto">
-          {/* Left: Socials & Info */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 max-w-6xl mx-auto items-start">
+          {/* Left 5 Cols: Editorial Contact Ledger */}
           <motion.div
-            initial={{ opacity: 0, x: -30 }}
-            whileInView={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0, y: 18 }}
+            whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="flex flex-col justify-center space-y-6 md:space-y-8"
+            transition={{ duration: 0.5 }}
+            className="lg:col-span-5 flex flex-col justify-between space-y-6"
           >
-             <h3 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-white">
+            <div>
+              <h3 className="text-xl sm:text-2xl font-semibold tracking-tight designer-text-primary mb-3">
                 {t('contact.letsTalk')}
-             </h3>
-             <p className="text-sm md:text-base text-gray-600 dark:text-gray-300 leading-relaxed">
+              </h3>
+              <p className="designer-text-secondary leading-relaxed text-sm sm:text-base">
                 {t('contact.youCanReach')}
-             </p>
+              </p>
+            </div>
 
-             <div className="flex flex-col space-y-3 md:space-y-4">
-                <div className="flex items-center text-gray-600 dark:text-gray-300">
-                  <Mail className="w-4 h-4 mr-2 md:mr-3 text-blue-600" />
-                  <span className="text-sm md:text-base">2090862712@qq.com</span>
+            <div className="space-y-3 pt-2 border-t designer-hairline text-xs sm:text-sm font-mono">
+              <div className="flex items-center justify-between py-2 border-b designer-hairline">
+                <span className="designer-text-muted flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-[#8A6F48] stroke-[1.5]" />
+                  EMAIL
+                </span>
+                <div className="flex items-center gap-2">
+                  <a
+                    href="mailto:hyxhhh1013@gmail.com"
+                    className="font-medium designer-text-primary hover:underline"
+                  >
+                    hyxhhh1013@gmail.com
+                  </a>
+                  <button
+                    type="button"
+                    onClick={handleCopyEmail}
+                    aria-label="Copy Email Address"
+                    className="p-1.5 rounded-md designer-pill hover:opacity-80 transition-opacity"
+                  >
+                    {copied ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                  </button>
                 </div>
-                <div className="flex items-center text-gray-600 dark:text-gray-300">
-                  <MapPin className="w-4 h-4 mr-2 md:mr-3 text-blue-600" />
-                  <span className="text-sm md:text-base">中国，长沙</span>
-                </div>
-             </div>
+              </div>
 
-             <div className="flex space-x-4 md:space-x-6 pt-2 md:pt-4">
-                <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="p-3 md:p-4 bg-white/5 dark:bg-gray-800 rounded-full shadow-md hover:shadow-lg hover:text-blue-600 dark:hover:text-blue-400 transition-all transform hover:scale-110 group">
-                   <Github className="w-5 h-5 md:w-6 md:h-6 text-gray-600 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400" />
+              <div className="flex items-center justify-between py-2 border-b designer-hairline">
+                <span className="designer-text-muted flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-[#8A6F48] stroke-[1.5]" />
+                  BASE
+                </span>
+                <span className="font-medium designer-text-primary">
+                  {td('中国 · 湖南长沙', 'Changsha, Hunan, China')}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between py-2">
+                <span className="designer-text-muted flex items-center gap-2">
+                  <Github className="w-4 h-4 text-[#8A6F48] stroke-[1.5]" />
+                  GITHUB
+                </span>
+                <a
+                  href="https://github.com/hyxhhh1013"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium designer-text-primary hover:underline"
+                >
+                  @hyxhhh1013
                 </a>
-                <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="p-3 md:p-4 bg-white/5 dark:bg-gray-800 rounded-full shadow-md hover:shadow-lg hover:text-blue-700 dark:hover:text-blue-500 transition-all transform hover:scale-110 group">
-                   <Linkedin className="w-5 h-5 md:w-6 md:h-6 text-gray-600 dark:text-gray-300 group-hover:text-blue-700 dark:group-hover:text-blue-500" />
-                </a>
-                <a href="mailto:2090862712@qq.com" className="p-3 md:p-4 bg-white/5 dark:bg-gray-800 rounded-full shadow-md hover:shadow-lg hover:text-green-600 dark:hover:text-green-400 transition-all transform hover:scale-110 group">
-                   <Send className="w-5 h-5 md:w-6 md:h-6 text-gray-600 dark:text-gray-300 group-hover:text-green-600 dark:group-hover:text-green-400" />
-                </a>
-             </div>
+              </div>
+            </div>
           </motion.div>
 
-          {/* Right: Form */}
+          {/* Right 7 Cols: Minimalist Form Card */}
           <motion.div
-            initial={{ opacity: 0, x: 30 }}
-            whileInView={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0, y: 18 }}
+            whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="bg-white/5 dark:bg-gray-800 p-6 md:p-8 rounded-2xl md:rounded-3xl shadow-lg border border-gray-100 dark:border-gray-700"
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="lg:col-span-7 designer-card p-6 sm:p-8 rounded-2xl"
           >
-            <form className="space-y-4 md:space-y-6" onSubmit={handleSubmit}>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+            <form className="space-y-5" onSubmit={handleSubmit}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
-                  <label className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('contact.form.name')}</label>
-                  <input 
-                    type="text" 
+                  <label className="block text-xs font-mono uppercase tracking-wider designer-text-muted mb-2">
+                    {t('contact.form.name')}
+                  </label>
+                  <input
+                    type="text"
                     name="name"
                     value={formData.name}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2.5 md:px-4 md:py-3 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white" 
-                    placeholder={t('contact.form.name')} 
+                    className="w-full px-4 py-2.5 rounded-xl bg-[#F6F4EF] dark:bg-[#1E1E1B] border designer-hairline focus:border-[#8A6F48] outline-none transition-all text-sm designer-text-primary"
+                    placeholder={t('contact.form.name')}
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('contact.form.email')}</label>
-                  <input 
-                    type="email" 
+                  <label className="block text-xs font-mono uppercase tracking-wider designer-text-muted mb-2">
+                    {t('contact.form.email')}
+                  </label>
+                  <input
+                    type="email"
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2.5 md:px-4 md:py-3 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white" 
-                    placeholder="your@email.com" 
+                    className="w-full px-4 py-2.5 rounded-xl bg-[#F6F4EF] dark:bg-[#1E1E1B] border designer-hairline focus:border-[#8A6F48] outline-none transition-all text-sm designer-text-primary"
+                    placeholder="name@example.com"
                     required
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('contact.form.subject')}</label>
-                <input 
-                    type="text" 
-                    name="subject"
-                    value={formData.subject}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2.5 md:px-4 md:py-3 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white" 
-                    placeholder={t('contact.form.subject')} 
+                <label className="block text-xs font-mono uppercase tracking-wider designer-text-muted mb-2">
+                  {t('contact.form.subject')}
+                </label>
+                <input
+                  type="text"
+                  name="subject"
+                  value={formData.subject}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2.5 rounded-xl bg-[#F6F4EF] dark:bg-[#1E1E1B] border designer-hairline focus:border-[#8A6F48] outline-none transition-all text-sm designer-text-primary"
+                  placeholder={td('项目合作 / 实习邀请 / 技术交流', 'Collaboration / Internship / Tech Chat')}
                 />
               </div>
               <div>
-                <label className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('contact.form.message')}</label>
-                <textarea 
-                    rows={4} 
-                    name="content"
-                    value={formData.content}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2.5 md:px-4 md:py-3 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white" 
-                    placeholder={t('contact.form.message')}
-                    required
-                ></textarea>
+                <label className="block text-xs font-mono uppercase tracking-wider designer-text-muted mb-2">
+                  {t('contact.form.message')}
+                </label>
+                <textarea
+                  rows={4}
+                  name="content"
+                  value={formData.content}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2.5 rounded-xl bg-[#F6F4EF] dark:bg-[#1E1E1B] border designer-hairline focus:border-[#8A6F48] outline-none transition-all text-sm designer-text-primary"
+                  placeholder={td('请写下您想交流的内容...', 'Write your message here...')}
+                  required
+                />
               </div>
-              
-              <button 
-                type="submit" 
+
+              <button
+                type="submit"
                 disabled={loading}
-                className="w-full py-2.5 md:py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-all shadow-md hover:shadow-lg flex items-center justify-center transform hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed"
+                className="w-full py-3 designer-btn-primary font-mono font-medium text-xs sm:text-sm rounded-xl transition-all flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />} 
+                {loading ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Send className="w-3.5 h-3.5 mr-2 stroke-[1.5]" />
+                )}
                 {t('contact.form.send')}
               </button>
             </form>
@@ -180,7 +236,4 @@ export const Contact = () => {
       </div>
     </section>
   );
-};
-
-
-
+});
