@@ -162,6 +162,63 @@ function createCausticPoolTexture(): THREE.CanvasTexture {
   return tex;
 }
 
+/** Soft round dot for point sprites (bare PointsMaterial draws hard squares). */
+function createSoftDotTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    grad.addColorStop(0, 'rgba(255,255,255,1)');
+    grad.addColorStop(0.35, 'rgba(255,255,255,0.75)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 64, 64);
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/**
+ * Thin double-faced ribbon (both windings, shared forward-facing normals) so it lights the same
+ * from either side — DoubleSide would flip the normal and turn the back face black.
+ */
+function buildRibbonGeometry(
+  width: number,
+  height: number,
+  segments: number,
+  colorBase: THREE.Color,
+  colorTip: THREE.Color,
+  taper = 0.25
+): THREE.BufferGeometry {
+  const positions: number[] = [];
+  const colors: number[] = [];
+  const normals: number[] = [];
+  const index: number[] = [];
+  const c = new THREE.Color();
+  for (let s = 0; s <= segments; s++) {
+    const t = s / segments;
+    const w = width * (1 - t * (1 - taper)) * (0.75 + Math.sin(t * Math.PI) * 0.35);
+    const y = t * height;
+    positions.push(-w / 2, y, 0, w / 2, y, 0);
+    c.copy(colorBase).lerp(colorTip, t);
+    colors.push(c.r, c.g, c.b, c.r, c.g, c.b);
+    normals.push(0, 0.35, 1, 0, 0.35, 1);
+  }
+  for (let s = 0; s < segments; s++) {
+    const a = s * 2;
+    index.push(a, a + 1, a + 3, a, a + 3, a + 2); // front
+    index.push(a, a + 3, a + 1, a, a + 2, a + 3); // back
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+  geo.setIndex(index);
+  return geo;
+}
+
 function createMemoryBeacon(yHeight: number, color = '#C8A97E'): THREE.Mesh {
   const beacon = new THREE.Mesh(
     new THREE.OctahedronGeometry(0.26, 0),
@@ -633,24 +690,38 @@ function buildFreediveCrimsonMemory(): BuiltMemoryModel {
   // --------------------------------------------------------------------------
   // C. SEAMLESS OPEN-OCEAN SEABED, ANIMATED CAUSTICS, CORAL REEF & MARINE SNOW
   // --------------------------------------------------------------------------
-  const seabedGeo = new THREE.CircleGeometry(30, 48);
+  // Sandy seabed on a real grid (CircleGeometry is one triangle fan, so its dunes only moved the
+  // rim). Long dunes + fine sand ripples, with pale sand near the rope fading to deep blue-teal.
+  const seabedGeo = new THREE.PlaneGeometry(60, 60, 90, 90);
   seabedGeo.rotateX(-Math.PI / 2);
   const seabedPos = seabedGeo.attributes.position;
+  const seabedColors = new Float32Array(seabedPos.count * 3);
+  const sandNear = new THREE.Color('#9FC9C2');
+  const sandFar = new THREE.Color('#1F5E72');
+  const sandTmp = new THREE.Color();
   for (let i = 0; i < seabedPos.count; i++) {
     const sx = seabedPos.getX(i);
     const sz = seabedPos.getZ(i);
+    const dist = Math.hypot(sx, sz);
     const dune =
       Math.sin(sx * 0.28) * Math.cos(sz * 0.28) * 0.34 +
-      Math.sin((sx + sz) * 0.65) * 0.08;
-    seabedPos.setY(i, dune);
+      Math.sin((sx + sz) * 0.65) * 0.08 +
+      Math.sin(sx * 2.6 + Math.sin(sz * 0.7) * 1.4) * 0.025; // wind-like sand ripples
+    // Bowl the far edge down so the seabed never shows a hard horizon line.
+    seabedPos.setY(i, dune - Math.max(0, dist - 18) * 0.12);
+    const fade = Math.min(1, dist / 20);
+    const ripple = 0.92 + Math.sin(sx * 2.6 + Math.sin(sz * 0.7) * 1.4) * 0.06;
+    sandTmp.copy(sandNear).lerp(sandFar, fade).multiplyScalar(ripple);
+    seabedColors.set([sandTmp.r, sandTmp.g, sandTmp.b], i * 3);
   }
+  seabedGeo.setAttribute('color', new THREE.BufferAttribute(seabedColors, 3));
   seabedGeo.computeVertexNormals();
   const seabed = new THREE.Mesh(
     seabedGeo,
     new THREE.MeshStandardMaterial({
-      color: '#195B78',
-      roughness: 0.92,
-      flatShading: true,
+      color: '#FFFFFF',
+      vertexColors: true,
+      roughness: 0.95,
     })
   );
   seabed.position.set(0, -poolDepth, 0);
@@ -721,7 +792,8 @@ function buildFreediveCrimsonMemory(): BuiltMemoryModel {
     snowGeo,
     new THREE.PointsMaterial({
       color: '#BAE6FD',
-      size: 0.065,
+      size: 0.11,
+      map: createSoftDotTexture(),
       transparent: true,
       opacity: 0.58,
       depthWrite: false,
@@ -741,12 +813,22 @@ function buildFreediveCrimsonMemory(): BuiltMemoryModel {
     roughness: 0.4,
   });
   const kelpMat = new THREE.MeshStandardMaterial({
-    color: '#1D746D',
-    roughness: 0.78,
+    color: '#FFFFFF',
+    vertexColors: true,
+    roughness: 0.7,
+  });
+  const kelpBase = new THREE.Color('#0F4B3E');
+  const kelpTip = new THREE.Color('#7FB069');
+  // Each blade keeps its rest pose; update() bends it as a ribbon (stiff root, loose tip)
+  // instead of rotating a rigid board.
+  const kelpRibbons: { geo: THREE.BufferGeometry; rest: Float32Array; height: number; phase: number }[] = [];
+  const brainCoralMat = new THREE.MeshStandardMaterial({ color: '#E9A06B', roughness: 0.85 });
+  const seaFanMat = new THREE.MeshStandardMaterial({
+    color: '#C2416C',
+    roughness: 0.7,
     side: THREE.DoubleSide,
   });
-
-  const kelpBlades: { mesh: THREE.Mesh; phase: number; baseY: number }[] = [];
+  const spongeMat = new THREE.MeshStandardMaterial({ color: '#9B5DE5', roughness: 0.75 });
   [
     [-3.8, -2.5, 1.25],
     [3.4, -3.2, 1.4],
@@ -781,15 +863,57 @@ function buildFreediveCrimsonMemory(): BuiltMemoryModel {
       group.add(anemone);
     }
 
-    // 2 Multi-segment swaying kelp ribbons per reef cluster
-    for (let k = 0; k < 2; k++) {
-      const kH = 1.7 + ((idx + k) % 3) * 0.65;
-      const kelp = new THREE.Mesh(new THREE.PlaneGeometry(0.22, kH, 1, 6), kelpMat);
-      const baseY = -poolDepth + 0.35 + kH / 2;
-      kelp.position.set(rx + (k - 0.5) * 0.45, baseY, rz + 0.25);
+    // Extra reef life per cluster: a brain coral dome, a sea fan, or a pair of tube sponges.
+    if (idx % 3 === 0) {
+      const brainGeo = new THREE.IcosahedronGeometry(0.34 * sc, 3);
+      const bp = brainGeo.attributes.position;
+      const v = new THREE.Vector3();
+      for (let i = 0; i < bp.count; i++) {
+        v.fromBufferAttribute(bp, i);
+        const groove = 1 + Math.sin(v.x * 28) * Math.sin(v.z * 26) * 0.05;
+        v.multiplyScalar(groove);
+        bp.setXYZ(i, v.x, Math.max(v.y, -0.05), v.z);
+      }
+      brainGeo.computeVertexNormals();
+      const brain = new THREE.Mesh(brainGeo, brainCoralMat);
+      brain.scale.set(1, 0.7, 1);
+      brain.position.set(rx - 0.55 * sc, -poolDepth + 0.42, rz - 0.3);
+      group.add(brain);
+    } else if (idx % 3 === 1) {
+      const fanShape = new THREE.Shape();
+      fanShape.moveTo(0, 0);
+      fanShape.quadraticCurveTo(-0.55 * sc, 0.45 * sc, -0.38 * sc, 0.85 * sc);
+      fanShape.quadraticCurveTo(0, 1.05 * sc, 0.38 * sc, 0.85 * sc);
+      fanShape.quadraticCurveTo(0.55 * sc, 0.45 * sc, 0, 0);
+      const fan = new THREE.Mesh(new THREE.ShapeGeometry(fanShape, 10), seaFanMat);
+      fan.position.set(rx + 0.5 * sc, -poolDepth + 0.45, rz - 0.2);
+      fan.rotation.y = idx * 0.9;
+      group.add(fan);
+    } else {
+      [0, 1].forEach((t) => {
+        const tubeH = (0.42 + t * 0.22) * sc;
+        const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.075 * sc, 0.06 * sc, tubeH, 10, 1, true), spongeMat);
+        tube.position.set(rx - 0.4 + t * 0.16, -poolDepth + 0.35 + tubeH / 2, rz + 0.35);
+        group.add(tube);
+      });
+    }
+
+    // 2–3 kelp ribbons per reef cluster, rooted in the sand
+    const kelpCount = idx % 2 === 0 ? 3 : 2;
+    for (let k = 0; k < kelpCount; k++) {
+      const kH = 1.9 + ((idx + k) % 3) * 0.7;
+      const kelpGeo = buildRibbonGeometry(0.2 + (k % 2) * 0.06, kH, 12, kelpBase, kelpTip, 0.3);
+      const kelp = new THREE.Mesh(kelpGeo, kelpMat);
+      const baseY = -poolDepth + 0.3;
+      kelp.position.set(rx + (k - 1) * 0.32, baseY, rz + 0.25 + (k % 2) * 0.12);
       kelp.rotation.y = idx * 0.85 + k * 1.1;
       group.add(kelp);
-      kelpBlades.push({ mesh: kelp, phase: idx * 0.7 + k * 1.1, baseY });
+      kelpRibbons.push({
+        geo: kelpGeo,
+        rest: Float32Array.from(kelpGeo.attributes.position.array as ArrayLike<number>),
+        height: kH,
+        phase: idx * 0.7 + k * 1.3,
+      });
     }
   });
 
@@ -803,10 +927,47 @@ function buildFreediveCrimsonMemory(): BuiltMemoryModel {
   group.add(underwaterLightDeep);
 
   const godRays: THREE.Mesh[] = [];
-  const rayMat = new THREE.MeshBasicMaterial({
-    color: '#BAE6FD',
+  // Volumetric-looking light shafts: brightness falls off toward the cone's silhouette (so no
+  // hard edges), fades out with depth, and shimmers slowly — instead of flat 12% white cones.
+  const rayUniforms = {
+    uTime: { value: 0 },
+    uColor: { value: new THREE.Color('#CFEFFF') },
+    uIntensity: { value: 0.2 },
+  };
+  const rayMat = new THREE.ShaderMaterial({
+    uniforms: rayUniforms,
+    vertexShader: `
+      varying vec3 vNormalW;
+      varying vec3 vViewDir;
+      varying float vAlong;
+      varying float vAngle;
+      void main() {
+        vec4 wp = modelMatrix * vec4(position, 1.0);
+        vNormalW = normalize(mat3(modelMatrix) * normal);
+        vViewDir = normalize(cameraPosition - wp.xyz);
+        vAlong = uv.y;          // 1 at the surface end, 0 at the deep end
+        vAngle = uv.x * 6.2831;
+        gl_Position = projectionMatrix * viewMatrix * wp;
+      }
+    `,
+    fragmentShader: `
+      uniform float uTime;
+      uniform vec3 uColor;
+      uniform float uIntensity;
+      varying vec3 vNormalW;
+      varying vec3 vViewDir;
+      varying float vAlong;
+      varying float vAngle;
+      void main() {
+        float facing = abs(dot(normalize(vNormalW), normalize(vViewDir)));
+        float core = pow(facing, 2.4);
+        float depthFade = smoothstep(0.0, 0.85, vAlong);
+        float streaks = 0.72 + 0.28 * sin(vAngle * 5.0 + uTime * 0.6) * sin(vAlong * 9.0 - uTime * 0.9);
+        float a = core * depthFade * streaks * uIntensity;
+        gl_FragColor = vec4(uColor, a); // AdditiveBlending already multiplies by alpha
+      }
+    `,
     transparent: true,
-    opacity: 0.12,
     depthWrite: false,
     side: THREE.DoubleSide,
     blending: THREE.AdditiveBlending,
@@ -820,7 +981,7 @@ function buildFreediveCrimsonMemory(): BuiltMemoryModel {
     [1.4, 1.8, 0.68],
     [0.0, -2.8, 0.88],
   ].forEach(([rx, rz, rRad]) => {
-    const ray = new THREE.Mesh(new THREE.ConeGeometry(rRad, poolDepth - 0.5, 16, 1, true), rayMat);
+    const ray = new THREE.Mesh(new THREE.ConeGeometry(rRad, poolDepth - 0.5, 24, 6, true), rayMat);
     ray.position.set(rx, -poolDepth * 0.46, rz);
     ray.rotation.z = -0.18;
     group.add(ray);
@@ -968,40 +1129,55 @@ function buildFreediveCrimsonMemory(): BuiltMemoryModel {
   diver.add(makeBentArm(1, 1.62, 1.54, false));
   diver.add(makeBentArm(-1, 1.52, 1.22, true));
 
-  // Softly bent legs + sleek tapered carbon-black freediving fins with side rails
+  // Softly bent legs + long carbon freediving bi-fins
+  const finFootMat = new THREE.MeshStandardMaterial({ color: '#1F2937', roughness: 0.5 });
+  const finBladeMat = new THREE.MeshStandardMaterial({
+    color: '#111827',
+    roughness: 0.3,
+    metalness: 0.35,
+    side: THREE.DoubleSide,
+  });
+  const finShape = new THREE.Shape();
+  finShape.moveTo(-0.065, 0);
+  finShape.lineTo(-0.105, -0.58);
+  finShape.quadraticCurveTo(0, -0.86, 0.105, -0.58);
+  finShape.lineTo(0.065, 0);
+  finShape.lineTo(-0.065, 0);
+  const finBladeGeo = new THREE.ExtrudeGeometry(finShape, { depth: 0.012, bevelEnabled: false, curveSegments: 8 });
+  {
+    const fp = finBladeGeo.attributes.position;
+    for (let i = 0; i < fp.count; i++) {
+      const y = fp.getY(i);
+      fp.setZ(i, fp.getZ(i) - y * y * 0.32); // sweep the blade back as it lengthens
+    }
+    finBladeGeo.computeVertexNormals();
+  }
   const finMeshes: THREE.Group[] = [];
   [-0.105, 0.105].forEach((lx) => {
     const legG = new THREE.Group();
     legG.position.set(lx, 0.98, -0.18);
 
-    const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.098, 0.38, 10, 16), skinMat);
+    // Full-length wetsuit legs (bare skin read as grey blocks under the blue light)
+    const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.098, 0.38, 10, 16), wetsuitMat);
     thigh.position.set(0, -0.22, 0.09);
     thigh.rotation.x = -0.38;
     legG.add(thigh);
 
-    const shin = new THREE.Mesh(new THREE.CapsuleGeometry(0.07, 0.38, 10, 16), skinMat);
+    const shin = new THREE.Mesh(new THREE.CapsuleGeometry(0.07, 0.38, 10, 16), wetsuitMat);
     shin.position.set(0, -0.6, 0.05);
     shin.rotation.x = 0.45;
     legG.add(shin);
 
     const finGroup = new THREE.Group();
     finGroup.position.set(0, -0.85, -0.05);
-    const pocket = new THREE.Mesh(new THREE.BoxGeometry(0.118, 0.1, 0.22), wetsuitMat);
+    const pocket = new THREE.Mesh(new THREE.CapsuleGeometry(0.06, 0.12, 6, 10), finFootMat);
+    pocket.rotation.x = 0.4;
     finGroup.add(pocket);
-    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.018, 0.64), wetsuitMat);
-    blade.position.set(0, -0.19, -0.2);
-    blade.rotation.x = 0.72;
+    // Long, gently curved carbon blade with a rounded tip — the freediver's signature bi-fin.
+    const blade = new THREE.Mesh(finBladeGeo, finBladeMat);
+    blade.position.set(0, -0.06, -0.04);
+    blade.rotation.x = 0.32;
     finGroup.add(blade);
-    // Subtle cyan-white water rail edges on the freediving fin blade
-    [-0.076, 0.076].forEach((rx) => {
-      const rail = new THREE.Mesh(
-        new THREE.BoxGeometry(0.014, 0.024, 0.62),
-        new THREE.MeshStandardMaterial({ color: '#334155', roughness: 0.4 })
-      );
-      rail.position.set(rx, -0.19, -0.2);
-      rail.rotation.x = 0.72;
-      finGroup.add(rail);
-    });
     legG.add(finGroup);
 
     diver.add(legG);
@@ -1012,36 +1188,56 @@ function buildFreediveCrimsonMemory(): BuiltMemoryModel {
   // --------------------------------------------------------------------------
   // E. GRACEFUL GLIDING MANTA RAY, 18 SCHOOLING FISH & 36 RISING BUBBLES
   // --------------------------------------------------------------------------
+  // Manta: one swept-wing body (grid shaped into a diamond, thick at the spine, thin at the
+  // tips). The same geometry is drawn twice — dark navy seen from above, pale belly from below —
+  // and update() runs a travelling wave out along the wings.
   const mantaGroup = new THREE.Group();
-  const mantaTopMat = new THREE.MeshStandardMaterial({ color: '#1E3A5F', roughness: 0.45 });
-  const mantaBellyMat = new THREE.MeshStandardMaterial({ color: '#CBD5E1', roughness: 0.5 });
-  const mantaBody = new THREE.Mesh(new THREE.SphereGeometry(0.55, 16, 12), mantaTopMat);
-  mantaBody.scale.set(1.2, 0.24, 1.5);
-  mantaGroup.add(mantaBody);
-  const mantaBelly = new THREE.Mesh(new THREE.SphereGeometry(0.5, 14, 10), mantaBellyMat);
-  mantaBelly.scale.set(1.1, 0.16, 1.35);
-  mantaBelly.position.y = -0.06;
-  mantaGroup.add(mantaBelly);
-
-  const makeMantaWing = (side: -1 | 1) => {
-    const wg = new THREE.Group();
-    wg.position.set(side * 0.45, 0, 0.05);
-    const wing = new THREE.Mesh(new THREE.ConeGeometry(0.65, 1.45, 4), mantaTopMat);
-    wing.rotation.z = side * (-Math.PI / 2);
-    wing.scale.set(0.22, 1, 1.15);
-    wing.position.set(side * 0.68, 0, -0.05);
-    wg.add(wing);
-    return wg;
-  };
-  const mantaLeftWing = makeMantaWing(-1);
-  const mantaRightWing = makeMantaWing(1);
-  const mantaTail = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.04, 1.5, 8), mantaTopMat);
+  const mantaGeo = new THREE.PlaneGeometry(2.8, 1.4, 28, 12);
+  mantaGeo.rotateX(-Math.PI / 2);
+  {
+    const mp = mantaGeo.attributes.position;
+    for (let i = 0; i < mp.count; i++) {
+      const x = mp.getX(i);
+      const zNorm = mp.getZ(i) / 0.7; // -1..1
+      // 0 at the spine, 1 at the wingtip. Clamped: |x| can land a hair past 1.4 in float32, and
+      // Math.pow(negative, 0.9) is NaN.
+      const ax = Math.min(1, Math.abs(x) / 1.4);
+      const halfChord = 0.72 * Math.pow(1 - Math.pow(ax, 1.5), 0.9) + 0.02;
+      const sweep = -ax * 0.5; // wingtips trail backwards
+      const bulge = 0.13 * Math.exp(-x * x * 5) * (1 - zNorm * zNorm);
+      mp.setXYZ(i, x, bulge, zNorm * halfChord + sweep);
+    }
+    mantaGeo.computeVertexNormals();
+  }
+  const mantaRest = Float32Array.from(mantaGeo.attributes.position.array as ArrayLike<number>);
+  const mantaTop = new THREE.Mesh(
+    mantaGeo,
+    new THREE.MeshStandardMaterial({ color: '#1E3A5F', roughness: 0.5, side: THREE.FrontSide })
+  );
+  const mantaBelly = new THREE.Mesh(
+    mantaGeo,
+    new THREE.MeshStandardMaterial({ color: '#D7E3EC', roughness: 0.55, side: THREE.BackSide })
+  );
+  const mantaTail = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.008, 0.035, 1.4, 8),
+    new THREE.MeshStandardMaterial({ color: '#1E3A5F', roughness: 0.5 })
+  );
   mantaTail.rotation.x = Math.PI / 2;
-  mantaTail.position.set(0, 0, -1.35);
-  mantaGroup.add(mantaLeftWing, mantaRightWing, mantaTail);
+  mantaTail.position.set(0, 0.02, -1.35);
+  // Cephalic fins: the two curled lobes either side of the mouth
+  const lobeMat = new THREE.MeshStandardMaterial({ color: '#1E3A5F', roughness: 0.5 });
+  [-0.22, 0.22].forEach((lx) => {
+    const lobe = new THREE.Mesh(new THREE.CapsuleGeometry(0.035, 0.16, 4, 8), lobeMat);
+    lobe.rotation.x = Math.PI / 2 - 0.3;
+    lobe.position.set(lx, 0.02, 0.78);
+    mantaGroup.add(lobe);
+  });
+  mantaGroup.add(mantaTop, mantaBelly, mantaTail);
+  mantaGroup.scale.setScalar(1.15);
   group.add(mantaGroup);
 
-  // 18 Schooling Silver-Cyan Fish with animated wagging tails
+  // Three small schools (golden, coral-orange, sky-blue) that orbit as groups, each fish with
+  // a forked tail, a dorsal fin and its own wobble around the school's leader.
   const fishes: {
     mesh: THREE.Group;
     tail: THREE.Mesh;
@@ -1049,27 +1245,62 @@ function buildFreediveCrimsonMemory(): BuiltMemoryModel {
     y: number;
     speed: number;
     phase: number;
+    offset: THREE.Vector3;
   }[] = [];
-  const fishMat = new THREE.MeshStandardMaterial({ color: '#E0F2FE', roughness: 0.18, metalness: 0.72 });
-  for (let f = 0; f < 18; f++) {
-    const fg = new THREE.Group();
-    const fScale = 0.75 + (f % 3) * 0.22;
-    const fBody = new THREE.Mesh(new THREE.SphereGeometry(0.08 * fScale, 10, 8), fishMat);
-    fBody.scale.set(1.75, 0.65, 0.5);
-    const fTail = new THREE.Mesh(new THREE.ConeGeometry(0.052 * fScale, 0.11 * fScale, 4), fishMat);
-    fTail.rotation.z = -Math.PI / 2;
-    fTail.position.x = -0.14 * fScale;
-    fg.add(fBody, fTail);
-    group.add(fg);
-    fishes.push({
-      mesh: fg,
-      tail: fTail,
-      radius: 1.4 + (f % 5) * 0.72,
-      y: -0.75 - (f % 5) * 0.75,
-      speed: 0.3 + (f % 4) * 0.1,
-      phase: f * 0.42,
+  const fishBodyGeo = new THREE.SphereGeometry(0.08, 14, 10);
+  fishBodyGeo.scale(1.9, 0.78, 0.48);
+  const tailShape = new THREE.Shape();
+  tailShape.moveTo(0, 0);
+  tailShape.lineTo(-0.11, 0.075);
+  tailShape.lineTo(-0.085, 0);
+  tailShape.lineTo(-0.11, -0.075);
+  tailShape.lineTo(0, 0);
+  const fishTailGeo = new THREE.ShapeGeometry(tailShape);
+  const finShapeDorsal = new THREE.Shape();
+  finShapeDorsal.moveTo(-0.05, 0);
+  finShapeDorsal.lineTo(0.0, 0.06);
+  finShapeDorsal.lineTo(0.05, 0);
+  const fishFinGeo = new THREE.ShapeGeometry(finShapeDorsal);
+  const schools = [
+    { color: '#FACC15', radius: 2.6, y: -1.6, speed: 0.34, phase: 0 },
+    { color: '#FB923C', radius: 4.2, y: -3.1, speed: 0.26, phase: 2.1 },
+    { color: '#60A5FA', radius: 3.4, y: -4.7, speed: 0.3, phase: 4.2 },
+  ];
+  schools.forEach((school) => {
+    const bodyMat = new THREE.MeshStandardMaterial({ color: school.color, roughness: 0.38, metalness: 0.22 });
+    const finMat = new THREE.MeshStandardMaterial({
+      color: school.color,
+      roughness: 0.5,
+      transparent: true,
+      opacity: 0.85,
+      side: THREE.DoubleSide,
     });
-  }
+    for (let f = 0; f < 7; f++) {
+      const fg = new THREE.Group();
+      const fScale = 0.8 + ((f * 37) % 5) * 0.09;
+      const fBody = new THREE.Mesh(fishBodyGeo, bodyMat);
+      const fTail = new THREE.Mesh(fishTailGeo, finMat);
+      fTail.position.x = -0.13;
+      const fFin = new THREE.Mesh(fishFinGeo, finMat);
+      fFin.position.set(0.01, 0.05, 0);
+      fg.add(fBody, fTail, fFin);
+      fg.scale.setScalar(fScale);
+      group.add(fg);
+      fishes.push({
+        mesh: fg,
+        tail: fTail,
+        radius: school.radius,
+        y: school.y,
+        speed: school.speed,
+        phase: school.phase,
+        offset: new THREE.Vector3(
+          ((f % 3) - 1) * 0.28 + Math.sin(f * 2.3) * 0.1,
+          ((f * 13) % 5) * 0.08 - 0.16,
+          (Math.floor(f / 3) - 1) * 0.3
+        ),
+      });
+    }
+  });
 
   // 36 Rising Shimmering Air Bubbles (including micro-bubble trails near diver & rope)
   const bubbles: { mesh: THREE.Mesh; speed: number; phase: number; bx: number; bz: number }[] = [];
@@ -1131,12 +1362,24 @@ function buildFreediveCrimsonMemory(): BuiltMemoryModel {
       godRays.forEach((gr, idx) => {
         gr.rotation.z = -0.18 + Math.sin(elapsed * 0.65 + idx) * 0.045;
       });
+      rayUniforms.uTime.value = elapsed;
 
-      kelpBlades.forEach((kb) => {
-        kb.mesh.rotation.z = Math.sin(elapsed * 1.25 + kb.phase) * 0.2;
+      // Kelp bends like a ribbon: root fixed, sway growing toward the tip, with a wave
+      // travelling up the blade.
+      kelpRibbons.forEach((kr) => {
+        const pos = kr.geo.attributes.position;
+        for (let i = 0; i < pos.count; i++) {
+          const ry = kr.rest[i * 3 + 1];
+          const t = ry / kr.height;
+          const bend = Math.pow(t, 1.6);
+          const wave = Math.sin(elapsed * 1.15 + kr.phase - t * 2.4);
+          pos.setX(i, kr.rest[i * 3] + wave * bend * 0.38);
+          pos.setZ(i, kr.rest[i * 3 + 2] + Math.cos(elapsed * 0.8 + kr.phase - t * 1.8) * bend * 0.22);
+        }
+        pos.needsUpdate = true;
       });
 
-      // Graceful Manta Ray gliding slowly in a wide deep-ocean orbit
+      // Manta glides on a wide orbit; a wave rolls out along each wing (tips move most).
       const mAng = elapsed * 0.18;
       const mRad = 7.6;
       mantaGroup.position.set(
@@ -1145,19 +1388,31 @@ function buildFreediveCrimsonMemory(): BuiltMemoryModel {
         Math.sin(mAng) * mRad - 1.2
       );
       mantaGroup.rotation.y = -mAng;
-      const mFlap = Math.sin(elapsed * 1.8) * 0.26;
-      mantaLeftWing.rotation.z = mFlap;
-      mantaRightWing.rotation.z = -mFlap;
+      mantaGroup.rotation.z = Math.sin(elapsed * 0.55) * 0.08; // gentle banking
+      {
+        const mp = mantaGeo.attributes.position;
+        for (let i = 0; i < mp.count; i++) {
+          const x = mantaRest[i * 3];
+          const ax = Math.min(1, Math.abs(x) / 1.4);
+          const flap = Math.sin(elapsed * 1.7 - ax * 2.2 + mantaRest[i * 3 + 2] * 0.8) * Math.pow(ax, 1.4) * 0.42;
+          mp.setY(i, mantaRest[i * 3 + 1] + flap);
+        }
+        mp.needsUpdate = true;
+        mantaGeo.computeVertexNormals();
+      }
 
       fishes.forEach((f) => {
         const a = elapsed * f.speed + f.phase;
+        const cx = Math.cos(a) * f.radius;
+        const cz = Math.sin(a) * (f.radius * 0.82);
+        const wob = Math.sin(elapsed * 1.9 + f.offset.x * 7) * 0.06;
         f.mesh.position.set(
-          Math.cos(a) * f.radius,
-          f.y + Math.sin(elapsed * 1.3 + f.phase) * 0.1,
-          Math.sin(a) * (f.radius * 0.82)
+          cx + f.offset.x * Math.cos(a) - f.offset.z * Math.sin(a),
+          f.y + f.offset.y + Math.sin(elapsed * 1.3 + f.phase + f.offset.z * 3) * 0.08,
+          cz + f.offset.x * Math.sin(a) + f.offset.z * Math.cos(a) + wob
         );
         f.mesh.rotation.y = -a + Math.PI / 2;
-        f.tail.rotation.y = Math.sin(elapsed * 8.5 + f.phase) * 0.35;
+        f.tail.rotation.y = Math.sin(elapsed * 9 + f.phase + f.offset.x * 5) * 0.45;
       });
 
       bubbles.forEach((b) => {
@@ -4667,6 +4922,538 @@ function buildHunauCampusMemory(): BuiltMemoryModel {
   };
 }
 
+// ============================================================================
+// M07: Our Studio — office diorama with the bamboo sword rack, the camping-tent
+// lounge corner, desks with mesh chairs, red-and-gold balloons, and the team
+// crossing their swords for the group photo. Local +z faces the visitor.
+// ============================================================================
+function createCarpetTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    ctx.fillStyle = '#56585C';
+    ctx.fillRect(0, 0, 256, 256);
+    for (let i = 0; i < 5200; i++) {
+      const v = 60 + Math.floor(Math.random() * 90);
+      ctx.fillStyle = `rgb(${v}, ${v + 2}, ${v + 6})`;
+      ctx.fillRect(Math.random() * 256, Math.random() * 256, 1.6, 1.6);
+    }
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(4, 3);
+  return tex;
+}
+
+/** Sword in its scabbard, laid along +x from the pommel (x = 0) to the scabbard tip (x = len). */
+function buildScabbardSword(
+  len: number,
+  scabbardColor: string,
+  fittingColor: string,
+  gripColor: string,
+  tasselColor?: string
+): THREE.Group {
+  const g = new THREE.Group();
+  const fitMat = new THREE.MeshStandardMaterial({ color: fittingColor, roughness: 0.3, metalness: 0.75 });
+  const scabMat = new THREE.MeshStandardMaterial({ color: scabbardColor, roughness: 0.45, metalness: 0.35 });
+  const gripMat = new THREE.MeshStandardMaterial({ color: gripColor, roughness: 0.5, metalness: 0.5 });
+  const hiltLen = len * 0.22;
+
+  const pommel = new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.012, 6, 14), fitMat);
+  pommel.rotation.y = Math.PI / 2;
+  g.add(pommel);
+  const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.026, hiltLen, 10), gripMat);
+  grip.rotation.z = Math.PI / 2;
+  grip.position.x = hiltLen / 2 + 0.03;
+  g.add(grip);
+  const guard = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.1, 0.06), fitMat);
+  guard.position.x = hiltLen + 0.04;
+  g.add(guard);
+  const scabLen = len - hiltLen - 0.06;
+  const scab = new THREE.Mesh(new THREE.BoxGeometry(scabLen, 0.052, 0.03), scabMat);
+  scab.position.x = hiltLen + 0.06 + scabLen / 2;
+  scab.castShadow = true;
+  g.add(scab);
+  // Ornamental metal mounts along the scabbard (mouth, middle, chape)
+  [0.04, 0.42, 0.97].forEach((t) => {
+    const mount = new THREE.Mesh(new THREE.BoxGeometry(t > 0.9 ? 0.09 : 0.06, 0.06, 0.036), fitMat);
+    mount.position.x = hiltLen + 0.06 + scabLen * t;
+    g.add(mount);
+  });
+  if (tasselColor) {
+    const tassel = new THREE.Mesh(
+      new THREE.ConeGeometry(0.018, 0.16, 6),
+      new THREE.MeshStandardMaterial({ color: tasselColor, roughness: 0.8 })
+    );
+    tassel.position.set(hiltLen + 0.06, -0.11, 0);
+    tassel.rotation.z = Math.PI;
+    g.add(tassel);
+  }
+  return g;
+}
+
+/** Orient an object whose long axis is +x so it runs from point a toward point b. */
+function alignAlongX(obj: THREE.Object3D, a: THREE.Vector3, b: THREE.Vector3) {
+  const dir = b.clone().sub(a).normalize();
+  obj.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), dir);
+  obj.position.copy(a);
+}
+
+function buildCompanyStudioMemory(): BuiltMemoryModel {
+  const group = new THREE.Group();
+  const wallMat = new THREE.MeshStandardMaterial({ color: '#F1F0EC', roughness: 0.92 });
+  const ceilingMat = new THREE.MeshStandardMaterial({ color: '#3B3D42', roughness: 0.85 });
+  const pipeMat = new THREE.MeshStandardMaterial({ color: '#B8BBC0', roughness: 0.5, metalness: 0.4 });
+  const bambooMat = new THREE.MeshStandardMaterial({ color: '#D8B27A', roughness: 0.7 });
+  const deskMat = new THREE.MeshStandardMaterial({ color: '#F4F4F2', roughness: 0.6 });
+  const canvasMat = new THREE.MeshStandardMaterial({ color: '#E9DFC8', roughness: 0.95 });
+  const woodFrameMat = new THREE.MeshStandardMaterial({ color: '#C9A063', roughness: 0.55, metalness: 0.2 });
+  const blackMetalMat = new THREE.MeshStandardMaterial({ color: '#1F2023', roughness: 0.45, metalness: 0.5 });
+
+  // --- 1. Floor (speckled office carpet), walls and exposed ceiling --------------------------
+  // Thick plinth so the carpet clears the island's grassy dome (top surface at y = 0.2 before
+  // the whole room is lifted below).
+  const floor = new THREE.Mesh(
+    new THREE.BoxGeometry(9.2, 0.7, 7),
+    new THREE.MeshStandardMaterial({ map: createCarpetTexture(), roughness: 0.98 })
+  );
+  floor.position.y = -0.15;
+  floor.receiveShadow = true;
+  group.add(floor);
+
+  const backWall = new THREE.Mesh(new THREE.BoxGeometry(9.2, 3.0, 0.14), wallMat);
+  backWall.position.set(0, 1.7, -3.43);
+  backWall.receiveShadow = true;
+  group.add(backWall);
+  const sideWall = new THREE.Mesh(new THREE.BoxGeometry(0.14, 3.0, 7), wallMat);
+  sideWall.position.set(-4.53, 1.7, 0);
+  sideWall.receiveShadow = true;
+  group.add(sideWall);
+  // Dark exposed-ceiling band + utility pipes + ducting, as in the photos
+  const ceilingBand = new THREE.Mesh(new THREE.BoxGeometry(9.2, 0.32, 0.9), ceilingMat);
+  ceilingBand.position.set(0, 3.36, -3.0);
+  group.add(ceilingBand);
+  const ceilingSide = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.32, 7), ceilingMat);
+  ceilingSide.position.set(-4.1, 3.36, 0);
+  group.add(ceilingSide);
+  [-2.75, -2.55].forEach((pz, i) => {
+    const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.045 + i * 0.02, 0.045 + i * 0.02, 9.0, 10), pipeMat);
+    pipe.rotation.z = Math.PI / 2;
+    pipe.position.set(0, 3.05 - i * 0.12, pz);
+    group.add(pipe);
+  });
+  const duct = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 6.6, 14), pipeMat);
+  duct.rotation.x = Math.PI / 2;
+  duct.position.set(-3.95, 2.98, 0);
+  group.add(duct);
+
+  // Hanging linear LED + pendant lamp over the lounge corner
+  const ledBar = new THREE.Mesh(
+    new THREE.BoxGeometry(1.7, 0.05, 0.1),
+    new THREE.MeshStandardMaterial({ color: '#F8FAFC', emissive: '#F1F5F9', emissiveIntensity: 1.4 })
+  );
+  ledBar.position.set(0.4, 2.55, -0.6);
+  group.add(ledBar);
+  [-0.7, 0.7].forEach((wx) => {
+    const wire = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.7, 4), blackMetalMat);
+    wire.position.set(0.4 + wx, 2.92, -0.6);
+    group.add(wire);
+  });
+  const pendant = new THREE.Mesh(
+    new THREE.SphereGeometry(0.13, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2),
+    new THREE.MeshStandardMaterial({ color: '#2A9D8F', roughness: 0.4, metalness: 0.3, side: THREE.DoubleSide })
+  );
+  pendant.rotation.x = Math.PI;
+  pendant.position.set(1.9, 2.55, -1.2);
+  group.add(pendant);
+  const bulb = new THREE.Mesh(
+    new THREE.SphereGeometry(0.06, 10, 8),
+    new THREE.MeshStandardMaterial({ color: '#FFF7E0', emissive: '#FFE8B0', emissiveIntensity: 2 })
+  );
+  bulb.position.set(1.9, 2.5, -1.2);
+  group.add(bulb);
+  const roomLight = new THREE.PointLight('#FFF1DC', 1.4, 9, 1.6);
+  roomLight.position.set(0.6, 2.4, -0.4);
+  group.add(roomLight);
+
+  // --- 2. Camping corner: beige tent, folding chairs, black roll-top table ------------------
+  const tent = new THREE.Group();
+  tent.position.set(2.45, 0.2, -1.75);
+  const tentBodyGeo = new THREE.CylinderGeometry(1.25, 1.45, 1.55, 4, 4, true);
+  tentBodyGeo.rotateY(Math.PI / 4);
+  {
+    // Fabric wrinkles: small, smooth-ish displacement of the walls
+    const tp = tentBodyGeo.attributes.position;
+    for (let i = 0; i < tp.count; i++) {
+      const x = tp.getX(i);
+      const y = tp.getY(i);
+      const z = tp.getZ(i);
+      const w = Math.sin(x * 7.3 + y * 4.1) * Math.cos(z * 6.7 - y * 3.3) * 0.025;
+      tp.setXYZ(i, x * (1 + w), y, z * (1 + w));
+    }
+    tentBodyGeo.computeVertexNormals();
+  }
+  const tentFabric = new THREE.MeshStandardMaterial({ color: '#E8DCC2', roughness: 0.96, side: THREE.DoubleSide });
+  const tentBody = new THREE.Mesh(tentBodyGeo, tentFabric);
+  tentBody.position.y = 0.775;
+  tentBody.castShadow = true;
+  tentBody.receiveShadow = true;
+  tent.add(tentBody);
+  const roofGeo = new THREE.ConeGeometry(1.42, 0.9, 4, 1, true);
+  roofGeo.rotateY(Math.PI / 4);
+  const roof = new THREE.Mesh(roofGeo, tentFabric);
+  roof.position.y = 1.55 + 0.45;
+  roof.castShadow = true;
+  tent.add(roof);
+  // Rolled-up door on the front face: dark opening + a tied fabric roll above it
+  const doorway = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.62, 1.2),
+    new THREE.MeshStandardMaterial({ color: '#3A3326', roughness: 1 })
+  );
+  doorway.position.set(0.2, 0.62, 0.975);
+  doorway.rotation.x = -0.09;
+  tent.add(doorway);
+  const doorRoll = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.66, 10), tentFabric);
+  doorRoll.rotation.z = Math.PI / 2;
+  doorRoll.position.set(0.2, 1.26, 0.97);
+  tent.add(doorRoll);
+  // Guy ropes from the roof corners down to stakes
+  const ropeMat = new THREE.MeshStandardMaterial({ color: '#A0743F', roughness: 0.8 });
+  [
+    [1, 1],
+    [-1, 1],
+    [1, -1],
+  ].forEach(([sx, sz]) => {
+    const a = new THREE.Vector3(sx * 0.9, 1.55, sz * 0.9);
+    const b = new THREE.Vector3(sx * 1.55, 0.02, sz * 1.55);
+    const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 1, 4), ropeMat);
+    rope.position.copy(a).add(b).multiplyScalar(0.5);
+    rope.scale.y = a.distanceTo(b);
+    rope.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+    tent.add(rope);
+  });
+  group.add(tent);
+
+  const buildFoldingChair = () => {
+    const c = new THREE.Group();
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.035, 0.42), canvasMat);
+    seat.position.y = 0.38;
+    const back = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.42, 0.03), canvasMat);
+    back.position.set(0, 0.66, -0.22);
+    back.rotation.x = -0.16;
+    c.add(seat, back);
+    [-0.27, 0.27].forEach((ax) => {
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.035, 0.5), woodFrameMat);
+      arm.position.set(ax, 0.56, -0.02);
+      c.add(arm);
+      [-1, 1].forEach((dz) => {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.62, 6), woodFrameMat);
+        leg.position.set(ax, 0.29, dz * 0.08);
+        leg.rotation.x = dz * 0.55; // the X-frame of a folding chair
+        c.add(leg);
+      });
+    });
+    c.traverse((o) => ((o as THREE.Mesh).castShadow = true));
+    return c;
+  };
+  const table = new THREE.Group();
+  table.position.set(0.7, 0.2, 0.15);
+  const tableTop = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.04, 0.62), blackMetalMat);
+  tableTop.position.y = 0.56;
+  tableTop.castShadow = true;
+  table.add(tableTop);
+  [
+    [-0.52, -0.26],
+    [0.52, -0.26],
+    [-0.52, 0.26],
+    [0.52, 0.26],
+  ].forEach(([lx, lz]) => {
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.54, 6), blackMetalMat);
+    leg.position.set(lx, 0.27, lz);
+    table.add(leg);
+  });
+  group.add(table);
+  [
+    [-0.15, 0.55, 0.9],
+    [1.55, 0.55, -0.9],
+    [0.7, -0.35, 0],
+    [0.95, 1.0, Math.PI],
+  ].forEach(([cx, cz, ry]) => {
+    const chair = buildFoldingChair();
+    chair.position.set(cx, 0.2, cz);
+    chair.rotation.y = ry;
+    group.add(chair);
+  });
+
+  // --- 3. Bamboo sword rack: four swords across, three standing behind ----------------------
+  const rack = new THREE.Group();
+  rack.position.set(-2.3, 0.2, -2.35);
+  [-0.82, 0.82].forEach((ux) => {
+    const upright = new THREE.Mesh(new THREE.BoxGeometry(0.07, 1.75, 0.34), bambooMat);
+    upright.position.set(ux, 0.875, 0);
+    upright.castShadow = true;
+    rack.add(upright);
+    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.07, 0.62), bambooMat);
+    foot.position.set(ux, 0.035, 0);
+    rack.add(foot);
+    // Cradle notches: little bamboo hooks under each sword
+    [0.48, 0.84, 1.2, 1.56].forEach((ny) => {
+      const hook = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.05, 0.08), bambooMat);
+      hook.position.set(ux, ny - 0.05, 0.15);
+      rack.add(hook);
+    });
+  });
+  [0.22, 0.98].forEach((sy) => {
+    const slat = new THREE.Mesh(new THREE.BoxGeometry(1.64, 0.06, 0.03), bambooMat);
+    slat.position.set(0, sy, -0.1);
+    rack.add(slat);
+  });
+  const rackSwords: [string, string, string, string][] = [
+    ['#D9C08A', '#7A5B2E', '#6B4A26', '#4A3A2A'], // pale-gold scabbard, bronze dragon mounts
+    ['#E3C35A', '#C9A227', '#E0B93B', '#F2A93B'], // brass-gold with yellow tassel
+    ['#1D1E22', '#B88A3E', '#2A2B30', '#18181B'], // black with gilt mounts
+    ['#253A6B', '#C99A3E', '#9C7A3C', '#18181B'], // navy with gilt mounts
+  ];
+  rackSwords.forEach(([scab, fit, grip, tassel], i) => {
+    const sword = buildScabbardSword(2.15, scab, fit, grip, tassel);
+    sword.rotation.y = Math.PI; // pommel to the right, as on the real rack
+    sword.position.set(1.12, 1.56 - i * 0.36, 0.15);
+    rack.add(sword);
+  });
+  (
+    [
+      [-0.28, '#E5E7EB', '#D4AF37'],
+      [0.18, '#D1D5DB', '#9CA3AF'],
+      [0.55, '#6B1E22', '#4A1416'],
+    ] as [number, string, string][]
+  ).forEach(([vx, scab, fit]) => {
+    const sword = buildScabbardSword(2.0, scab, fit, fit);
+    sword.rotation.z = -Math.PI / 2; // standing up: pommel at the top, scabbard tip on the floor
+    sword.position.set(vx, 2.05, -0.2);
+    sword.rotation.y = 0.04;
+    rack.add(sword);
+  });
+  group.add(rack);
+
+  // --- 4. Desks with drawer pedestals, mesh chairs, money tree, guitar case -----------------
+  const buildMeshChair = () => {
+    const c = new THREE.Group();
+    const greyMat = new THREE.MeshStandardMaterial({ color: '#8E9298', roughness: 0.7 });
+    const frameMat = new THREE.MeshStandardMaterial({ color: '#DADBDD', roughness: 0.4, metalness: 0.2 });
+    const meshMat = new THREE.MeshStandardMaterial({
+      color: '#6B6F75',
+      roughness: 0.8,
+      transparent: true,
+      opacity: 0.82,
+    });
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.08, 0.48), greyMat);
+    seat.position.y = 0.5;
+    const back = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.62, 0.04), meshMat);
+    back.position.set(0, 0.9, -0.24);
+    back.rotation.x = -0.1;
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.14, 0.05), meshMat);
+    head.position.set(0, 1.3, -0.29);
+    const lift = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.36, 8), frameMat);
+    lift.position.y = 0.28;
+    c.add(seat, back, head, lift);
+    for (let k = 0; k < 5; k++) {
+      const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.03, 0.04), frameMat);
+      const a = (k / 5) * Math.PI * 2;
+      spoke.position.set(Math.cos(a) * 0.15, 0.08, Math.sin(a) * 0.15);
+      spoke.rotation.y = -a;
+      c.add(spoke);
+    }
+    c.traverse((o) => ((o as THREE.Mesh).castShadow = true));
+    return c;
+  };
+  [-0.35, 1.25].forEach((dz, i) => {
+    const desk = new THREE.Group();
+    desk.position.set(-3.75, 0.2, dz);
+    const top = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.05, 1.45), deskMat);
+    top.position.y = 0.76;
+    top.castShadow = true;
+    const pedestal = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.7, 0.42), deskMat);
+    pedestal.position.set(0, 0.36, 0.45);
+    const legA = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.74, 0.04), deskMat);
+    legA.position.set(0, 0.37, -0.68);
+    desk.add(top, pedestal, legA);
+    group.add(desk);
+    const chair = buildMeshChair();
+    chair.position.set(-3.0, 0.2, dz - 0.1);
+    chair.rotation.y = -Math.PI / 2 + (i ? 0.3 : -0.2);
+    group.add(chair);
+  });
+  // Money tree in a glass pot on the desk
+  const pot = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.1, 0.08, 0.2, 12),
+    new THREE.MeshStandardMaterial({ color: '#9BD5C2', roughness: 0.15, transparent: true, opacity: 0.75 })
+  );
+  pot.position.set(-3.85, 1.11, -0.85);
+  group.add(pot);
+  const plantMat = new THREE.MeshStandardMaterial({ color: '#3F8F3A', roughness: 0.75, flatShading: true });
+  for (let p = 0; p < 6; p++) {
+    const leaf = new THREE.Mesh(new THREE.IcosahedronGeometry(0.11, 0), plantMat);
+    leaf.position.set(-3.85 + Math.cos(p * 1.2) * 0.13, 1.42 + (p % 3) * 0.1, -0.85 + Math.sin(p * 1.2) * 0.13);
+    leaf.scale.set(1.3, 0.55, 1.3);
+    group.add(leaf);
+  }
+  // Guitar case leaning on the back wall
+  const guitarCase = new THREE.Mesh(
+    new THREE.CapsuleGeometry(0.2, 0.7, 6, 12),
+    new THREE.MeshStandardMaterial({ color: '#EDEAE3', roughness: 0.7 })
+  );
+  guitarCase.scale.set(1, 1, 0.38);
+  guitarCase.position.set(-4.2, 0.78, -3.1);
+  guitarCase.rotation.z = -0.12;
+  group.add(guitarCase);
+
+  // --- 5. Red & gold balloon columns (the celebration day) -----------------------------------
+  const balloonRed = new THREE.MeshStandardMaterial({ color: '#D1293A', roughness: 0.35, metalness: 0.1 });
+  const balloonGold = new THREE.MeshStandardMaterial({ color: '#E3B53E', roughness: 0.3, metalness: 0.35 });
+  const balloonColumns: THREE.Group[] = [];
+  [-3.9, 3.95].forEach((bx) => {
+    const col = new THREE.Group();
+    col.position.set(bx, 0.2, 2.75);
+    for (let lvl = 0; lvl < 6; lvl++) {
+      for (let k = 0; k < 3; k++) {
+        const a = (k / 3) * Math.PI * 2 + lvl * 0.6;
+        const b = new THREE.Mesh(new THREE.SphereGeometry(0.17, 14, 10), (lvl + k) % 3 === 0 ? balloonGold : balloonRed);
+        b.position.set(Math.cos(a) * 0.16, 0.2 + lvl * 0.26, Math.sin(a) * 0.16);
+        col.add(b);
+      }
+    }
+    const topper = new THREE.Mesh(new THREE.SphereGeometry(0.26, 16, 12), balloonRed);
+    topper.position.y = 1.9;
+    col.add(topper);
+    group.add(col);
+    balloonColumns.push(col);
+  });
+
+  // --- 6. The team, crossing swords for the group photo ---------------------------------------
+  const crossPoint = new THREE.Vector3(0, 2.1, 1.85);
+  const s = 0.86;
+  const team: {
+    x: number;
+    z: number;
+    side: -1 | 1; // which hand is raised toward the centre
+    look: Parameters<typeof buildRefinedCharacter>[0];
+    sword: [string, string, string];
+  }[] = [
+    {
+      x: -2.55,
+      z: 2.15,
+      side: 1,
+      look: { torsoColor: '#F4F4F1', pantsColor: '#CDBF9F', shoeColor: '#4A3426', hairStyle: 'short' },
+      sword: ['#D9C08A', '#7A5B2E', '#6B4A26'],
+    },
+    {
+      x: -1.6,
+      z: 2.6,
+      side: 1,
+      look: { torsoColor: '#1F2A44', pantsColor: '#5B7DB1', hairStyle: 'medium-parted' },
+      sword: ['#1D1E22', '#B88A3E', '#2A2B30'],
+    },
+    {
+      x: -0.85,
+      z: 1.45,
+      side: 1,
+      look: { torsoColor: '#B9C3CD', pantsColor: '#2B3445', glasses: true, hairStyle: 'short' },
+      sword: ['#E5E7EB', '#D4AF37', '#D4AF37'],
+    },
+    {
+      x: 0.2,
+      z: 1.05,
+      side: -1,
+      look: { torsoColor: '#25262A', pantsColor: '#C9B99A', glasses: true, hairStyle: 'short' },
+      sword: ['#E3C35A', '#C9A227', '#E0B93B'],
+    },
+    {
+      x: 0.85,
+      z: 1.5,
+      side: -1,
+      look: { torsoColor: '#1C1C1F', pantsColor: '#1C1C1F', hairStyle: 'medium-parted' },
+      sword: ['#6B1E22', '#4A1416', '#4A1416'],
+    },
+    {
+      x: 1.6,
+      z: 2.0,
+      side: -1,
+      look: { torsoColor: '#F5F2EC', pantsColor: '#151515', hairStyle: 'long-straight' },
+      sword: ['#D1D5DB', '#9CA3AF', '#9CA3AF'],
+    },
+    {
+      x: 2.55,
+      z: 2.45,
+      side: -1,
+      look: { torsoColor: '#E8E0CF', pantsColor: '#1E2533', glasses: true, hairStyle: 'curly' },
+      sword: ['#D9C08A', '#7A5B2E', '#6B4A26'],
+    },
+  ];
+  team.forEach((m) => {
+    const person = buildRefinedCharacter({
+      ...m.look,
+      peaceRight: m.side === 1,
+      peaceLeft: m.side === -1,
+      scale: s,
+    });
+    person.position.set(m.x, 0.2, m.z);
+    person.rotation.y = -m.x * 0.08; // turn slightly toward the middle
+    group.add(person);
+    // Raised hand, then a sword from that hand into the shared crossing point
+    const hand = new THREE.Vector3(m.x + m.side * 0.49 * s, 0.2 + 1.41 * s, m.z - 0.07 * s);
+    const sword = buildScabbardSword(hand.distanceTo(crossPoint) + 0.45, m.sword[0], m.sword[1], m.sword[2]);
+    alignAlongX(sword, hand.clone().add(crossPoint.clone().sub(hand).normalize().multiplyScalar(-0.1)), crossPoint);
+    group.add(sword);
+  });
+  // A grey tie for the cream-jacket colleague on the right
+  const tie = new THREE.Mesh(
+    new THREE.BoxGeometry(0.05, 0.3, 0.02),
+    new THREE.MeshStandardMaterial({ color: '#3F4A3A', roughness: 0.6 })
+  );
+  tie.position.set(2.55, 0.2 + 1.02 * s, 2.45 + 0.18 * s);
+  group.add(tie);
+  // Sitting in front, cross-legged, holding the blue sword upright
+  const sitter = buildRefinedCharacter({
+    torsoColor: '#17181B',
+    pantsColor: '#17181B',
+    glasses: true,
+    hairStyle: 'medium-parted',
+    sitting: true,
+    scale: s,
+  });
+  sitter.position.set(0.05, 0.2, 2.75);
+  group.add(sitter);
+  const blueSword = buildScabbardSword(1.6, '#2D4A8A', '#C99A3E', '#9C7A3C');
+  blueSword.rotation.z = -Math.PI / 2; // upright, pommel at the top
+  blueSword.position.set(0.12, 1.65, 3.05);
+  group.add(blueSword);
+
+  // Lift the whole room above the island's grassy dome so the carpet and feet aren't buried.
+  const ROOM_LIFT = 0.36;
+  group.children.forEach((child) => {
+    child.position.y += ROOM_LIFT;
+  });
+
+  const beacon = createMemoryBeacon(3.95 + ROOM_LIFT, '#E85D2A');
+  group.add(beacon);
+
+  return {
+    group,
+    beacon,
+    update: (elapsed) => {
+      balloonColumns.forEach((col, i) => {
+        col.position.y = 0.2 + ROOM_LIFT + Math.sin(elapsed * 1.3 + i * 1.7) * 0.03;
+        col.rotation.y = Math.sin(elapsed * 0.6 + i) * 0.05;
+      });
+      roomLight.intensity = 1.35 + Math.sin(elapsed * 0.8) * 0.05;
+      beacon.position.y = 3.95 + ROOM_LIFT + Math.sin(elapsed * 2.0) * 0.14;
+      beacon.rotation.y = elapsed * 1.1;
+    },
+  };
+}
+
 export function buildPersonalMemoryModel(kind: PersonalMemoryKind): BuiltMemoryModel {
   switch (kind) {
     case 'freedive-crimson':
@@ -4681,5 +5468,7 @@ export function buildPersonalMemoryModel(kind: PersonalMemoryKind): BuiltMemoryM
       return buildWinterBrosMemory();
     case 'hunau-campus':
       return buildHunauCampusMemory();
+    case 'company-studio':
+      return buildCompanyStudioMemory();
   }
 }

@@ -31,6 +31,9 @@ import {
   Unlock,
   KeyRound,
   Bookmark,
+  ChevronDown,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { usePhotoContext, Photo } from '../context/PhotoContext';
 import { useTheme } from '../context/ThemeContext';
@@ -740,38 +743,34 @@ function buildSculptedIslandMesh(
   radius: number,
   rockDepth: number,
   topGrassHex: string,
-  beachRimHex: string
+  beachRimHex: string,
+  shoreFoam = false
 ): THREE.Group {
   const group = new THREE.Group();
   group.position.set(center.x, center.y, center.z);
 
-  const grassGeo = new THREE.CylinderGeometry(radius * 0.94, radius * 1.0, 0.7, 48, 8);
+  const coastWaveAt = (angle: number) =>
+    1 + Math.sin(angle * 5 + center.x) * 0.035 + Math.cos(angle * 8 - center.z) * 0.025;
+  // Same dome + ripple as getTerrainHeightAt, so feet, easels and trees stay on the surface.
+  const reliefAt = (vx: number, vz: number) => {
+    const norm = Math.min(1, Math.hypot(vx, vz) / radius);
+    const dome = Math.cos(norm * Math.PI * 0.5) * 0.42;
+    const hill = Math.sin((vx + center.x) * 0.55) * Math.cos((vz + center.z) * 0.55) * 0.09 * (1 - norm);
+    return dome + hill;
+  };
+  const RADIAL = 96;
+
+  // Grass skirt (the island's green side band). Open-ended: the top is a separate subdivided disc.
+  const grassGeo = new THREE.CylinderGeometry(radius * 0.94, radius * 1.0, 0.7, RADIAL, 8, true);
   const posAttr = grassGeo.attributes.position;
   for (let i = 0; i < posAttr.count; i++) {
     const vx = posAttr.getX(i);
     const vy = posAttr.getY(i);
     const vz = posAttr.getZ(i);
-    const dist = Math.hypot(vx, vz);
-    const norm = Math.min(1, dist / radius);
-
-    const angle = Math.atan2(vz, vx);
-    const coastWave =
-      1 +
-      Math.sin(angle * 5 + center.x) * 0.035 +
-      Math.cos(angle * 8 - center.z) * 0.025;
-
+    const coastWave = coastWaveAt(Math.atan2(vz, vx));
     posAttr.setX(i, vx * coastWave);
     posAttr.setZ(i, vz * coastWave);
-
-    if (vy > 0) {
-      const dome = Math.cos(norm * Math.PI * 0.5) * 0.42;
-      const hill =
-        Math.sin((vx + center.x) * 0.55) *
-        Math.cos((vz + center.z) * 0.55) *
-        0.09 *
-        (1 - norm);
-      posAttr.setY(i, vy + dome + hill);
-    }
+    if (vy > 0) posAttr.setY(i, vy + reliefAt(vx, vz));
   }
   grassGeo.computeVertexNormals();
 
@@ -785,6 +784,93 @@ function buildSculptedIslandMesh(
   grassMesh.receiveShadow = true;
   grassMesh.position.y = -0.32;
   group.add(grassMesh);
+
+  // Island top: a polar grid (CylinderGeometry's cap is a single fan, which flattened the
+  // dome into long facets). Its outer ring lands exactly on the skirt's top ring.
+  const RINGS = 16;
+  const topPositions: number[] = [];
+  const topColors: number[] = [];
+  const topIndex: number[] = [];
+  const smooth = (a: number, b: number, t: number) => {
+    const x = Math.min(1, Math.max(0, (t - a) / (b - a)));
+    return x * x * (3 - 2 * x);
+  };
+  const pushTopVertex = (vx: number, vz: number) => {
+    const coastWave = vx === 0 && vz === 0 ? 1 : coastWaveAt(Math.atan2(vz, vx));
+    topPositions.push(vx * coastWave, 0.35 + reliefAt(vx, vz), vz * coastWave);
+    // Painted ground: broad sunny/dry patches, fine mottling, and a darker band toward the rim.
+    const wx = vx + center.x;
+    const wz = vz + center.z;
+    const norm = Math.min(1, Math.hypot(vx, vz) / radius);
+    const patch = 0.5 + 0.5 * Math.sin(wx * 0.37 + Math.cos(wz * 0.21) * 2.0) * Math.cos(wz * 0.33 - wx * 0.12);
+    const fine = 0.5 + 0.5 * Math.sin(wx * 1.7 + wz * 1.3) * Math.sin(wz * 1.9 - wx * 0.7);
+    const k = 0.84 + patch * 0.22 + fine * 0.08 - smooth(0.7, 1.0, norm) * 0.15;
+    const warm = Math.max(0, patch - 0.64) / 0.36;
+    topColors.push(k * (1 + warm * 0.15), k * (1 + warm * 0.05), k * (1 - warm * 0.26));
+  };
+  pushTopVertex(0, 0);
+  for (let r = 1; r <= RINGS; r++) {
+    const rr = radius * 0.94 * (r / RINGS);
+    for (let j = 0; j < RADIAL; j++) {
+      const theta = (j / RADIAL) * Math.PI * 2;
+      pushTopVertex(rr * Math.sin(theta), rr * Math.cos(theta));
+    }
+  }
+  for (let j = 0; j < RADIAL; j++) {
+    topIndex.push(0, 1 + j, 1 + ((j + 1) % RADIAL));
+  }
+  for (let r = 1; r < RINGS; r++) {
+    const a0 = 1 + (r - 1) * RADIAL;
+    const b0 = 1 + r * RADIAL;
+    for (let j = 0; j < RADIAL; j++) {
+      const j1 = (j + 1) % RADIAL;
+      topIndex.push(a0 + j, b0 + j, b0 + j1, a0 + j, b0 + j1, a0 + j1);
+    }
+  }
+  const topGeo = new THREE.BufferGeometry();
+  topGeo.setAttribute('position', new THREE.Float32BufferAttribute(topPositions, 3));
+  topGeo.setAttribute('color', new THREE.Float32BufferAttribute(topColors, 3));
+  topGeo.setIndex(topIndex);
+  topGeo.computeVertexNormals();
+  const topMesh = new THREE.Mesh(
+    topGeo,
+    new THREE.MeshStandardMaterial({ color: topGrassHex, roughness: 0.86, metalness: 0.02, vertexColors: true })
+  );
+  topMesh.castShadow = true;
+  topMesh.receiveShadow = true;
+  topMesh.position.y = -0.32;
+  group.add(topMesh);
+
+  // Soft surf where the island meets the sea: alpha fades outward and breaks up along the coast.
+  if (shoreFoam) {
+    const inner = radius * 0.97;
+    const outer = radius * 1.17;
+    const foamGeo = new THREE.RingGeometry(inner, outer, RADIAL, 3);
+    const fp = foamGeo.attributes.position;
+    const foamColors = new Float32Array(fp.count * 4);
+    for (let i = 0; i < fp.count; i++) {
+      const fx = fp.getX(i);
+      const fy = fp.getY(i);
+      const angle = Math.atan2(fy, fx);
+      const wave = coastWaveAt(Math.atan2(-fy, fx));
+      fp.setX(i, fx * wave);
+      fp.setY(i, fy * wave);
+      const t = (Math.hypot(fx, fy) - inner) / (outer - inner);
+      const breakup = 0.55 + 0.45 * Math.sin(angle * 23 + center.x) * Math.cos(angle * 9 - center.z);
+      foamColors.set([1, 1, 1, (1 - t) * (1 - t) * breakup * 0.85], i * 4);
+    }
+    foamGeo.setAttribute('color', new THREE.BufferAttribute(foamColors, 4));
+    const foam = new THREE.Mesh(
+      foamGeo,
+      new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, opacity: 0.75 })
+    );
+    foam.rotation.x = -Math.PI / 2;
+    foam.position.y = -0.08 - center.y;
+    foam.renderOrder = 2;
+    foam.raycast = () => {}; // never block clicks or count as land
+    foam.userData.isShoreFoam = true;
+    group.add(foam);
+  }
 
   const rimGeo = new THREE.CylinderGeometry(radius * 1.0, radius * 0.95, 0.55, 40, 2);
   const rimPos = rimGeo.attributes.position;
@@ -1407,25 +1493,211 @@ interface ShutterIsland3DProps {
   onExit?: () => void;
 }
 
+// Physical key codes → logical keys, so WASD still works while a Chinese IME is active
+// (e.key reports "Process" then) and on non-QWERTY layouts.
+const KEY_CODE_MAP: Record<string, string> = {
+  KeyW: 'w',
+  KeyA: 'a',
+  KeyS: 's',
+  KeyD: 'd',
+  KeyE: 'e',
+  KeyV: 'v',
+  KeyH: 'h',
+  ArrowUp: 'arrowup',
+  ArrowDown: 'arrowdown',
+  ArrowLeft: 'arrowleft',
+  ArrowRight: 'arrowright',
+  Space: 'space',
+  Escape: 'escape',
+};
+const SCROLL_KEYS = new Set(['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'space']);
+const MY_BOTTLES_STORAGE_KEY = 'shutter_island_my_bottles';
+const normalizeKey = (e: KeyboardEvent) => KEY_CODE_MAP[e.code] ?? e.key.toLowerCase();
+
+// ---------------------------------------------------------------------------
+// HUD palette that follows the time of day (same phases as computeAtmosphere's sky).
+// Each phase has a light-theme and a dark-theme variant; values are RGBA.
+// ---------------------------------------------------------------------------
+type Rgba = [number, number, number, number];
+interface HudPalette {
+  bg: Rgba;
+  bgStrong: Rgba;
+  chip: Rgba;
+  border: Rgba;
+  text: Rgba;
+  muted: Rgba;
+  accent: Rgba;
+  activeBg: Rgba;
+  activeText: Rgba;
+}
+const HUD_NIGHT: HudPalette = {
+  bg: [16, 18, 30, 0.8],
+  bgStrong: [16, 18, 30, 0.92],
+  chip: [34, 38, 58, 0.92],
+  border: [120, 130, 170, 0.3],
+  text: [236, 233, 224, 1],
+  muted: [160, 164, 184, 1],
+  accent: [214, 185, 138, 1],
+  activeBg: [214, 185, 138, 1],
+  activeText: [20, 18, 16, 1],
+};
+const HUD_BLUE: HudPalette = {
+  bg: [26, 32, 58, 0.8],
+  bgStrong: [26, 32, 58, 0.92],
+  chip: [42, 50, 84, 0.92],
+  border: [130, 150, 210, 0.34],
+  text: [232, 236, 248, 1],
+  muted: [164, 176, 210, 1],
+  accent: [172, 190, 242, 1],
+  activeBg: [172, 190, 242, 1],
+  activeText: [18, 22, 40, 1],
+};
+const HUD_PHASES_LIGHT: { dawn: HudPalette; day: HudPalette; golden: HudPalette } = {
+  dawn: {
+    bg: [253, 242, 238, 0.88],
+    bgStrong: [253, 244, 240, 0.95],
+    chip: [248, 228, 222, 0.92],
+    border: [232, 196, 186, 0.85],
+    text: [58, 40, 40, 1],
+    muted: [128, 98, 96, 1],
+    accent: [186, 104, 88, 1],
+    activeBg: [74, 48, 52, 1],
+    activeText: [253, 242, 238, 1],
+  },
+  day: {
+    bg: [250, 249, 245, 0.9],
+    bgStrong: [250, 249, 245, 0.95],
+    chip: [243, 241, 236, 1],
+    border: [230, 226, 216, 1],
+    text: [20, 20, 19, 1],
+    muted: [110, 106, 99, 1],
+    accent: [138, 111, 72, 1],
+    activeBg: [20, 20, 19, 1],
+    activeText: [250, 249, 245, 1],
+  },
+  golden: {
+    bg: [255, 243, 226, 0.88],
+    bgStrong: [255, 245, 230, 0.95],
+    chip: [250, 230, 200, 0.92],
+    border: [235, 196, 146, 0.85],
+    text: [56, 36, 18, 1],
+    muted: [130, 96, 62, 1],
+    accent: [178, 96, 36, 1],
+    activeBg: [74, 44, 20, 1],
+    activeText: [255, 243, 226, 1],
+  },
+};
+const HUD_PHASES_DARK: { dawn: HudPalette; day: HudPalette; golden: HudPalette } = {
+  dawn: {
+    bg: [34, 24, 28, 0.86],
+    bgStrong: [34, 24, 28, 0.94],
+    chip: [52, 36, 40, 0.92],
+    border: [150, 100, 100, 0.4],
+    text: [246, 232, 228, 1],
+    muted: [196, 166, 160, 1],
+    accent: [228, 152, 134, 1],
+    activeBg: [228, 152, 134, 1],
+    activeText: [30, 18, 20, 1],
+  },
+  day: {
+    bg: [20, 20, 19, 0.9],
+    bgStrong: [20, 20, 19, 0.95],
+    chip: [30, 29, 26, 1],
+    border: [42, 41, 37, 1],
+    text: [240, 239, 234, 1],
+    muted: [158, 154, 146, 1],
+    accent: [200, 169, 126, 1],
+    activeBg: [240, 239, 234, 1],
+    activeText: [20, 20, 19, 1],
+  },
+  golden: {
+    bg: [34, 24, 14, 0.86],
+    bgStrong: [34, 24, 14, 0.94],
+    chip: [54, 38, 20, 0.92],
+    border: [130, 92, 44, 0.5],
+    text: [246, 232, 212, 1],
+    muted: [192, 162, 126, 1],
+    accent: [232, 168, 92, 1],
+    activeBg: [232, 168, 92, 1],
+    activeText: [30, 20, 10, 1],
+  },
+};
+const HUD_KEYS: { h: number; phase: 'night' | 'dawn' | 'day' | 'golden' | 'blue' }[] = [
+  { h: 0, phase: 'night' },
+  { h: 5.0, phase: 'night' },
+  { h: 6.6, phase: 'dawn' },
+  { h: 9.0, phase: 'day' },
+  { h: 15.8, phase: 'day' },
+  { h: 17.2, phase: 'golden' },
+  { h: 18.6, phase: 'golden' },
+  { h: 19.5, phase: 'blue' },
+  { h: 21.0, phase: 'night' },
+  { h: 24, phase: 'night' },
+];
+
+/** CSS variables (--hud-*) for the HUD at a given hour, blended between phase keyframes. */
+function hudPaletteVars(hour: number, dark: boolean): React.CSSProperties {
+  const phases = dark ? HUD_PHASES_DARK : HUD_PHASES_LIGHT;
+  const pick = (p: (typeof HUD_KEYS)[number]['phase']): HudPalette =>
+    p === 'night' ? HUD_NIGHT : p === 'blue' ? HUD_BLUE : phases[p];
+  const h = ((hour % 24) + 24) % 24;
+  let i = 0;
+  while (i < HUD_KEYS.length - 2 && h > HUD_KEYS[i + 1].h) i++;
+  const k0 = HUD_KEYS[i];
+  const k1 = HUD_KEYS[i + 1];
+  const t = k1.h === k0.h ? 0 : Math.min(1, Math.max(0, (h - k0.h) / (k1.h - k0.h)));
+  const a = pick(k0.phase);
+  const b = pick(k1.phase);
+  const mix = (x: Rgba, y: Rgba) =>
+    `rgba(${Math.round(x[0] + (y[0] - x[0]) * t)}, ${Math.round(x[1] + (y[1] - x[1]) * t)}, ${Math.round(
+      x[2] + (y[2] - x[2]) * t
+    )}, ${(x[3] + (y[3] - x[3]) * t).toFixed(3)})`;
+  return {
+    '--hud-bg': mix(a.bg, b.bg),
+    '--hud-bg-strong': mix(a.bgStrong, b.bgStrong),
+    '--hud-chip': mix(a.chip, b.chip),
+    '--hud-border': mix(a.border, b.border),
+    '--hud-text': mix(a.text, b.text),
+    '--hud-muted': mix(a.muted, b.muted),
+    '--hud-accent': mix(a.accent, b.accent),
+    '--hud-active-bg': mix(a.activeBg, b.activeBg),
+    '--hud-active-text': mix(a.activeText, b.activeText),
+  } as React.CSSProperties;
+}
+
+/** "17:24" — rounds to the nearest minute so 17.4h never shows as 17:23. */
+function formatHour(hour: number): string {
+  const total = Math.round(hour * 60) % (24 * 60);
+  return `${Math.floor(total / 60).toString().padStart(2, '0')}:${(total % 60).toString().padStart(2, '0')}`;
+}
+
 export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = false, onExit }) => {
   const { photos } = usePhotoContext();
   const { theme, toggleTheme } = useTheme();
   const { td } = useI18n();
   const navigate = useNavigate();
 
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const mountRef = useRef<HTMLDivElement | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const filmstripRef = useRef<HTMLDivElement | null>(null);
+  // Fullscreen owns the keyboard from the start; embedded waits for a click inside the scene.
+  const keyboardActiveRef = useRef<boolean>(!embedded);
+  const [keyboardActive, setKeyboardActive] = useState<boolean>(!embedded);
+  const tooltipRef = useRef<HTMLDivElement | null>(null);
+  const hoveredKeyRef = useRef<string | null>(null);
 
   const [timeOfDay, setTimeOfDay] = useState<number>(17.4);
   const [viewfinderMode, setViewfinderMode] = useState<boolean>(false);
   const [soundMuted, setSoundMuted] = useState<boolean>(false);
   const [activeZoneId, setActiveZoneId] = useState<string>('meadow');
-  const [showControlsHint, setShowControlsHint] = useState<boolean>(false);
+  // HUD footprint: compact card + collapsed clock by default, auto-dim while moving, H hides all.
+  const [hudCardOpen, setHudCardOpen] = useState<boolean>(false);
+  const [hudHidden, setHudHidden] = useState<boolean>(false);
+  const [hudDim, setHudDim] = useState<boolean>(false);
   const [sceneReady, setSceneReady] = useState<boolean>(false);
-  const [showTimePanel, setShowTimePanel] = useState<boolean>(() =>
-    typeof window !== 'undefined' ? window.innerWidth >= 768 : true
-  );
+  // The clock starts as a small chip; the full time-of-day panel opens on demand.
+  const [showTimePanel, setShowTimePanel] = useState<boolean>(false);
   const [joyKnob, setJoyKnob] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const joyBaseRef = useRef<HTMLDivElement | null>(null);
   const joyPointerIdRef = useRef<number | null>(null);
@@ -1479,7 +1751,17 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
 
   const [discoveredIds, setDiscoveredIds] = useState<string[]>(['easel-1']);
 
-  const [driftBottles, setDriftBottles] = useState([
+  // Visitor-written bottles have no backend; keep them on this device so they survive a reload.
+  const [myBottles, setMyBottles] = useState<{ id: number; author: string; text: string; date: string }[]>(() => {
+    try {
+      const raw = localStorage.getItem(MY_BOTTLES_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.slice(0, 20) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [sampleBottles] = useState([
     {
       id: 1,
       author: '旅人 #104 · 杭州',
@@ -1541,6 +1823,8 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       worldPos: Vec3;
     }[],
     terrainMeshes: [] as THREE.Object3D[],
+    // Land only (no water plane): used to tell whether an easel/beacon is hidden behind a hill.
+    occluderMeshes: [] as THREE.Object3D[],
     camera: null as THREE.PerspectiveCamera | null,
     underwaterMode: false,
     underwaterBlend: 0,
@@ -1741,9 +2025,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       const item = {
         id: Date.now(),
         dataUrl,
-        timeLabel: `${Math.floor(timeOfDay).toString().padStart(2, '0')}:${Math.floor((timeOfDay % 1) * 60)
-          .toString()
-          .padStart(2, '0')} · ${atmo.labelZh.split(' · ')[0]}`,
+        timeLabel: `${formatHour(timeOfDay)} · ${atmo.labelZh.split(' · ')[0]}`,
         zoneLabel: zone.nameZh.replace(/^\d+\s*·\s*/, ''),
       };
       setCapturedPostcards((prev) => [item, ...prev.slice(0, 5)]);
@@ -1754,17 +2036,44 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
   }, [soundMuted, timeOfDay, activeZoneId]);
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    const modalOpen = !!(selectedEasel || activeStation || selectedMemory || previewPostcard);
 
-      const key = e.key.toLowerCase();
-      simRef.current.keys[key] = true;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target?.isContentEditable) return;
+      // ⌘/Ctrl/Alt shortcuts are the browser's. macOS also drops keyups while ⌘ is held,
+      // so a held W would otherwise keep the avatar walking forever.
+      if (e.metaKey || e.ctrlKey || e.altKey) {
+        simRef.current.keys = {};
+        return;
+      }
+      // Embedded on the Interests page: only take the keyboard after the scene was clicked.
+      if (embedded && !keyboardActiveRef.current) return;
+
+      const key = normalizeKey(e);
+      if (SCROLL_KEYS.has(key)) e.preventDefault();
+      if (!modalOpen) simRef.current.keys[key] = true;
+
+      // ← / → page through the photo easels while the photo viewer is open.
+      if (selectedEasel && (key === 'arrowleft' || key === 'arrowright')) {
+        const idx = EASEL_CONFIGS.findIndex((ea) => ea.id === selectedEasel.id);
+        const step = key === 'arrowleft' ? -1 : 1;
+        inspectEasel(EASEL_CONFIGS[(idx + step + EASEL_CONFIGS.length) % EASEL_CONFIGS.length]);
+        return;
+      }
+
+      if (key === 'h') {
+        if (e.repeat || modalOpen) return;
+        setHudHidden((v) => !v);
+        return;
+      }
 
       if (key === 'v') {
+        if (e.repeat || modalOpen) return;
         playTactileClick(740);
         setViewfinderMode((v) => !v);
-      } else if (key === 'e' && nearbyPrompt) {
+      } else if (key === 'e' && nearbyPrompt && !e.repeat && !modalOpen) {
         e.preventDefault();
         if (nearbyPrompt.type === 'easel') {
           const found = EASEL_CONFIGS.find((ea) => ea.id === nearbyPrompt.id);
@@ -1776,20 +2085,27 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
           playWindChimeNote(2, soundMuted);
           setActiveStation(nearbyPrompt.id as SpecialStation['id']);
         }
-      } else if (e.code === 'Space' && viewfinderMode && !selectedEasel && !selectedMemory) {
-        e.preventDefault();
+      } else if (key === 'space' && viewfinderMode && !modalOpen) {
+        if (e.repeat) return;
         captureIslandPostcard();
       } else if (key === 'escape') {
-        setSelectedEasel(null);
-        setActiveStation(null);
-        setSelectedMemory(null);
-        setPreviewPostcard(null);
+        if (modalOpen) {
+          setSelectedEasel(null);
+          setActiveStation(null);
+          setSelectedMemory(null);
+          setPreviewPostcard(null);
+        } else if (viewfinderMode) {
+          setViewfinderMode(false);
+        }
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      const key = e.key.toLowerCase();
-      simRef.current.keys[key] = false;
+      if (e.key === 'Meta') {
+        simRef.current.keys = {};
+        return;
+      }
+      simRef.current.keys[normalizeKey(e)] = false;
     };
 
     const handleWindowBlur = () => {
@@ -1804,7 +2120,67 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleWindowBlur);
     };
-  }, [nearbyPrompt, viewfinderMode, selectedEasel, selectedMemory, inspectEasel, inspectMemory, captureIslandPostcard, soundMuted]);
+  }, [
+    nearbyPrompt,
+    viewfinderMode,
+    selectedEasel,
+    activeStation,
+    selectedMemory,
+    previewPostcard,
+    inspectEasel,
+    inspectMemory,
+    captureIslandPostcard,
+    soundMuted,
+    embedded,
+  ]);
+
+  // Keep the current easel's thumbnail in view in the filmstrip (arrow keys, ‹ ›, 3D clicks).
+  useEffect(() => {
+    const strip = filmstripRef.current;
+    if (!selectedEasel || !strip) return;
+    const thumb = strip.querySelector<HTMLElement>(`[data-easel-id="${selectedEasel.id}"]`);
+    if (!thumb) return;
+    const target = thumb.offsetLeft - strip.clientWidth / 2 + thumb.clientWidth / 2;
+    strip.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
+  }, [selectedEasel]);
+
+  // Opening a modal stops any held movement keys so the avatar doesn't keep walking behind it.
+  useEffect(() => {
+    if (selectedEasel || activeStation || selectedMemory || previewPostcard) {
+      simRef.current.keys = {};
+    }
+  }, [selectedEasel, activeStation, selectedMemory, previewPostcard]);
+
+  // Embedded mode: the scene "owns" keyboard + wheel only after a click inside it, and gives
+  // them back when the visitor clicks anywhere else on the page.
+  useEffect(() => {
+    if (!embedded) return;
+    const onDocPointerDown = (e: PointerEvent) => {
+      const inside = !!rootRef.current?.contains(e.target as Node);
+      keyboardActiveRef.current = inside;
+      setKeyboardActive(inside);
+      if (!inside) simRef.current.keys = {};
+    };
+    document.addEventListener('pointerdown', onDocPointerDown, true);
+    return () => document.removeEventListener('pointerdown', onDocPointerDown, true);
+  }, [embedded]);
+
+  // Wheel zoom: proportional to the delta (smooth on trackpads, one step per mouse notch).
+  // Native listener so it can preventDefault; embedded mode lets the page scroll until activated.
+  useEffect(() => {
+    const el = mountRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (embedded && !keyboardActiveRef.current) return;
+      e.preventDefault();
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
+      const dy = Math.max(-120, Math.min(120, e.deltaY * unit));
+      const sim = simRef.current;
+      sim.camTargetDist = Math.max(7.5, Math.min(46, sim.camTargetDist * Math.exp(dy * 0.0016)));
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [embedded]);
 
   useEffect(() => {
     const container = mountRef.current;
@@ -1817,6 +2193,8 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
     const scene = new THREE.Scene();
     const fog = new THREE.FogExp2('#FAD4B8', 0.0046);
     scene.fog = fog;
+    // Shared clock for vertex-shader wind (grass sway); advanced in the render loop.
+    const windUniforms = { uWindTime: { value: 0 } };
 
     const camera = new THREE.PerspectiveCamera(44, width / height, 0.5, 380);
     simRef.current.camera = camera;
@@ -1829,7 +2207,8 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isMobileViewport ? 1.4 : 2));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // PCFSoftShadowMap was removed from three.js (it silently fell back to PCF and logged a warning).
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.08;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -1884,15 +2263,21 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = isMobileViewport ? 1024 : 2048;
     sunLight.shadow.mapSize.height = isMobileViewport ? 1024 : 2048;
-    sunLight.shadow.camera.near = 2;
-    sunLight.shadow.camera.far = 160;
-    const d = 58;
+    sunLight.shadow.camera.near = 1;
+    sunLight.shadow.camera.far = 140;
+    // The shadow frustum follows the camera focus (see the render loop) instead of covering the
+    // whole archipelago at once — the same shadow map then spends ~2× the texels on what you see.
+    const d = 26;
     sunLight.shadow.camera.left = -d;
     sunLight.shadow.camera.right = d;
     sunLight.shadow.camera.top = d;
     sunLight.shadow.camera.bottom = -d;
-    sunLight.shadow.bias = -0.0005;
+    sunLight.shadow.bias = -0.0004;
+    sunLight.shadow.normalBias = 0.035;
+    sunLight.shadow.radius = 2.5;
     scene.add(sunLight);
+    scene.add(sunLight.target);
+    let shadowExtent = d;
 
     const campfireLight = new THREE.PointLight('#FF7B00', 3.5, 16, 1.5);
     campfireLight.position.set(0, 3.6, -17.2);
@@ -1921,15 +2306,15 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
 
     const terrainMeshes: THREE.Object3D[] = [];
 
-    const mainIsland = buildSculptedIslandMesh({ x: 0, y: 0.6, z: 0 }, 10.6, 5.2, '#74C365', '#E2C496');
+    const mainIsland = buildSculptedIslandMesh({ x: 0, y: 0.6, z: 0 }, 10.6, 5.2, '#74C365', '#E2C496', true);
     scene.add(mainIsland);
     terrainMeshes.push(mainIsland);
 
-    const forestIsland = buildSculptedIslandMesh({ x: 17.5, y: 0.9, z: -4.0 }, 8.3, 4.6, '#58B06C', '#D6B585');
+    const forestIsland = buildSculptedIslandMesh({ x: 17.5, y: 0.9, z: -4.0 }, 8.3, 4.6, '#58B06C', '#D6B585', true);
     scene.add(forestIsland);
     terrainMeshes.push(forestIsland);
 
-    const coastIsland = buildSculptedIslandMesh({ x: -17.5, y: 0.7, z: -3.5 }, 8.3, 4.4, '#80BE70', '#E8CB9F');
+    const coastIsland = buildSculptedIslandMesh({ x: -17.5, y: 0.7, z: -3.5 }, 8.3, 4.4, '#80BE70', '#E8CB9F', true);
     scene.add(coastIsland);
     terrainMeshes.push(coastIsland);
 
@@ -2045,18 +2430,58 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
     boatGroup.add(hull);
     scene.add(boatGroup);
 
+    // Waterfall: a sheet that curls off the island lip and falls outward, textured with
+    // streaks that scroll downward (was a solid cyan box).
     const waterfallGroup = new THREE.Group();
+    const fallCanvas = document.createElement('canvas');
+    fallCanvas.width = 64;
+    fallCanvas.height = 256;
+    const fallCtx = fallCanvas.getContext('2d');
+    if (fallCtx) {
+      fallCtx.fillStyle = 'rgba(170, 228, 240, 0.62)';
+      fallCtx.fillRect(0, 0, 64, 256);
+      for (let i = 0; i < 52; i++) {
+        const sx = Math.random() * 64;
+        const sw = 1 + Math.random() * 3;
+        const sy = Math.random() * 256;
+        const sh = 26 + Math.random() * 90;
+        fallCtx.fillStyle = `rgba(255, 255, 255, ${0.22 + Math.random() * 0.5})`;
+        fallCtx.fillRect(sx, sy, sw, sh);
+        fallCtx.fillRect(sx, sy - 256, sw, sh); // wrap so the texture tiles vertically
+      }
+    }
+    const fallTexture = new THREE.CanvasTexture(fallCanvas);
+    fallTexture.colorSpace = THREE.SRGBColorSpace;
+    fallTexture.wrapS = THREE.RepeatWrapping;
+    fallTexture.wrapT = THREE.RepeatWrapping;
+    fallTexture.repeat.set(1.4, 1.1);
+    const fallGeo = new THREE.PlaneGeometry(1.6, 2.4, 2, 12);
+    {
+      const fpos = fallGeo.attributes.position;
+      for (let i = 0; i < fpos.count; i++) {
+        // 1 at the lip, 0 at the sea (clamped: float rounding past 1 would make Math.pow NaN)
+        const t = Math.min(1, Math.max(0, (fpos.getY(i) + 1.2) / 2.4));
+        const out = Math.pow(1 - t, 1.6) * 0.55;
+        fpos.setZ(i, out);
+        fpos.setX(i, fpos.getX(i) * (0.92 + (1 - t) * 0.16)); // widens as it falls
+      }
+      fallGeo.computeVertexNormals();
+    }
     const waterStreamMat = new THREE.MeshStandardMaterial({
-      color: '#B2EBF2',
-      emissive: '#4DD0E1',
-      emissiveIntensity: 0.25,
-      roughness: 0.2,
+      color: '#FFFFFF',
+      map: fallTexture,
+      emissive: '#7FD8E6',
+      emissiveIntensity: 0.18,
+      roughness: 0.25,
       transparent: true,
-      opacity: 0.86,
+      opacity: 0.92,
+      depthWrite: false,
+      side: THREE.DoubleSide,
     });
-    const streamMesh = new THREE.Mesh(new THREE.BoxGeometry(1.65, 2.4, 0.25), waterStreamMat);
-    streamMesh.position.set(-2.2, -0.25, 10.1);
-    streamMesh.rotation.x = 0.15;
+    const streamMesh = new THREE.Mesh(fallGeo, waterStreamMat);
+    streamMesh.position.set(-2.2, -0.12, 10.05);
+    streamMesh.rotation.x = 0.12;
+    streamMesh.renderOrder = 3;
     waterfallGroup.add(streamMesh);
     scene.add(waterfallGroup);
 
@@ -2182,32 +2607,86 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       scene.add(buildDetailedTree(ts.pos, ts.scale, ts.type, ts.pal));
     });
 
-    const grassCount = 1600;
-    const bladeGeo = new THREE.ConeGeometry(0.06, 0.34, 4);
-    bladeGeo.translate(0, 0.17, 0);
+    // Grass: tufts of tapered, slightly bent blades (dark at the root, sunlit at the tip) that
+    // sway in a shared wind. Normals point up so blades light like the ground they grow from.
+    const tuftCount = isMobileViewport ? 600 : 1000;
+    const bladesPerTuft = 4;
+    const grassCount = tuftCount * bladesPerTuft;
+    const bladeGeo = new THREE.BufferGeometry();
+    {
+      const w = 0.062;
+      const h = 0.44;
+      const bladeVerts = [
+        -w, 0, 0, w, 0, 0, // root
+        -w * 0.7, h * 0.45, 0.012, w * 0.7, h * 0.45, 0.012, // middle
+        -w * 0.3, h * 0.8, 0.035, w * 0.3, h * 0.8, 0.035, // upper
+        0, h, 0.07, // tip, leaning forward
+      ];
+      const shade = [0.52, 0.52, 0.82, 0.82, 1.08, 1.08, 1.3];
+      const bladeCols: number[] = [];
+      shade.forEach((k) => bladeCols.push(k, k, k * 0.92));
+      bladeGeo.setAttribute('position', new THREE.Float32BufferAttribute(bladeVerts, 3));
+      bladeGeo.setAttribute('color', new THREE.Float32BufferAttribute(bladeCols, 3));
+      bladeGeo.setAttribute('normal', new THREE.Float32BufferAttribute(new Array(7).fill([0, 1, 0]).flat(), 3));
+      // Both windings instead of DoubleSide: DoubleSide flips the normal on back faces, which
+      // would light the far side of every blade from below and turn it dark.
+      bladeGeo.setIndex([
+        0, 1, 3, 0, 3, 2, 2, 3, 5, 2, 5, 4, 4, 5, 6,
+        0, 3, 1, 0, 2, 3, 2, 5, 3, 2, 4, 5, 4, 6, 5,
+      ]);
+    }
     const bladeMat = new THREE.MeshStandardMaterial({
-      color: '#80D472',
-      roughness: 0.75,
+      color: '#86D477',
+      roughness: 0.8,
+      vertexColors: true,
     });
+    bladeMat.onBeforeCompile = (shader) => {
+      shader.uniforms.uWindTime = windUniforms.uWindTime;
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nuniform float uWindTime;')
+        .replace(
+          '#include <project_vertex>',
+          `vec4 mvPosition = vec4( transformed, 1.0 );
+          #ifdef USE_INSTANCING
+            mvPosition = instanceMatrix * mvPosition;
+          #endif
+          float bend = position.y * position.y * 5.2;
+          float gust = sin(uWindTime * 1.6 + mvPosition.x * 0.42 + mvPosition.z * 0.31) * 0.6
+                     + sin(uWindTime * 3.1 + mvPosition.x * 1.4 - mvPosition.z * 0.9) * 0.2;
+          mvPosition.x += gust * bend * 0.16;
+          mvPosition.z += gust * bend * 0.09;
+          mvPosition = modelViewMatrix * mvPosition;
+          gl_Position = projectionMatrix * mvPosition;`
+        );
+    };
     const instancedGrass = new THREE.InstancedMesh(bladeGeo, bladeMat, grassCount);
     instancedGrass.castShadow = false;
     instancedGrass.receiveShadow = true;
 
-    const flowerCount = 260;
-    const flowerGeo = new THREE.DodecahedronGeometry(0.09, 0);
+    const flowerCount = isMobileViewport ? 160 : 240;
+    const flowerGeo = new THREE.DodecahedronGeometry(0.085, 0);
+    flowerGeo.scale(1, 0.62, 1);
     const flowerMat = new THREE.MeshStandardMaterial({
-      color: '#FFF3B0',
-      roughness: 0.5,
+      color: '#FFFFFF',
+      roughness: 0.55,
     });
     const instancedFlowers = new THREE.InstancedMesh(flowerGeo, flowerMat, flowerCount);
+    const stemGeo = new THREE.CylinderGeometry(0.008, 0.012, 1, 4);
+    stemGeo.translate(0, 0.5, 0);
+    const instancedStems = new THREE.InstancedMesh(
+      stemGeo,
+      new THREE.MeshStandardMaterial({ color: '#4F8F45', roughness: 0.85 }),
+      flowerCount
+    );
+    instancedStems.receiveShadow = true;
 
     const dummy = new THREE.Object3D();
-    const flowerColor = new THREE.Color();
-    const flowerPalette = ['#FFF3B0', '#FFB5A7', '#A7F3D0', '#FDE047', '#FBCFE8'];
+    const tint = new THREE.Color();
+    const flowerPalette = ['#FFF3B0', '#FFB5A7', '#F7F2E8', '#FDE047', '#FBCFE8', '#C4B5FD'];
 
     let gIdx = 0;
     let fIdx = 0;
-    for (let attempt = 0; attempt < 3200 && gIdx < grassCount; attempt++) {
+    for (let attempt = 0; attempt < tuftCount * 3 && gIdx + bladesPerTuft <= grassCount; attempt++) {
       const zone = ISLAND_ZONES[attempt % 4];
       const r = Math.sqrt(Math.random()) * (zone.radius - 0.8);
       const theta = Math.random() * Math.PI * 2;
@@ -2216,32 +2695,61 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       const ground = getTerrainHeightAt(gx, gz);
       if (!ground.walkable) continue;
 
-      dummy.position.set(gx, ground.y - 0.04, gz);
-      dummy.rotation.set(
-        (Math.random() - 0.5) * 0.25,
-        Math.random() * Math.PI * 2,
-        (Math.random() - 0.5) * 0.25
-      );
-      const s = 0.7 + Math.random() * 0.75;
-      dummy.scale.set(s, s * (0.8 + Math.random() * 0.5), s);
-      dummy.updateMatrix();
-      instancedGrass.setMatrixAt(gIdx++, dummy.matrix);
-
-      if (fIdx < flowerCount && Math.random() < 0.18) {
-        dummy.position.set(gx, ground.y + 0.22, gz);
-        dummy.scale.setScalar(0.8 + Math.random() * 0.6);
+      // One tuft: a few blades fanned around a shared root, sharing a hue.
+      const tuftHue = 0.9 + Math.random() * 0.2;
+      const tuftYaw = Math.random() * Math.PI * 2;
+      for (let b = 0; b < bladesPerTuft; b++) {
+        const a = tuftYaw + (b / bladesPerTuft) * Math.PI * 2 + Math.random() * 0.6;
+        dummy.position.set(gx + Math.cos(a) * 0.06, ground.y - 0.03, gz + Math.sin(a) * 0.06);
+        dummy.rotation.set((Math.random() - 0.5) * 0.3, a + Math.PI / 2, (Math.random() - 0.5) * 0.35);
+        const s = 0.75 + Math.random() * 0.7;
+        dummy.scale.set(s, s * (0.75 + Math.random() * 0.6), s);
         dummy.updateMatrix();
-        instancedFlowers.setMatrixAt(fIdx, dummy.matrix);
-        flowerColor.set(flowerPalette[fIdx % flowerPalette.length]);
-        instancedFlowers.setColorAt(fIdx, flowerColor);
-        fIdx++;
+        instancedGrass.setMatrixAt(gIdx, dummy.matrix);
+        tint.setRGB(tuftHue * (0.96 + Math.random() * 0.06), tuftHue, tuftHue * (0.9 + Math.random() * 0.12));
+        instancedGrass.setColorAt(gIdx, tint);
+        gIdx++;
+      }
+
+      // Wildflowers grow in small clusters, each on its own stem.
+      if (fIdx < flowerCount && Math.random() < 0.16) {
+        const clusterColor = flowerPalette[Math.floor(Math.random() * flowerPalette.length)];
+        const clusterSize = 1 + Math.floor(Math.random() * 3);
+        for (let c = 0; c < clusterSize && fIdx < flowerCount; c++) {
+          const fx = gx + (Math.random() - 0.5) * 0.45;
+          const fz = gz + (Math.random() - 0.5) * 0.45;
+          const fGround = getTerrainHeightAt(fx, fz);
+          if (!fGround.walkable) continue;
+          const stemH = 0.18 + Math.random() * 0.14;
+          dummy.position.set(fx, fGround.y - 0.02, fz);
+          dummy.rotation.set((Math.random() - 0.5) * 0.2, 0, (Math.random() - 0.5) * 0.2);
+          dummy.scale.set(1, stemH, 1);
+          dummy.updateMatrix();
+          instancedStems.setMatrixAt(fIdx, dummy.matrix);
+          dummy.position.set(fx, fGround.y - 0.02 + stemH, fz);
+          dummy.rotation.set(0, Math.random() * Math.PI, 0);
+          dummy.scale.setScalar(0.8 + Math.random() * 0.5);
+          dummy.updateMatrix();
+          instancedFlowers.setMatrixAt(fIdx, dummy.matrix);
+          tint.set(clusterColor);
+          instancedFlowers.setColorAt(fIdx, tint);
+          fIdx++;
+        }
       }
     }
+    // Only draw what was placed — unused instances keep an identity matrix and would all
+    // pile up at the world origin.
+    instancedGrass.count = gIdx;
+    instancedFlowers.count = fIdx;
+    instancedStems.count = fIdx;
     instancedGrass.instanceMatrix.needsUpdate = true;
+    if (instancedGrass.instanceColor) instancedGrass.instanceColor.needsUpdate = true;
     instancedFlowers.instanceMatrix.needsUpdate = true;
+    instancedStems.instanceMatrix.needsUpdate = true;
     if (instancedFlowers.instanceColor) instancedFlowers.instanceColor.needsUpdate = true;
     scene.add(instancedGrass);
     scene.add(instancedFlowers);
+    scene.add(instancedStems);
 
     const cloudGroup = new THREE.Group();
     const cloudMat = new THREE.MeshStandardMaterial({
@@ -2300,6 +2808,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
     simRef.current.photoPlanes = photoPlanes;
     simRef.current.interactiveMeshes = interactiveMeshes;
     simRef.current.terrainMeshes = [waterMesh, ...terrainMeshes];
+    simRef.current.occluderMeshes = terrainMeshes;
 
     const avatar = buildPhotographerAvatar();
     scene.add(avatar.root);
@@ -2321,11 +2830,29 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       particlePositions[i * 3 + 2] = (Math.random() - 0.5) * 48;
     }
     particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+    // Soft round sprite for fireflies and stars — bare PointsMaterial draws hard squares,
+    // which read as rendering glitches floating over the scene.
+    const glowCanvas = document.createElement('canvas');
+    glowCanvas.width = glowCanvas.height = 64;
+    const glowCtx = glowCanvas.getContext('2d');
+    if (glowCtx) {
+      const grad = glowCtx.createRadialGradient(32, 32, 0, 32, 32, 32);
+      grad.addColorStop(0, 'rgba(255,255,255,1)');
+      grad.addColorStop(0.3, 'rgba(255,255,255,0.8)');
+      grad.addColorStop(1, 'rgba(255,255,255,0)');
+      glowCtx.fillStyle = grad;
+      glowCtx.fillRect(0, 0, 64, 64);
+    }
+    const glowSprite = new THREE.CanvasTexture(glowCanvas);
+    glowSprite.colorSpace = THREE.SRGBColorSpace;
     const particleMat = new THREE.PointsMaterial({
       color: '#FDE047',
-      size: 0.24,
+      size: 0.34,
+      map: glowSprite,
       transparent: true,
       opacity: 0.85,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
     });
     const fireflyPoints = new THREE.Points(particleGeo, particleMat);
     scene.add(fireflyPoints);
@@ -2345,7 +2872,8 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
     starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
     const starMat = new THREE.PointsMaterial({
       color: '#FFFBEB',
-      size: 0.75,
+      size: 1.05,
+      map: glowSprite,
       transparent: true,
       opacity: 0,
       depthWrite: false,
@@ -2374,12 +2902,46 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
     });
 
     // 18. Waterfall Splash Foam Ring & Darkroom Chimney Smoke Puffs
-    const foamRing = new THREE.Mesh(
-      new THREE.TorusGeometry(1.15, 0.14, 8, 20),
-      new THREE.MeshBasicMaterial({ color: '#E0F7FA', transparent: true, opacity: 0.65 })
+    // Splash at the foot of the waterfall: a soft foam patch on the water plus bobbing spray puffs
+    // (was a solid torus).
+    const foamRing = new THREE.Group();
+    foamRing.position.set(-2.2, -0.12, 10.75);
+    const foamPatchGeo = new THREE.CircleGeometry(1.25, 40);
+    {
+      const cols = new Float32Array(foamPatchGeo.attributes.position.count * 4);
+      const pp = foamPatchGeo.attributes.position;
+      for (let i = 0; i < pp.count; i++) {
+        const t = Math.min(1, Math.hypot(pp.getX(i), pp.getY(i)) / 1.25);
+        cols.set([1, 1, 1, (1 - t * t) * 0.8], i * 4);
+      }
+      foamPatchGeo.setAttribute('color', new THREE.BufferAttribute(cols, 4));
+    }
+    const foamPatch = new THREE.Mesh(
+      foamPatchGeo,
+      new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false })
     );
-    foamRing.rotation.x = Math.PI / 2;
-    foamRing.position.set(-2.2, -0.15, 10.35);
+    foamPatch.rotation.x = -Math.PI / 2;
+    foamPatch.renderOrder = 2;
+    foamRing.add(foamPatch);
+    // Unlit, translucent white: lit spray picked up the sunset and read as a pile of rocks.
+    const sprayMat = new THREE.MeshBasicMaterial({
+      color: '#F2FBFD',
+      transparent: true,
+      opacity: 0.62,
+      depthWrite: false,
+    });
+    [
+      [-0.45, 0.05, 0.1, 0.17],
+      [0.4, 0.04, 0.05, 0.2],
+      [0, 0.1, -0.15, 0.24],
+      [-0.15, 0.02, 0.45, 0.13],
+      [0.6, 0.0, 0.4, 0.12],
+      [-0.7, 0.0, -0.2, 0.11],
+    ].forEach(([x, y, z, r]) => {
+      const puff = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 1), sprayMat);
+      puff.position.set(x, y, z);
+      foamRing.add(puff);
+    });
     scene.add(foamRing);
 
     const smokePuffs: { mesh: THREE.Mesh; phase: number }[] = [];
@@ -2469,6 +3031,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       'gramophone-lounge': { top: '#5F9E78', rim: '#C9B393' },
       'winter-bros': { top: '#80B68A', rim: '#E2CCA4' },
       'hunau-campus': { top: '#8BA85A', rim: '#E0BE8A' },
+      'company-studio': { top: '#7DB86F', rim: '#DCC59C' },
     };
 
     PERSONAL_MEMORIES.forEach((mem) => {
@@ -2537,10 +3100,27 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       });
     });
 
+    const shoreFoamMats: THREE.MeshBasicMaterial[] = [];
+    scene.traverse((obj) => {
+      if (obj.userData.isShoreFoam) shoreFoamMats.push((obj as THREE.Mesh).material as THREE.MeshBasicMaterial);
+    });
+
     let reqId: number;
     let firstFrameRendered = false;
-    const clock = new THREE.Clock();
+    let hudDimmed = false;
+    let lastMotionAt = 0;
+    let motionStartedAt = 0;
+    const startTime = performance.now();
     let prevElapsed = 0;
+
+    // Atmosphere only changes when the time-of-day slider moves; recomputing it every frame
+    // allocated ~20 THREE.Color objects per frame.
+    let atmoHour = Number.NaN;
+    let atmo = computeAtmosphere(simRef.current.timeOfDay);
+    const uwSkyTop = new THREE.Color('#0369A1');
+    const uwSkyBottom = new THREE.Color('#082F49');
+    const uwFogColor = new THREE.Color('#03588C');
+    const uwWaterColor = new THREE.Color('#0E87B4');
     let clickWalkStuckFrames = 0;
     const baseWaterPos = waterGeo.attributes.position.clone();
 
@@ -2585,19 +3165,18 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
 
     const animate = () => {
       reqId = requestAnimationFrame(animate);
-      const elapsed = clock.getElapsedTime();
+      const elapsed = (performance.now() - startTime) / 1000;
       const dt = Math.min(0.05, Math.max(0.004, elapsed - prevElapsed));
       prevElapsed = elapsed;
       const sim = simRef.current;
 
-      const atmo = computeAtmosphere(sim.timeOfDay);
+      if (sim.timeOfDay !== atmoHour) {
+        atmo = computeAtmosphere(sim.timeOfDay);
+        atmoHour = sim.timeOfDay;
+      }
       const isSubmerged = sim.underwaterMode || camera.position.y < -0.28;
       sim.underwaterBlend += ((isSubmerged ? 1 : 0) - sim.underwaterBlend) * 0.08;
       const uw = sim.underwaterBlend;
-
-      const uwSkyTop = new THREE.Color('#0369A1');
-      const uwSkyBottom = new THREE.Color('#082F49');
-      const uwFogColor = new THREE.Color('#03588C');
 
       skyUniforms.topColor.value.copy(atmo.skyTop).lerp(uwSkyTop, uw);
       skyUniforms.bottomColor.value.copy(atmo.skyBottom).lerp(uwSkyBottom, uw);
@@ -2606,11 +3185,29 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
 
       fog.color.copy(atmo.fogColor).lerp(uwFogColor, uw);
       fog.density = 0.0046 + uw * 0.021;
-      waterMat.color.copy(atmo.waterColor).lerp(new THREE.Color('#0E87B4'), uw);
+      waterMat.color.copy(atmo.waterColor).lerp(uwWaterColor, uw);
 
       sunLight.color.copy(atmo.sunColor);
       sunLight.intensity = atmo.sunIntensity;
-      sunLight.position.copy(atmo.sunPosition);
+      // Shadow frustum tracks what the camera looks at; size grows with zoom (in 4-unit steps so
+      // the projection isn't rebuilt every frame) and the centre snaps to whole shadow texels so
+      // shadow edges don't crawl while walking.
+      const wantExtent = Math.min(58, Math.max(22, Math.ceil((sim.camDist * 1.35) / 4) * 4));
+      if (wantExtent !== shadowExtent) {
+        shadowExtent = wantExtent;
+        const sc = sunLight.shadow.camera;
+        sc.left = -shadowExtent;
+        sc.right = shadowExtent;
+        sc.top = shadowExtent;
+        sc.bottom = -shadowExtent;
+        sc.updateProjectionMatrix();
+      }
+      const texel = (2 * shadowExtent) / sunLight.shadow.mapSize.width;
+      const fx = Math.round(sim.camFocus.x / texel) * texel;
+      const fz = Math.round(sim.camFocus.z / texel) * texel;
+      sunLight.target.position.set(fx, 0, fz);
+      sunLight.position.set(fx + atmo.sunPosition.x, atmo.sunPosition.y, fz + atmo.sunPosition.z);
+      windUniforms.uWindTime.value = elapsed;
 
       hemiLight.color.copy(atmo.hemiSky);
       hemiLight.groundColor.copy(atmo.hemiGround);
@@ -2631,7 +3228,13 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       cloudGroup.rotation.y = elapsed * 0.015;
 
       // Animate waterfall foam, chimney smoke, drift bottles & soaring birds
-      foamRing.scale.setScalar(0.92 + Math.sin(elapsed * 4.5) * 0.12);
+      foamRing.scale.setScalar(0.97 + Math.sin(elapsed * 4.5) * 0.05);
+      foamRing.children.forEach((c, i) => {
+        if (i > 0) c.position.y = Math.abs(Math.sin(elapsed * 3.2 + i * 1.7)) * 0.16;
+      });
+      fallTexture.offset.y = elapsed * 0.85;
+      const shoreAlpha = 0.66 + Math.sin(elapsed * 0.9) * 0.12;
+      shoreFoamMats.forEach((m) => (m.opacity = shoreAlpha));
       smokePuffs.forEach((sp) => {
         const life = (elapsed * 0.28 + sp.phase) % 1;
         sp.mesh.position.set(
@@ -2763,6 +3366,22 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
         targetRing.visible = false;
       }
 
+      // Fade the HUD while the visitor is walking or orbiting the camera; bring it back shortly
+      // after they stop. Only touches React state when the dim state actually flips.
+      if (isMoving || (sim.isDragging && sim.dragMoved)) {
+        lastMotionAt = elapsed;
+        if (!hudDimmed && elapsed - motionStartedAt > 0.5) {
+          hudDimmed = true;
+          setHudDim(true);
+        }
+      } else {
+        motionStartedAt = elapsed;
+        if (hudDimmed && elapsed - lastMotionAt > 1.2) {
+          hudDimmed = false;
+          setHudDim(false);
+        }
+      }
+
       if (isMoving) {
         sim.playerWalkCycle += 14.5 * dt;
         const swing = Math.sin(sim.playerWalkCycle) * 0.55;
@@ -2881,16 +3500,35 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       if (!container) return;
       const w = container.clientWidth || window.innerWidth;
       const h = container.clientHeight || window.innerHeight;
+      if (w === 0 || h === 0) return;
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
     };
-    window.addEventListener('resize', handleResize);
+    // Observe the container itself: the embedded view can change size without a window resize.
+    const resizeObserver = new ResizeObserver(handleResize);
+    resizeObserver.observe(container);
 
     return () => {
       cancelAnimationFrame(reqId);
-      window.removeEventListener('resize', handleResize);
+      resizeObserver.disconnect();
+      // Free GPU memory and the WebGL context: browsers cap live contexts (~16), and every
+      // open/close of the embedded view or trip to the fullscreen route creates a new one.
+      scene.traverse((obj) => {
+        const node = obj as THREE.Mesh;
+        node.geometry?.dispose();
+        const mats = Array.isArray(node.material) ? node.material : node.material ? [node.material] : [];
+        mats.forEach((m) => {
+          Object.values(m).forEach((v) => {
+            if (v instanceof THREE.Texture) v.dispose();
+          });
+          m.dispose();
+        });
+      });
       renderer.dispose();
+      renderer.forceContextLoss();
+      renderer.domElement.remove();
+      if (rendererRef.current === renderer) rendererRef.current = null;
     };
   }, []);
 
@@ -2917,6 +3555,41 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
   }, [photos]);
 
   const raycasterRef = useRef(new THREE.Raycaster());
+  const pointerNdcRef = useRef(new THREE.Vector2());
+
+  /**
+   * Nearest interactive object under the pointer, or null. Uses the closest hit across all
+   * targets (not array order) and ignores targets hidden behind land, so clicking a hillside
+   * walks there instead of opening the easel behind it.
+   */
+  const pickInteractive = (clientX: number, clientY: number) => {
+    const sim = simRef.current;
+    const container = mountRef.current;
+    if (!container || !sim.camera) return null;
+    const rect = container.getBoundingClientRect();
+    pointerNdcRef.current.set(
+      ((clientX - rect.left) / rect.width) * 2 - 1,
+      -((clientY - rect.top) / rect.height) * 2 + 1
+    );
+    const raycaster = raycasterRef.current;
+    raycaster.setFromCamera(pointerNdcRef.current, sim.camera);
+
+    let best: { item: (typeof sim.interactiveMeshes)[number]; dist: number } | null = null;
+    for (const item of sim.interactiveMeshes) {
+      const hit = raycaster.intersectObject(item.mesh, true)[0];
+      if (hit && (!best || hit.distance < best.dist)) best = { item, dist: hit.distance };
+    }
+    if (!best) return null;
+    const landHit = raycaster.intersectObjects(sim.occluderMeshes, true)[0];
+    if (landHit && landHit.distance + 0.6 < best.dist) return null;
+    return best.item;
+  };
+
+  const clearHover = () => {
+    if (hoveredKeyRef.current === null) return;
+    hoveredKeyRef.current = null;
+    setHoveredLabel(null);
+  };
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const sim = simRef.current;
@@ -2961,7 +3634,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       const delta = pinchStartDistRef.current - curDist;
       sim.camTargetDist = Math.max(7.5, Math.min(46, pinchStartCamDistRef.current + delta * 0.06));
       sim.dragMoved = true;
-      setHoveredLabel(null);
+      clearHover();
       return;
     }
 
@@ -2976,56 +3649,55 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       const minPitch = sim.underwaterMode ? -0.32 : 0.14;
       const maxPitch = sim.underwaterMode ? 0.65 : 1.18;
       sim.camTargetPitch = Math.max(minPitch, Math.min(maxPitch, sim.dragStartPitch + dy * 0.006));
-      setHoveredLabel(null);
+      clearHover();
       return;
     }
 
     // Skip hover raycasting for touch pointers to save mobile GPU/CPU
     if (e.pointerType === 'touch') return;
 
-    const rect = container.getBoundingClientRect();
-    const mouse = new THREE.Vector2(
-      ((e.clientX - rect.left) / rect.width) * 2 - 1,
-      -((e.clientY - rect.top) / rect.height) * 2 + 1
-    );
-    raycasterRef.current.setFromCamera(mouse, sim.camera);
-
-    const hitTarget = sim.interactiveMeshes.find((item) => {
-      const hits = raycasterRef.current.intersectObject(item.mesh, true);
-      return hits.length > 0;
-    });
+    const hitTarget = pickInteractive(e.clientX, e.clientY);
 
     if (hitTarget) {
       container.style.cursor = 'pointer';
-      if (hitTarget.kind === 'easel') {
-        const ea = EASEL_CONFIGS.find((x) => x.id === hitTarget.id);
-        const p = ea ? photos[ea.photoIndex % photos.length] : null;
-        setHoveredLabel({
-          x: e.clientX,
-          y: e.clientY,
-          title: p?.title || '摄影画架',
-          subtitle: `${ea?.locationZh || ''} · 点击赏析大图`,
-        });
-      } else if (hitTarget.kind === 'memory') {
-        const mem = PERSONAL_MEMORIES.find((x) => x.id === hitTarget.id);
-        setHoveredLabel({
-          x: e.clientX,
-          y: e.clientY,
-          title: `${mem?.indexLabel || ''} · ${mem?.titleZh || '个人记忆'}`,
-          subtitle: `${mem?.categoryZh || ''} · 点击菱形信标翻阅记忆手账`,
-        });
-      } else {
-        const st = SPECIAL_STATIONS.find((x) => x.id === hitTarget.id);
-        setHoveredLabel({
-          x: e.clientX,
-          y: e.clientY,
-          title: st?.nameZh || '',
-          subtitle: st?.hintZh || '',
-        });
+      const key = `${hitTarget.kind}:${hitTarget.id}`;
+      // Only touch React state when the hovered target changes; the tooltip follows the
+      // pointer through its ref, so hovering doesn't re-render this whole scene component.
+      if (hoveredKeyRef.current !== key) {
+        hoveredKeyRef.current = key;
+        if (hitTarget.kind === 'easel') {
+          const ea = EASEL_CONFIGS.find((x) => x.id === hitTarget.id);
+          const p = ea ? photos[ea.photoIndex % photos.length] : null;
+          setHoveredLabel({
+            x: e.clientX,
+            y: e.clientY,
+            title: p?.title || td('摄影画架', 'Photo easel'),
+            subtitle: `${ea?.locationZh || ''} · ${td('点击赏析大图', 'Click to view')}`,
+          });
+        } else if (hitTarget.kind === 'memory') {
+          const mem = PERSONAL_MEMORIES.find((x) => x.id === hitTarget.id);
+          setHoveredLabel({
+            x: e.clientX,
+            y: e.clientY,
+            title: `${mem?.indexLabel || ''} · ${mem?.titleZh || td('个人记忆', 'Memory')}`,
+            subtitle: `${mem?.categoryZh || ''} · ${td('点击翻阅记忆手账', 'Click to open the journal')}`,
+          });
+        } else {
+          const st = SPECIAL_STATIONS.find((x) => x.id === hitTarget.id);
+          setHoveredLabel({
+            x: e.clientX,
+            y: e.clientY,
+            title: st?.nameZh || '',
+            subtitle: st?.hintZh || '',
+          });
+        }
+      } else if (tooltipRef.current) {
+        tooltipRef.current.style.left = `${e.clientX + 14}px`;
+        tooltipRef.current.style.top = `${e.clientY - 18}px`;
       }
     } else {
       container.style.cursor = 'grab';
-      setHoveredLabel(null);
+      clearHover();
     }
   };
 
@@ -3047,31 +3719,24 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
     sim.isDragging = false;
     if (wasMoved || !sim.camera || !mountRef.current) return;
 
-    const rect = mountRef.current.getBoundingClientRect();
-    const mouse = new THREE.Vector2(
-      ((e.clientX - rect.left) / rect.width) * 2 - 1,
-      -((e.clientY - rect.top) / rect.height) * 2 + 1
-    );
-    raycasterRef.current.setFromCamera(mouse, sim.camera);
-
-    for (const item of sim.interactiveMeshes) {
-      const hits = raycasterRef.current.intersectObject(item.mesh, true);
-      if (hits.length > 0) {
-        if (item.kind === 'easel') {
-          const easel = EASEL_CONFIGS.find((ea) => ea.id === item.id);
-          if (easel) inspectEasel(easel);
-        } else if (item.kind === 'memory') {
-          const mem = PERSONAL_MEMORIES.find((m) => m.id === item.id);
-          if (mem) inspectMemory(mem);
-        } else {
-          playWindChimeNote(3, soundMuted);
-          setActiveStation(item.id as SpecialStation['id']);
-          sim.playerTarget = new THREE.Vector3(item.worldPos.x, item.worldPos.y, item.worldPos.z);
-        }
-        return;
+    const item = pickInteractive(e.clientX, e.clientY);
+    if (item) {
+      clearHover();
+      if (item.kind === 'easel') {
+        const easel = EASEL_CONFIGS.find((ea) => ea.id === item.id);
+        if (easel) inspectEasel(easel);
+      } else if (item.kind === 'memory') {
+        const mem = PERSONAL_MEMORIES.find((m) => m.id === item.id);
+        if (mem) inspectMemory(mem);
+      } else {
+        playWindChimeNote(3, soundMuted);
+        setActiveStation(item.id as SpecialStation['id']);
+        sim.playerTarget = new THREE.Vector3(item.worldPos.x, item.worldPos.y, item.worldPos.z);
       }
+      return;
     }
 
+    // pickInteractive already aimed the raycaster at this pointer position.
     const terrainHits = raycasterRef.current.intersectObjects(sim.terrainMeshes, true);
     if (terrainHits.length > 0) {
       const pt = terrainHits[0].point;
@@ -3085,32 +3750,37 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
     }
   };
 
-  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    const sim = simRef.current;
-    const delta = e.deltaY > 0 ? 1.8 : -1.8;
-    sim.camTargetDist = Math.max(7.5, Math.min(46, sim.camTargetDist + delta));
-  };
-
   const selectedPhoto: Photo | null = useMemo(() => {
     if (!selectedEasel) return null;
     return photos[selectedEasel.photoIndex % photos.length] || null;
   }, [selectedEasel, photos]);
 
   const currentAtmo = useMemo(() => computeAtmosphere(timeOfDay), [timeOfDay]);
+  // Menus take on the light of the hour: sand by day, amber at golden hour, indigo at blue hour…
+  const hudVars = useMemo(() => hudPaletteVars(timeOfDay, theme === 'dark'), [timeOfDay, theme]);
+
+  const driftBottles = useMemo(() => [...myBottles, ...sampleBottles], [myBottles, sampleBottles]);
 
   const handleAddDriftBottle = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newBottleText.trim()) return;
     playWindChimeNote(4, soundMuted);
-    setDriftBottles((prev) => [
-      {
-        id: Date.now(),
-        author: newBottleAuthor.trim() || '远方旅人 · Anonymous',
-        text: newBottleText.trim(),
-        date: '2026.11 · 刚刚投递',
-      },
-      ...prev,
-    ]);
+    const now = new Date();
+    const bottle = {
+      id: now.getTime(),
+      author: newBottleAuthor.trim() || td('远方旅人', 'A passing traveller'),
+      text: newBottleText.trim(),
+      date: `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`,
+    };
+    setMyBottles((prev) => {
+      const next = [bottle, ...prev].slice(0, 20);
+      try {
+        localStorage.setItem(MY_BOTTLES_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // Private mode / storage full: the bottle still shows for this visit.
+      }
+      return next;
+    });
     setNewBottleText('');
     setNewBottleAuthor('');
   };
@@ -3170,7 +3840,10 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
 
   return (
     <div
-      className={`relative ${
+      ref={rootRef}
+      style={hudVars}
+      data-hud={hudHidden ? 'hidden' : hudDim || viewfinderMode ? 'dim' : 'shown'}
+      className={`group/hud relative ${
         embedded ? 'w-full h-[640px] rounded-2xl' : 'w-screen h-[100dvh]'
       } overflow-hidden select-none bg-[#F3F1EC] dark:bg-[#0D0D0C] font-sans`}
     >
@@ -3181,9 +3854,37 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerCancel}
-        onWheel={handleWheel}
+        onPointerLeave={clearHover}
         className="w-full h-full block touch-none cursor-grab active:cursor-grabbing"
       />
+      {/* Lens vignette: pulls the eye to the centre and gives the scene depth (CSS, no GPU cost) */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(ellipse 125% 100% at 50% 45%, transparent 60%, rgba(28, 18, 10, 0.24) 100%)',
+        }}
+      />
+
+      {/* Clean-view mode: everything hidden except this way back */}
+      {hudHidden && (
+        <button
+          type="button"
+          onClick={() => setHudHidden(false)}
+          className="absolute top-3 right-3 md:top-4 md:right-4 z-40 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/35 hover:bg-black/55 text-white/90 text-[11px] font-mono backdrop-blur-md transition-colors"
+        >
+          <Eye className="w-3.5 h-3.5" />
+          <span>{td('显示界面 · H', 'Show UI · H')}</span>
+        </button>
+      )}
+
+      {/* Embedded view: say how to hand the keyboard/scroll wheel to the scene */}
+      {embedded && sceneReady && !keyboardActive && (
+        <div className="hidden md:flex absolute top-3 left-1/2 -translate-x-1/2 z-30 pointer-events-none items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#141413]/75 text-[#FAF9F5] text-[11px] font-mono backdrop-blur-md shadow-sm">
+          {td('点击场景即可使用 WASD 与滚轮缩放', 'Click the scene to use WASD & scroll-zoom')}
+        </div>
+      )}
 
       {/* Smooth Editorial Loading Curtain (fades out once WebGL first frame renders) */}
       <AnimatePresence>
@@ -3208,6 +3909,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       {/* Hover 3D Object Floating Tooltip */}
       {hoveredLabel && !selectedEasel && !activeStation && !selectedMemory && (
         <div
+          ref={tooltipRef}
           style={{ left: hoveredLabel.x + 14, top: hoveredLabel.y - 18 }}
           className="fixed z-30 pointer-events-none px-3.5 py-2 rounded-xl bg-[#FAF9F5]/95 dark:bg-[#141413]/95 text-[#141413] dark:text-[#F0EFEA] border border-[#E6E2D8] dark:border-[#2A2925] backdrop-blur-xl shadow-lg"
         >
@@ -3234,12 +3936,12 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       </AnimatePresence>
 
       {/* 2. Top-Left Back Button + Island Compass & Exploration Guide */}
-      <div className="absolute top-3 left-3 md:top-4 md:left-4 z-30 flex flex-col gap-2 max-w-[72vw] md:max-w-xs pointer-events-auto">
+      <div className="absolute top-3 left-3 md:top-4 md:left-4 z-30 flex flex-col gap-2 max-w-[72vw] md:max-w-xs pointer-events-auto transition-opacity duration-500 group-data-[hud=hidden]/hud:opacity-0 group-data-[hud=hidden]/hud:pointer-events-none group-data-[hud=dim]/hud:opacity-25 hover:!opacity-100">
         <div className="flex items-center gap-1.5 sm:gap-2">
           <button
             type="button"
             onClick={handleBack}
-            className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-[#FAF9F5]/90 dark:bg-[#141413]/90 hover:bg-[#141413] hover:text-[#FAF9F5] dark:hover:bg-[#F0EFEA] dark:hover:text-[#141413] text-[#141413] dark:text-[#F0EFEA] border border-[#E6E2D8] dark:border-[#2A2925] backdrop-blur-xl shadow-sm text-xs font-mono tracking-wide flex items-center gap-1.5 transition-colors"
+            className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-[color:var(--hud-bg)] hover:bg-[color:var(--hud-active-bg)] hover:text-[color:var(--hud-active-text)] text-[color:var(--hud-text)] border border-[color:var(--hud-border)] backdrop-blur-xl shadow-sm text-xs font-mono tracking-wide flex items-center gap-1.5 transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span className="sm:hidden">{embedded ? td('收起', 'Close') : td('返回', 'Back')}</span>
@@ -3256,8 +3958,8 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
             }}
             className={`px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl border backdrop-blur-xl shadow-sm text-xs font-mono flex items-center gap-1.5 transition-colors ${
               showMemoryIndex
-                ? 'bg-[#8A6F48] text-[#FAF9F5] border-[#8A6F48]'
-                : 'bg-[#FAF9F5]/90 dark:bg-[#141413]/90 text-[#8A6F48] dark:text-[#C8A97E] border-[#E6E2D8] dark:border-[#2A2925] hover:border-[#8A6F48]'
+                ? 'bg-[color:var(--hud-accent)] text-[color:var(--hud-active-text)] border-[color:var(--hud-accent)]'
+                : 'bg-[color:var(--hud-bg)] text-[color:var(--hud-accent)] border-[color:var(--hud-border)] hover:border-[color:var(--hud-accent)]'
             }`}
             title={td('个人记忆与岛屿导览', 'Memory & Island Guide')}
           >
@@ -3274,11 +3976,11 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
               initial={{ opacity: 0, y: -6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
-              className="p-2.5 rounded-2xl bg-[#FAF9F5]/95 dark:bg-[#141413]/95 border border-[#E6E2D8] dark:border-[#2A2925] backdrop-blur-xl shadow-xl space-y-1 max-h-[65vh] overflow-y-auto"
+              className="p-2.5 rounded-2xl bg-[color:var(--hud-bg-strong)] border border-[color:var(--hud-border)] backdrop-blur-xl shadow-xl space-y-1 max-h-[65vh] overflow-y-auto"
             >
               {/* Mobile-only Island Quick Teleports inside drawer so main view stays uncluttered */}
-              <div className="md:hidden pb-2 mb-1.5 border-b border-[#E6E2D8] dark:border-[#262522]">
-                <div className="px-2 py-1 text-[10px] font-mono uppercase tracking-[0.16em] text-[#8C877E]">
+              <div className="md:hidden pb-2 mb-1.5 border-b border-[color:var(--hud-border)]">
+                <div className="px-2 py-1 text-[10px] font-mono uppercase tracking-[0.16em] text-[color:var(--hud-muted)]">
                   {td('主群岛传送', 'ISLAND ZONES')}
                 </div>
                 <div className="flex flex-wrap gap-1 px-1">
@@ -3294,8 +3996,8 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
                         }}
                         className={`px-2 py-1 rounded-lg text-[10px] font-mono flex items-center gap-1 border ${
                           active
-                            ? 'bg-[#141413] text-[#FAF9F5] border-[#141413] dark:bg-[#F0EFEA] dark:text-[#141413]'
-                            : 'bg-[#F3F1EC] dark:bg-[#1E1D1A] text-[#524E48] dark:text-[#B5B0A6] border-[#E6E2D8] dark:border-[#2A2925]'
+                            ? 'bg-[color:var(--hud-active-bg)] text-[color:var(--hud-active-text)] border-[color:var(--hud-active-bg)]'
+                            : 'bg-[color:var(--hud-chip)] text-[color:var(--hud-muted)] border-[color:var(--hud-border)]'
                         }`}
                       >
                         <span
@@ -3308,13 +4010,13 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
                   })}
                 </div>
               </div>
-              <div className="px-2 py-1 flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.16em] text-[#8A6F48] dark:text-[#C8A97E]">
+              <div className="px-2 py-1 flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.16em] text-[color:var(--hud-accent)]">
                 <span>
                   {td(`个人记忆地标 · ${PERSONAL_MEMORIES.length} 处`, `PERSONAL MEMORIES · ${PERSONAL_MEMORIES.length}`)}
                 </span>
-                <span className="flex items-center gap-1 text-[#8C877E]">
+                <span className="flex items-center gap-1 text-[color:var(--hud-muted)]">
                   {unlockedMemoryIds.length > 0 ? (
-                    <Unlock className="w-3 h-3 text-[#8A6F48]" />
+                    <Unlock className="w-3 h-3 text-[color:var(--hud-accent)]" />
                   ) : (
                     <Lock className="w-3 h-3" />
                   )}
@@ -3331,16 +4033,16 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
                       setShowMemoryIndex(false);
                       inspectMemory(mem, false);
                     }}
-                    className="w-full px-2.5 py-1.5 rounded-xl hover:bg-[#F3F1EC] dark:hover:bg-[#1E1D1A] text-left flex items-center justify-between gap-2 transition-colors group"
+                    className="w-full px-2.5 py-1.5 rounded-xl hover:bg-[color:var(--hud-chip)] text-left flex items-center justify-between gap-2 transition-colors group"
                   >
                     <div className="min-w-0">
-                      <div className="text-xs font-serif font-medium text-[#141413] dark:text-[#FAF9F5] group-hover:text-[#8A6F48] dark:group-hover:text-[#C8A97E] truncate flex items-center gap-1.5">
+                      <div className="text-xs font-serif font-medium text-[color:var(--hud-text)] group-hover:text-[color:var(--hud-accent)] truncate flex items-center gap-1.5">
                         <span className="truncate">{mem.titleZh}</span>
-                        {isMemUnlocked && <Unlock className="w-2.5 h-2.5 text-[#8A6F48] shrink-0" />}
+                        {isMemUnlocked && <Unlock className="w-2.5 h-2.5 text-[color:var(--hud-accent)] shrink-0" />}
                       </div>
-                      <div className="text-[10px] font-mono text-[#8C877E] truncate">{mem.eraZh}</div>
+                      <div className="text-[10px] font-mono text-[color:var(--hud-muted)] truncate">{mem.eraZh}</div>
                     </div>
-                    <span className="text-[10px] font-mono text-[#8A6F48] dark:text-[#C8A97E] shrink-0">
+                    <span className="text-[10px] font-mono text-[color:var(--hud-accent)] shrink-0">
                       {mem.indexLabel} ↗
                     </span>
                   </button>
@@ -3350,79 +4052,70 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
           )}
         </AnimatePresence>
 
-        <div className="hidden md:block px-4 py-3 rounded-2xl bg-[#FAF9F5]/90 dark:bg-[#141413]/90 text-[#141413] dark:text-[#F0EFEA] backdrop-blur-xl border border-[#E6E2D8]/90 dark:border-[#2A2925] shadow-lg">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-[#8A6F48] dark:bg-[#C8A97E] animate-pulse" />
-              <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-[#8A6F48] dark:text-[#C8A97E]">
-                {td('光影拾遗岛 · 3D', 'SHUTTER ISLAND · 3D')}
-              </span>
+        {/* Compact island card: one line by default so it doesn't cover the scene; the chevron
+            opens the description, controls guide and island switcher. */}
+        <div className="hidden md:block px-3 py-2 rounded-2xl bg-[color:var(--hud-bg)] text-[color:var(--hud-text)] backdrop-blur-xl border border-[color:var(--hud-border)] shadow-lg">
+          <div className="flex items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="w-2 h-2 rounded-full bg-[color:var(--hud-accent)] animate-pulse shrink-0" />
+              <h1 className="font-serif text-sm font-medium tracking-tight text-[color:var(--hud-text)] truncate">
+                {ISLAND_ZONES.find((z) => z.id === activeZoneId)?.nameZh || '01 · 拾光主岛'}
+              </h1>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="px-2 py-0.5 rounded-full bg-[#F3F1EC] dark:bg-[#1E1D1A] border border-[#E6E2D8] dark:border-[#2C2B27] text-[#8A6F48] dark:text-[#C8A97E] text-[10px] font-mono">
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="px-2 py-0.5 rounded-full bg-[color:var(--hud-chip)] border border-[color:var(--hud-border)] text-[color:var(--hud-accent)] text-[10px] font-mono tabular-nums">
                 {discoveredIds.length}/{EASEL_CONFIGS.length} {td('画架', 'Frames')}
               </span>
               <button
                 type="button"
-                onClick={() => setShowControlsHint((v) => !v)}
-                className={`p-1 rounded-full border transition-colors ${
-                  showControlsHint
-                    ? 'bg-[#141413] text-[#FAF9F5] border-[#141413] dark:bg-[#F0EFEA] dark:text-[#141413] dark:border-[#F0EFEA]'
-                    : 'bg-[#F3F1EC] dark:bg-[#1E1D1A] text-[#8C877E] border-[#E6E2D8] dark:border-[#2C2B27] hover:text-[#141413] dark:hover:text-[#FAF9F5]'
-                }`}
-                title={td('操作说明', 'Controls Guide')}
+                aria-expanded={hudCardOpen}
+                onClick={() => setHudCardOpen((v) => !v)}
+                className="p-1 rounded-full border bg-[color:var(--hud-chip)] text-[color:var(--hud-muted)] border-[color:var(--hud-border)] hover:text-[color:var(--hud-text)] transition-colors"
+                title={hudCardOpen ? td('收起', 'Collapse') : td('岛屿介绍 · 操作说明 · 切换岛屿', 'Island info, controls & switcher')}
               >
-                <Info className="w-3 h-3" />
+                <ChevronDown className={`w-3 h-3 transition-transform ${hudCardOpen ? 'rotate-180' : ''}`} />
               </button>
             </div>
           </div>
 
-          <h1 className="mt-1.5 font-serif text-base font-medium tracking-tight text-[#141413] dark:text-[#FAF9F5]">
-            {ISLAND_ZONES.find((z) => z.id === activeZoneId)?.nameZh || '01 · 拾光主岛'}
-          </h1>
-          <p className="text-[11px] text-[#6E6A63] dark:text-[#9E9A92] mt-0.5 leading-relaxed">
-            {ISLAND_ZONES.find((z) => z.id === activeZoneId)?.subtitleZh}
-          </p>
-
-          <AnimatePresence>
-            {showControlsHint && (
+          <AnimatePresence initial={false}>
+            {hudCardOpen && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
                 className="overflow-hidden"
               >
-                <div className="mt-2.5 pt-2.5 border-t border-[#E6E2D8] dark:border-[#262522] flex flex-wrap items-center gap-1.5 text-[10px] text-[#6E6A63] dark:text-[#9E9A92] font-mono">
-                  <span className="px-1.5 py-0.5 rounded bg-[#F3F1EC] dark:bg-[#1E1D1A] border border-[#E6E2D8] dark:border-[#2C2B27] text-[#141413] dark:text-[#F0EFEA]">
+                <p className="pt-1.5 text-[11px] text-[color:var(--hud-muted)] leading-relaxed">
+                  {ISLAND_ZONES.find((z) => z.id === activeZoneId)?.subtitleZh}
+                </p>
+                <div className="mt-2 pt-2 border-t border-[color:var(--hud-border)] flex flex-wrap items-center gap-1.5 text-[10px] text-[color:var(--hud-muted)] font-mono">
+                  <span className="px-1.5 py-0.5 rounded bg-[color:var(--hud-chip)] border border-[color:var(--hud-border)] text-[color:var(--hud-text)]">
                     WASD / 点击草地
                   </span>
                   <span>漫步</span>
-                  <span className="px-1.5 py-0.5 rounded bg-[#F3F1EC] dark:bg-[#1E1D1A] border border-[#E6E2D8] dark:border-[#2C2B27] text-[#141413] dark:text-[#F0EFEA]">
+                  <span className="px-1.5 py-0.5 rounded bg-[color:var(--hud-chip)] border border-[color:var(--hud-border)] text-[color:var(--hud-text)]">
                     拖拽
                   </span>
                   <span>环视</span>
-                  <span className="px-1.5 py-0.5 rounded bg-[#F3F1EC] dark:bg-[#1E1D1A] border border-[#E6E2D8] dark:border-[#2C2B27] text-[#8A6F48] dark:text-[#C8A97E]">
-                    点击 3D 画架
+                  <span className="px-1.5 py-0.5 rounded bg-[color:var(--hud-chip)] border border-[color:var(--hud-border)] text-[color:var(--hud-text)]">
+                    H
                   </span>
-                  <span>看展</span>
+                  <span>{td('隐藏界面', 'hide UI')}</span>
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        <div className="hidden md:flex flex-wrap gap-1.5">
+                <div className="mt-2 flex flex-wrap gap-1.5">
           {ISLAND_ZONES.map((zone, idx) => {
             const active = activeZoneId === zone.id;
             return (
               <button
                 key={zone.id}
                 type="button"
+                aria-pressed={active}
                 onClick={() => teleportToZone(zone, idx)}
-                className={`px-2.5 py-1.5 rounded-xl text-[11px] font-mono backdrop-blur-xl transition-all flex items-center gap-1.5 border ${
+                className={`shrink-0 whitespace-nowrap px-2.5 py-1.5 rounded-xl text-[11px] font-mono backdrop-blur-xl transition-all flex items-center gap-1.5 border ${
                   active
-                    ? 'bg-[#141413] text-[#FAF9F5] dark:bg-[#F0EFEA] dark:text-[#141413] border-[#141413] dark:border-[#F0EFEA] shadow-sm'
-                    : 'bg-[#FAF9F5]/85 dark:bg-[#141413]/85 text-[#524E48] dark:text-[#B5B0A6] border-[#E6E2D8] dark:border-[#2A2925] hover:border-[#8A6F48] dark:hover:border-[#C8A97E] hover:text-[#141413] dark:hover:text-[#FAF9F5]'
+                    ? 'bg-[color:var(--hud-active-bg)] text-[color:var(--hud-active-text)] border-[color:var(--hud-active-bg)] shadow-sm'
+                    : 'bg-[color:var(--hud-bg)] text-[color:var(--hud-muted)] border-[color:var(--hud-border)] hover:border-[color:var(--hud-accent)] hover:text-[color:var(--hud-text)]'
                 }`}
               >
                 <span
@@ -3433,11 +4126,15 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
               </button>
             );
           })}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
       {/* 3. Top-Right Golden Hour Time-of-Day Controller & Viewfinder Toggle */}
-      <div className="absolute top-3 right-3 md:top-4 md:right-4 z-30 flex flex-col items-end gap-2 pointer-events-auto">
+      <div className="absolute top-3 right-3 md:top-4 md:right-4 z-30 flex flex-col items-end gap-2 pointer-events-auto transition-opacity duration-500 group-data-[hud=hidden]/hud:opacity-0 group-data-[hud=hidden]/hud:pointer-events-none group-data-[hud=dim]/hud:opacity-25 hover:!opacity-100">
         {!showTimePanel ? (
           <button
             type="button"
@@ -3445,35 +4142,29 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
               playTactileClick(680);
               setShowTimePanel(true);
             }}
-            className="px-2.5 py-1.5 rounded-xl bg-[#FAF9F5]/90 dark:bg-[#141413]/90 text-[#8A6F48] dark:text-[#C8A97E] border border-[#E6E2D8] dark:border-[#2A2925] backdrop-blur-xl shadow-sm text-xs font-mono flex items-center gap-1.5"
+            className="px-2.5 py-1.5 rounded-xl bg-[color:var(--hud-bg)] text-[color:var(--hud-accent)] border border-[color:var(--hud-border)] backdrop-blur-xl shadow-sm text-xs font-mono flex items-center gap-1.5"
             title={td('展开天时控制', 'Open Time of Day')}
           >
             <Sun className="w-3.5 h-3.5" />
             <span>
-              {Math.floor(timeOfDay).toString().padStart(2, '0')}:
-              {Math.floor((timeOfDay % 1) * 60)
-                .toString()
-                .padStart(2, '0')}
+              {formatHour(timeOfDay)}
             </span>
           </button>
         ) : (
-          <div className="px-4 py-3 rounded-2xl bg-[#FAF9F5]/90 dark:bg-[#141413]/90 text-[#141413] dark:text-[#F0EFEA] backdrop-blur-xl border border-[#E6E2D8]/90 dark:border-[#2A2925] shadow-lg w-64 sm:w-72">
+          <div className="px-4 py-3 rounded-2xl bg-[color:var(--hud-bg)] text-[color:var(--hud-text)] backdrop-blur-xl border border-[color:var(--hud-border)] shadow-lg w-64 sm:w-72">
             <div className="flex items-center justify-between text-xs mb-2">
-              <span className="font-mono text-[11px] text-[#8A6F48] dark:text-[#C8A97E] flex items-center gap-1.5">
+              <span className="font-mono text-[11px] text-[color:var(--hud-accent)] flex items-center gap-1.5">
                 <Sun className="w-3.5 h-3.5" />
                 {currentAtmo.labelZh}
               </span>
               <div className="flex items-center gap-2">
-                <span className="font-mono text-[11px] text-[#6E6A63] dark:text-[#9E9A92]">
-                  {Math.floor(timeOfDay).toString().padStart(2, '0')}:
-                  {Math.floor((timeOfDay % 1) * 60)
-                    .toString()
-                    .padStart(2, '0')}
+                <span className="font-mono text-[11px] text-[color:var(--hud-muted)]">
+                  {formatHour(timeOfDay)}
                 </span>
                 <button
                   type="button"
                   onClick={() => setShowTimePanel(false)}
-                  className="md:hidden p-0.5 rounded text-[#8C877E] hover:text-[#141413] dark:hover:text-[#FAF9F5]"
+                  className="p-0.5 rounded text-[color:var(--hud-muted)] hover:text-[color:var(--hud-text)]"
                   title={td('收起', 'Collapse')}
                 >
                   <X className="w-3.5 h-3.5" />
@@ -3488,7 +4179,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
               step={0.1}
               value={timeOfDay}
               onChange={(e) => setTimeOfDay(parseFloat(e.target.value))}
-              className="w-full accent-[#8A6F48] dark:accent-[#C8A97E] cursor-pointer h-1.5 bg-[#E6E2D8] dark:bg-[#2A2925] rounded-lg"
+              className="w-full accent-[color:var(--hud-accent)] cursor-pointer h-1.5 bg-[color:var(--hud-border)] rounded-lg"
             />
 
             <div className="mt-2.5 grid grid-cols-5 gap-1 text-[10px] font-mono">
@@ -3510,8 +4201,8 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
                     }}
                     className={`py-1.5 rounded-lg flex flex-col items-center justify-center gap-0.5 transition-all border ${
                       isCurrent
-                        ? 'bg-[#141413] text-[#FAF9F5] border-[#141413] dark:bg-[#F0EFEA] dark:text-[#141413] dark:border-[#F0EFEA]'
-                        : 'bg-[#F3F1EC]/90 dark:bg-[#1C1B18] text-[#6E6A63] dark:text-[#9E9A92] border-transparent hover:border-[#E6E2D8] dark:hover:border-[#2C2B27] hover:text-[#141413] dark:hover:text-[#FAF9F5]'
+                        ? 'bg-[color:var(--hud-active-bg)] text-[color:var(--hud-active-text)] border-[color:var(--hud-active-bg)]'
+                        : 'bg-[color:var(--hud-chip)] text-[color:var(--hud-muted)] border-transparent hover:border-[color:var(--hud-border)] hover:text-[color:var(--hud-text)]'
                     }`}
                   >
                     {preset.icon}
@@ -3527,13 +4218,25 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
           <button
             type="button"
             onClick={() => {
+              playTactileClick(620);
+              setHudHidden(true);
+            }}
+            className="p-2 rounded-xl bg-[color:var(--hud-bg)] text-[color:var(--hud-muted)] hover:text-[color:var(--hud-text)] border border-[color:var(--hud-border)] hover:border-[color:var(--hud-accent)] backdrop-blur-xl shadow-sm transition-colors"
+            title={td('隐藏界面，纯净看景 [H]', 'Hide the interface [H]')}
+            aria-label={td('隐藏界面', 'Hide interface')}
+          >
+            <EyeOff className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
               playTactileClick(760);
               setViewfinderMode((v) => !v);
             }}
             className={`px-2.5 sm:px-3 py-2 rounded-xl text-xs font-mono flex items-center gap-1.5 backdrop-blur-xl border transition-all shadow-sm ${
               viewfinderMode
-                ? 'bg-[#8A6F48] text-[#FAF9F5] border-[#8A6F48]'
-                : 'bg-[#FAF9F5]/90 dark:bg-[#141413]/90 text-[#141413] dark:text-[#F0EFEA] border-[#E6E2D8] dark:border-[#2A2925] hover:border-[#8A6F48] dark:hover:border-[#C8A97E]'
+                ? 'bg-[color:var(--hud-accent)] text-[color:var(--hud-active-text)] border-[color:var(--hud-accent)]'
+                : 'bg-[color:var(--hud-bg)] text-[color:var(--hud-text)] border-[color:var(--hud-border)] hover:border-[color:var(--hud-accent)]'
             }`}
           >
             <Camera className="w-3.5 h-3.5" />
@@ -3543,7 +4246,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
           <button
             type="button"
             onClick={captureIslandPostcard}
-            className="px-2.5 sm:px-3 py-2 rounded-xl text-xs font-mono flex items-center gap-1.5 bg-[#141413] hover:bg-[#8A6F48] text-[#FAF9F5] dark:bg-[#F0EFEA] dark:hover:bg-[#C8A97E] dark:text-[#141413] border border-transparent shadow-sm transition-colors"
+            className="px-2.5 sm:px-3 py-2 rounded-xl text-xs font-mono flex items-center gap-1.5 bg-[color:var(--hud-active-bg)] hover:bg-[color:var(--hud-accent)] text-[color:var(--hud-active-text)] border border-transparent shadow-sm transition-colors"
             title="拍下当前 3D 小岛明信片"
           >
             <Aperture className="w-3.5 h-3.5" />
@@ -3560,7 +4263,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
               sim.camTargetDist = 17.5;
               sim.camTargetFocus.set(sim.playerPos.x, sim.playerPos.y + 1.1, sim.playerPos.z);
             }}
-            className="p-2 rounded-xl bg-[#FAF9F5]/90 dark:bg-[#141413]/90 text-[#524E48] dark:text-[#B5B0A6] hover:text-[#141413] dark:hover:text-[#FAF9F5] border border-[#E6E2D8] dark:border-[#2A2925] hover:border-[#8A6F48] backdrop-blur-xl shadow-sm transition-colors"
+            className="p-2 rounded-xl bg-[color:var(--hud-bg)] text-[color:var(--hud-muted)] hover:text-[color:var(--hud-text)] border border-[color:var(--hud-border)] hover:border-[color:var(--hud-accent)] backdrop-blur-xl shadow-sm transition-colors"
             title="重置镜头视角"
           >
             <RotateCcw className="w-4 h-4" />
@@ -3569,13 +4272,13 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
           <button
             type="button"
             onClick={() => setSoundMuted((m) => !m)}
-            className="p-2 rounded-xl bg-[#FAF9F5]/90 dark:bg-[#141413]/90 text-[#524E48] dark:text-[#B5B0A6] hover:text-[#141413] dark:hover:text-[#FAF9F5] border border-[#E6E2D8] dark:border-[#2A2925] hover:border-[#8A6F48] backdrop-blur-xl shadow-sm transition-colors"
+            className="p-2 rounded-xl bg-[color:var(--hud-bg)] text-[color:var(--hud-muted)] hover:text-[color:var(--hud-text)] border border-[color:var(--hud-border)] hover:border-[color:var(--hud-accent)] backdrop-blur-xl shadow-sm transition-colors"
             title={soundMuted ? '开启快门与风铃音效' : '静音'}
           >
             {soundMuted ? (
               <VolumeX className="w-4 h-4 text-[#9E553F]" />
             ) : (
-              <Volume2 className="w-4 h-4 text-[#8A6F48] dark:text-[#C8A97E]" />
+              <Volume2 className="w-4 h-4 text-[color:var(--hud-accent)]" />
             )}
           </button>
 
@@ -3583,7 +4286,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
             <button
               type="button"
               onClick={toggleTheme}
-              className="p-2 rounded-xl bg-[#FAF9F5]/90 dark:bg-[#141413]/90 text-[#524E48] dark:text-[#B5B0A6] hover:text-[#141413] dark:hover:text-[#FAF9F5] border border-[#E6E2D8] dark:border-[#2A2925] hover:border-[#8A6F48] backdrop-blur-xl shadow-sm transition-colors"
+              className="p-2 rounded-xl bg-[color:var(--hud-bg)] text-[color:var(--hud-muted)] hover:text-[color:var(--hud-text)] border border-[color:var(--hud-border)] hover:border-[color:var(--hud-accent)] backdrop-blur-xl shadow-sm transition-colors"
               title={theme === 'dark' ? '切换浅色纸面主题' : '切换深色暗房主题'}
             >
               {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
@@ -3592,8 +4295,8 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
         </div>
 
         {capturedPostcards.length > 0 && (
-          <div className="px-3 py-2 rounded-2xl bg-[#FAF9F5]/90 dark:bg-[#141413]/90 border border-[#E6E2D8] dark:border-[#2A2925] backdrop-blur-xl shadow-sm flex items-center gap-2">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-[#8A6F48] dark:text-[#C8A97E]">
+          <div className="px-3 py-2 rounded-2xl bg-[color:var(--hud-bg)] border border-[color:var(--hud-border)] backdrop-blur-xl shadow-sm flex items-center gap-2">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-[color:var(--hud-accent)]">
               明信片夹
             </span>
             <div className="flex items-center gap-1.5">
@@ -3602,7 +4305,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
                   key={card.id}
                   type="button"
                   onClick={() => setPreviewPostcard(card)}
-                  className="w-10 h-7 rounded-md overflow-hidden border border-[#E6E2D8] dark:border-[#2A2925] hover:border-[#8A6F48] hover:scale-105 transition-all"
+                  className="w-10 h-7 rounded-md overflow-hidden border border-[color:var(--hud-border)] hover:border-[color:var(--hud-accent)] hover:scale-105 transition-all"
                 >
                   <img src={card.dataUrl} alt={card.zoneLabel} className="w-full h-full object-cover" />
                 </button>
@@ -3705,15 +4408,15 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
           onPointerMove={handleJoyPointerMove}
           onPointerUp={handleJoyPointerEnd}
           onPointerCancel={handleJoyPointerEnd}
-          className="md:hidden absolute bottom-16 left-3 z-30 w-20 h-20 rounded-full bg-[#FAF9F5]/65 dark:bg-[#141413]/65 opacity-80 active:opacity-100 border border-[#E6E2D8]/80 dark:border-[#2A2925]/80 backdrop-blur-md shadow-md touch-none flex items-center justify-center pointer-events-auto"
+          className="md:hidden absolute bottom-16 left-3 z-30 w-20 h-20 rounded-full bg-[color:var(--hud-bg)] opacity-80 active:opacity-100 border border-[color:var(--hud-border)] backdrop-blur-md shadow-md touch-none flex items-center justify-center pointer-events-auto"
           aria-label="移动摇杆"
         >
-          <div className="w-11 h-11 rounded-full border border-dashed border-[#8A6F48]/35 dark:border-[#C8A97E]/35 pointer-events-none" />
+          <div className="w-11 h-11 rounded-full border border-dashed border-[color:var(--hud-accent)] pointer-events-none" />
           <div
             style={{
               transform: `translate(${joyKnob.x}px, ${joyKnob.y}px)`,
             }}
-            className="absolute w-8 h-8 rounded-full bg-[#141413]/85 dark:bg-[#C8A97E] border-2 border-[#FAF9F5] dark:border-[#141413] shadow-sm pointer-events-none transition-transform duration-75"
+            className="absolute w-8 h-8 rounded-full bg-[color:var(--hud-active-bg)] border-2 border-[color:var(--hud-bg-strong)] shadow-sm pointer-events-none transition-transform duration-75"
           />
         </div>
       )}
@@ -3741,17 +4444,17 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
                   setActiveStation(nearbyPrompt.id as SpecialStation['id']);
                 }
               }}
-              className="px-3 py-2 md:px-4 md:py-2.5 rounded-2xl bg-[#FAF9F5]/95 dark:bg-[#141413]/95 hover:border-[#8A6F48] dark:hover:border-[#C8A97E] text-[#141413] dark:text-[#F0EFEA] border border-[#E6E2D8] dark:border-[#2A2925] backdrop-blur-xl shadow-xl flex items-center gap-2.5 md:gap-3 group transition-all"
+              className="px-3 py-2 md:px-4 md:py-2.5 rounded-2xl bg-[color:var(--hud-bg-strong)] hover:border-[color:var(--hud-accent)] text-[color:var(--hud-text)] border border-[color:var(--hud-border)] backdrop-blur-xl shadow-xl flex items-center gap-2.5 md:gap-3 group transition-all"
             >
-              <span className="hidden sm:inline-block px-2 py-1 rounded-lg bg-[#141413] text-[#FAF9F5] dark:bg-[#C8A97E] dark:text-[#141413] font-mono text-[11px] shrink-0">
+              <span className="hidden sm:inline-block px-2 py-1 rounded-lg bg-[color:var(--hud-active-bg)] text-[color:var(--hud-active-text)] font-mono text-[11px] shrink-0">
                 E / 点击
               </span>
               <div className="text-left min-w-0">
-                <div className="font-serif text-xs md:text-sm font-medium text-[#141413] dark:text-[#FAF9F5] group-hover:text-[#8A6F48] dark:group-hover:text-[#C8A97E] flex items-center gap-1 transition-colors truncate">
+                <div className="font-serif text-xs md:text-sm font-medium text-[color:var(--hud-text)] group-hover:text-[color:var(--hud-accent)] flex items-center gap-1 transition-colors truncate">
                   <span className="truncate">{nearbyPrompt.titleZh}</span>
                   <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
                 </div>
-                <div className="hidden sm:block text-[11px] text-[#6E6A63] dark:text-[#9E9A92]">{nearbyPrompt.subZh}</div>
+                <div className="hidden sm:block text-[11px] text-[color:var(--hud-muted)]">{nearbyPrompt.subZh}</div>
               </div>
             </button>
           </motion.div>
@@ -3759,11 +4462,11 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       </AnimatePresence>
 
       {/* 6. Bottom 35mm Filmstrip Navigation Bar (Zero Native Scrollbar) */}
-      <div className="absolute bottom-2 md:bottom-3 left-1/2 -translate-x-1/2 z-30 max-w-[96%] pointer-events-auto">
-        <div className="px-2 py-1.5 md:px-2.5 md:py-2 rounded-2xl bg-[#FAF9F5]/95 dark:bg-[#141413]/90 backdrop-blur-xl border border-[#E6E2D8] dark:border-[#2A2925] shadow-lg flex items-center gap-1.5 md:gap-2">
-          <div className="flex items-center gap-1.5 pl-1 pr-2 md:pr-2.5 border-r border-[#E6E2D8] dark:border-[#2A2925] shrink-0">
-            <Film className="w-3.5 h-3.5 text-[#8A6F48] dark:text-[#C8A97E]" />
-            <span className="text-[11px] font-mono tracking-wide text-[#524E48] dark:text-[#B5B0A6] hidden md:inline">
+      <div className="absolute bottom-2 md:bottom-3 left-1/2 -translate-x-1/2 z-30 max-w-[96%] pointer-events-auto transition-opacity duration-500 group-data-[hud=hidden]/hud:opacity-0 group-data-[hud=hidden]/hud:pointer-events-none group-data-[hud=dim]/hud:opacity-25 hover:!opacity-100">
+        <div className="px-2 py-1.5 md:px-2.5 md:py-2 rounded-2xl bg-[color:var(--hud-bg-strong)] backdrop-blur-xl border border-[color:var(--hud-border)] shadow-lg flex items-center gap-1.5 md:gap-2">
+          <div className="flex items-center gap-1.5 pl-1 pr-2 md:pr-2.5 border-r border-[color:var(--hud-border)] shrink-0">
+            <Film className="w-3.5 h-3.5 text-[color:var(--hud-accent)]" />
+            <span className="text-[11px] font-mono tracking-wide text-[color:var(--hud-muted)] hidden md:inline">
               35mm 胶卷
             </span>
           </div>
@@ -3771,7 +4474,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
           <button
             type="button"
             onClick={() => filmstripRef.current?.scrollBy({ left: -220, behavior: 'smooth' })}
-            className="hidden sm:inline-flex p-1 rounded-lg text-[#8C877E] hover:text-[#141413] dark:hover:text-[#FAF9F5] hover:bg-[#F3F1EC] dark:hover:bg-[#1E1D1A] transition-colors shrink-0"
+            className="hidden sm:inline-flex p-1 rounded-lg text-[color:var(--hud-muted)] hover:text-[color:var(--hud-text)] hover:bg-[color:var(--hud-chip)] transition-colors shrink-0"
             title="向左滚动胶卷"
           >
             <ChevronLeft className="w-3.5 h-3.5" />
@@ -3785,7 +4488,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
                 e.currentTarget.scrollLeft += e.deltaY;
               }
             }}
-            className="flex items-center gap-1.5 overflow-x-auto max-w-[54vw] sm:max-w-[52vw] lg:max-w-[60vw] py-0.5 px-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+            className="relative flex items-center gap-1.5 overflow-x-auto max-w-[54vw] sm:max-w-[52vw] lg:max-w-[60vw] py-0.5 px-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
           >
             {EASEL_CONFIGS.map((easel, idx) => {
               const photo = photos[easel.photoIndex % photos.length];
@@ -3795,13 +4498,15 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
                 <button
                   key={easel.id}
                   type="button"
+                  data-easel-id={easel.id}
+                  aria-current={isSelected || undefined}
                   onClick={() => inspectEasel(easel)}
                   className={`group relative shrink-0 w-10 h-7 sm:w-12 sm:h-9 rounded-lg overflow-hidden border transition-all ${
                     isSelected
-                      ? 'border-[#8A6F48] dark:border-[#C8A97E] ring-2 ring-[#8A6F48]/40 dark:ring-[#C8A97E]/40 scale-105'
+                      ? 'border-[color:var(--hud-accent)] ring-2 ring-[color:var(--hud-accent)] scale-105'
                       : isDiscovered
-                        ? 'border-[#8A6F48]/45 dark:border-[#C8A97E]/45 hover:border-[#141413] dark:hover:border-[#FAF9F5]'
-                        : 'border-[#E6E2D8] dark:border-[#2A2925] opacity-85 hover:opacity-100'
+                        ? 'border-[color:var(--hud-accent)] hover:border-[color:var(--hud-text)]'
+                        : 'border-[color:var(--hud-border)] opacity-85 hover:opacity-100'
                   }`}
                   title={`${idx + 1}. ${photo?.title || '摄影作品'} (${easel.locationZh})`}
                 >
@@ -3824,13 +4529,13 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
           <button
             type="button"
             onClick={() => filmstripRef.current?.scrollBy({ left: 220, behavior: 'smooth' })}
-            className="hidden sm:inline-flex p-1 rounded-lg text-[#8C877E] hover:text-[#141413] dark:hover:text-[#FAF9F5] hover:bg-[#F3F1EC] dark:hover:bg-[#1E1D1A] transition-colors shrink-0"
+            className="hidden sm:inline-flex p-1 rounded-lg text-[color:var(--hud-muted)] hover:text-[color:var(--hud-text)] hover:bg-[color:var(--hud-chip)] transition-colors shrink-0"
             title="向右滚动胶卷"
           >
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
 
-          <div className="h-5 w-px bg-[#E6E2D8] dark:bg-[#2A2925] shrink-0" />
+          <div className="h-5 w-px bg-[color:var(--hud-border)] shrink-0" />
 
           <div className="flex items-center gap-1.5 shrink-0">
             {SPECIAL_STATIONS.map((st) => {
@@ -3846,8 +4551,8 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
                   }}
                   className={`px-2.5 py-1.5 rounded-xl text-[11px] font-mono shrink-0 border transition-all flex items-center gap-1.5 ${
                     active
-                      ? 'bg-[#141413] text-[#FAF9F5] border-[#141413] dark:bg-[#F0EFEA] dark:text-[#141413] dark:border-[#F0EFEA]'
-                      : 'bg-[#F3F1EC]/90 dark:bg-[#1C1B18] text-[#524E48] dark:text-[#B5B0A6] border-[#E6E2D8] dark:border-[#2A2925] hover:border-[#8A6F48] dark:hover:border-[#C8A97E] hover:text-[#141413] dark:hover:text-[#FAF9F5]'
+                      ? 'bg-[color:var(--hud-active-bg)] text-[color:var(--hud-active-text)] border-[color:var(--hud-active-bg)]'
+                      : 'bg-[color:var(--hud-chip)] text-[color:var(--hud-muted)] border-[color:var(--hud-border)] hover:border-[color:var(--hud-accent)] hover:text-[color:var(--hud-text)]'
                   }`}
                 >
                   {st.id === 'gear-bag' ? (
@@ -3921,6 +4626,12 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
                 >
                   <ChevronRight className="w-5 h-5" />
                 </button>
+
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-full bg-black/50 text-[#FAF9F5] text-[10px] font-mono tabular-nums backdrop-blur-sm">
+                  {String(EASEL_CONFIGS.findIndex((ea) => ea.id === selectedEasel.id) + 1).padStart(2, '0')} /{' '}
+                  {String(EASEL_CONFIGS.length).padStart(2, '0')}
+                  <span className="hidden sm:inline opacity-70"> · ← →</span>
+                </div>
               </div>
 
               <div className="lg:col-span-5 p-6 sm:p-8 flex flex-col justify-between">
@@ -4204,6 +4915,8 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
                     <input
                       type="text"
                       placeholder="你的署名（如：旅人 · 深圳）"
+                      aria-label={td('署名', 'Your name')}
+                      maxLength={20}
                       value={newBottleAuthor}
                       onChange={(e) => setNewBottleAuthor(e.target.value)}
                       className="sm:w-44 px-3.5 py-2 rounded-xl bg-white dark:bg-[#1A1917] border border-[#E6E2D8] dark:border-[#2A2925] text-xs text-[#141413] dark:text-[#FAF9F5] placeholder:text-[#8C877E] focus:outline-none focus:border-[#8A6F48] dark:focus:border-[#C8A97E]"
@@ -4211,28 +4924,48 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
                     <input
                       type="text"
                       placeholder="写下给小岛或摄影作品的留言，装进漂流瓶..."
+                      aria-label={td('漂流瓶留言', 'Your message')}
+                      maxLength={120}
                       value={newBottleText}
                       onChange={(e) => setNewBottleText(e.target.value)}
                       className="flex-1 px-3.5 py-2 rounded-xl bg-white dark:bg-[#1A1917] border border-[#E6E2D8] dark:border-[#2A2925] text-xs text-[#141413] dark:text-[#FAF9F5] placeholder:text-[#8C877E] focus:outline-none focus:border-[#8A6F48] dark:focus:border-[#C8A97E]"
                     />
                     <button
                       type="submit"
-                      className="px-4 py-2 rounded-xl bg-[#141413] hover:bg-[#8A6F48] text-[#FAF9F5] dark:bg-[#F0EFEA] dark:hover:bg-[#C8A97E] dark:text-[#141413] font-mono text-xs flex items-center justify-center gap-1.5 shrink-0 transition-colors"
+                      disabled={!newBottleText.trim()}
+                      className="px-4 py-2 rounded-xl bg-[#141413] hover:bg-[#8A6F48] text-[#FAF9F5] dark:bg-[#F0EFEA] dark:hover:bg-[#C8A97E] dark:text-[#141413] font-mono text-xs flex items-center justify-center gap-1.5 shrink-0 transition-colors disabled:opacity-40 disabled:pointer-events-none"
                     >
                       <Send className="w-3.5 h-3.5" />
                       <span>投进大海</span>
                     </button>
                   </form>
+                  <p className="mt-1.5 text-[10px] font-mono text-[#8C877E]">
+                    {td(
+                      '你投下的漂流瓶保存在这台设备上，只有你看得到。',
+                      'Bottles you write are kept on this device and only you can see them.',
+                    )}
+                  </p>
 
-                  <div className="mt-5 space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                  <div className="mt-4 space-y-2.5 max-h-60 overflow-y-auto pr-1">
                     {driftBottles.map((b) => (
                       <div
                         key={b.id}
-                        className="p-3.5 rounded-xl bg-[#F3F1EC]/80 dark:bg-[#1A1917] border border-[#E6E2D8] dark:border-[#2A2925] flex flex-col gap-1"
+                        className={`p-3.5 rounded-xl border flex flex-col gap-1 ${
+                          myBottles.some((m) => m.id === b.id)
+                            ? 'bg-[#FAF6EE] dark:bg-[#1E1B15] border-[#8A6F48]/40 dark:border-[#C8A97E]/35'
+                            : 'bg-[#F3F1EC]/80 dark:bg-[#1A1917] border-[#E6E2D8] dark:border-[#2A2925]'
+                        }`}
                       >
                         <div className="flex items-center justify-between text-[11px] font-mono text-[#8A6F48] dark:text-[#C8A97E]">
-                          <span>{b.author}</span>
-                          <span className="text-[#8C877E]">{b.date}</span>
+                          <span>
+                            {b.author}
+                            {myBottles.some((m) => m.id === b.id) && (
+                              <span className="ml-1.5 px-1.5 py-px rounded-full bg-[#8A6F48]/12 text-[10px]">
+                                {td('我的', 'MINE')}
+                              </span>
+                            )}
+                          </span>
+                          <span className="text-[#8C877E] tabular-nums">{b.date}</span>
                         </div>
                         <p className="text-sm text-[#4A4741] dark:text-[#C9C5BC] leading-relaxed">{b.text}</p>
                       </div>

@@ -46,7 +46,8 @@ const LoadingSpinner = () => (
 
 const PublicFloatingChatbot = () => {
   const { pathname } = useLocation()
-  if (pathname.startsWith('/admin') || pathname === '/login') {
+  // The fullscreen island game has its own bottom toolbar; the floating bubble would sit on top of it.
+  if (pathname.startsWith('/admin') || pathname === '/login' || pathname === '/shutter-island') {
     return null
   }
   return <FloatingAIChatbot />

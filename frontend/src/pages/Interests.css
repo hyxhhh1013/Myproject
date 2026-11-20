@@ -1,5 +1,84 @@
-/* Clean minimal helper styles for Interests page */
-.interests-page {
-  background-color: var(--bg-canvas);
-  color: var(--text-primary);
+/* Interests page — page-scoped detail styles.
+   Kept here (not index.css) so the page's polish travels with the page. */
+
+/* Horizontal scrollers: soft fade on the trailing edge hints there is more to scroll. */
+.ix-fade-end {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent 100%);
+  mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent 100%);
+}
+
+/* Same fade, but only below the lg breakpoint (where the row can overflow). */
+@media (max-width: 1023.98px) {
+  .ix-fade-end-compact {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent 100%);
+    mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent 100%);
+  }
+}
+
+/* Lyrics viewport: fade top and bottom into whatever surface sits behind it,
+   so it works on the card colour in both themes without overlay divs. */
+.ix-fade-y {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 20%, #000 80%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 20%, #000 80%, transparent 100%);
+}
+
+/* ---------- Danmaku guestbook: seamless per-lane marquee ---------- */
+.ix-danmaku-lane {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+}
+
+.ix-danmaku-track {
+  display: flex;
+  width: max-content;
+  animation: ix-danmaku-scroll var(--ix-dur, 40s) linear infinite;
+  animation-delay: var(--ix-delay, 0s);
+  will-change: transform;
+}
+
+.ix-danmaku-lane:hover .ix-danmaku-track {
+  animation-play-state: paused;
+}
+
+@keyframes ix-danmaku-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.ix-danmaku-note {
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s ease;
+}
+
+.ix-danmaku-note:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(20, 20, 19, 0.16);
+}
+
+.ix-danmaku-note--fresh {
+  animation: ix-fresh-pulse 1.6s ease-out 3;
+}
+
+@keyframes ix-fresh-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(138, 111, 72, 0.55);
+  }
+  100% {
+    box-shadow: 0 0 0 10px rgba(138, 111, 72, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ix-danmaku-track {
+    animation: none;
+  }
+  .ix-danmaku-note--fresh {
+    animation: none;
+  }
 }

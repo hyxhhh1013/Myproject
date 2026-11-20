@@ -831,7 +831,9 @@ function deformFlexiblePaperMesh(
     const bx = basePositions[i * 3];
     const bz = basePositions[i * 3 + 2];
 
-    const u = bx / pageWidth;
+    // Clamp: after `translate(pageW / 2)` the float32 spine column lands at x ≈ -4.8e-8,
+    // and a negative base with the fractional exponent below (`u ** 1.35`) yields NaN.
+    const u = Math.min(1, Math.max(0, bx / pageWidth));
     const v = (bz + pageHeight / 2) / pageHeight;
 
     // Progressive phase lag creates authentic soft-paper wave bending
@@ -945,7 +947,7 @@ export const InteractiveReadingRoom: React.FC = () => {
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.14;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -1288,7 +1290,13 @@ export const InteractiveReadingRoom: React.FC = () => {
               <div className="pl-3.5 flex flex-col justify-between h-full">
                 <div className="flex items-center justify-between text-[10px] font-mono">
                   <span className="text-[#8A6F48] dark:text-[#C8A97E] font-bold">{b.code}</span>
-                  <span className="designer-text-muted">{b.year}</span>
+                  {/^\d{4}$/.test(b.year) ? (
+                    <span className="designer-text-muted tabular-nums">{b.year}</span>
+                  ) : (
+                    <span className="px-1.5 py-px rounded-full border border-[#8A6F48]/40 text-[#8A6F48] dark:text-[#C8A97E]">
+                      {td(b.year, 'READING')}
+                    </span>
+                  )}
                 </div>
                 <div className="mt-2">
                   <h3 className="text-sm font-semibold designer-text-primary truncate">
@@ -1302,7 +1310,7 @@ export const InteractiveReadingRoom: React.FC = () => {
                   <span className="designer-text-muted truncate">{td(b.categoryZh, b.categoryEn)}</span>
                   {active && (
                     <span className="text-[#8A6F48] dark:text-[#C8A97E] font-bold shrink-0 ml-1">
-                      ● {td('在读', 'OPEN')}
+                      ● {td('翻阅中', 'OPEN')}
                     </span>
                   )}
                 </div>
