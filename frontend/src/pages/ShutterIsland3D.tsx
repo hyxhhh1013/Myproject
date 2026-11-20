@@ -2518,10 +2518,18 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       built.group.rotation.y = mem.rotY;
       scene.add(built.group);
       memoryModels.push(built);
+      // Attach a focused click hitbox ONLY around the floating Memory Beacon diamond
+      // so clicking the seabed, campus plaza, stairs, or trees never accidentally opens the modal!
+      const beaconHitZone = new THREE.Mesh(
+        new THREE.SphereGeometry(0.95, 10, 8),
+        new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+      );
+      built.beacon.add(beaconHitZone);
+
       simRef.current.interactiveMeshes.push({
         kind: 'memory',
         id: mem.id,
-        mesh: built.group,
+        mesh: built.beacon,
         worldPos: mem.pos,
       });
     });
@@ -2996,7 +3004,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
           x: e.clientX,
           y: e.clientY,
           title: `${mem?.indexLabel || ''} · ${mem?.titleZh || '个人记忆'}`,
-          subtitle: `${mem?.categoryZh || ''} · 点击翻阅记忆手账`,
+          subtitle: `${mem?.categoryZh || ''} · 点击菱形信标翻阅记忆手账`,
         });
       } else {
         const st = SPECIAL_STATIONS.find((x) => x.id === hitTarget.id);
