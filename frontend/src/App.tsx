@@ -15,6 +15,7 @@ import Login from './pages/Login'
 const Home = lazy(() => import('./pages/Home'))
 const Interests = lazy(() => import('./pages/Interests'))
 const ShutterIsland3D = lazy(() => import('./pages/ShutterIsland3D'))
+const CoExamReview = lazy(() => import('./pages/CoExamReview'))
 const AiAssistantDemo = lazy(() => import('./pages/demos/AiAssistantDemo'))
 const DashboardDemo = lazy(() => import('./pages/demos/DashboardDemo'))
 const WeatherDemo = lazy(() => import('./pages/demos/WeatherDemo'))
@@ -47,7 +48,12 @@ const LoadingSpinner = () => (
 const PublicFloatingChatbot = () => {
   const { pathname } = useLocation()
   // The fullscreen island game has its own bottom toolbar; the floating bubble would sit on top of it.
-  if (pathname.startsWith('/admin') || pathname === '/login' || pathname === '/shutter-island') {
+  if (
+    pathname.startsWith('/admin') ||
+    pathname === '/login' ||
+    pathname === '/shutter-island' ||
+    pathname.startsWith('/study/')
+  ) {
     return null
   }
   return <FloatingAIChatbot />
@@ -75,6 +81,12 @@ function App() {
                       <Interests />
                     </Layout>
                   } />
+                  <Route path="/study/co" element={
+                    <Layout>
+                      <CoExamReview />
+                    </Layout>
+                  } />
+                  <Route path="/co" element={<Navigate to="/study/co" replace />} />
                   {/* Login Route */}
                   <Route path="/login" element={<Login />} />
                   
