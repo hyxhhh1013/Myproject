@@ -183,8 +183,13 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       try {
         const response = await axios.get('/api/music');
         const data = response.data?.data || (Array.isArray(response.data) ? response.data : []);
-        if (Array.isArray(data) && data.length > 0) {
-          setMusicList(data);
+        // /api/music returns hidden songs too (the admin lists from the same
+        // endpoint), so the public player must drop what the admin hid.
+        const visible = Array.isArray(data)
+          ? data.filter((m: { isVisible?: boolean }) => m?.isVisible !== false)
+          : [];
+        if (visible.length > 0) {
+          setMusicList(visible);
         }
       } catch {
         // Keep DEFAULT_MUSIC_LIST fallback

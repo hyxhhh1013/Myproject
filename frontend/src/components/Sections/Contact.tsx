@@ -5,11 +5,13 @@ import axios from '../../utils/axiosConfig';
 import { message } from 'antd';
 import { useI18n } from '../../i18n/i18nContext';
 import { playSuccessChime } from '../../utils/soundEffects';
+import { useSiteProfile } from '../Layout/Footer';
 
 export const Contact = React.memo(() => {
   const { t, td } = useI18n();
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const profile = useSiteProfile();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -25,7 +27,7 @@ export const Contact = React.memo(() => {
   };
 
   const handleCopyEmail = () => {
-    navigator.clipboard.writeText('hyxhhh1013@gmail.com');
+    navigator.clipboard.writeText(profile.email);
     playSuccessChime();
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
@@ -70,10 +72,10 @@ export const Contact = React.memo(() => {
           className="max-w-6xl mx-auto mb-8 sm:mb-12 pb-4 sm:pb-5 border-b designer-hairline flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4"
         >
           <div>
-            <div className="text-[11px] font-mono uppercase tracking-widest designer-accent-text mb-1.5 sm:mb-2">
+            <div className="text-xs font-mono uppercase tracking-[0.16em] designer-accent-text mb-1.5 sm:mb-2">
               06 // CONTACT
             </div>
-            <h2 className="designer-heading text-2xl sm:text-3xl md:text-4xl font-normal tracking-[-0.02em]">
+            <h2 className="designer-heading text-[30px] sm:text-[40px] md:text-5xl lg:text-[56px] font-medium leading-[1.08] tracking-[-0.025em]">
               {t('contact.title')}
             </h2>
           </div>
@@ -102,10 +104,10 @@ export const Contact = React.memo(() => {
                 </span>
                 <div className="flex items-center gap-2">
                   <a
-                    href="mailto:hyxhhh1013@gmail.com"
+                    href={`mailto:${profile.email}`}
                     className="font-medium designer-text-primary hover:underline break-all"
                   >
-                    hyxhhh1013@gmail.com
+                    {profile.email}
                   </a>
                   <button
                     type="button"
@@ -124,7 +126,7 @@ export const Contact = React.memo(() => {
                   BASE
                 </span>
                 <span className="font-medium designer-text-primary">
-                  {td('中国 · 湖南长沙', 'Changsha, Hunan, China')}
+                  {td(profile.location || '中国 · 湖南长沙', profile.locationEn || 'Changsha, Hunan, China')}
                 </span>
               </div>
 
@@ -134,12 +136,12 @@ export const Contact = React.memo(() => {
                   GITHUB
                 </span>
                 <a
-                  href="https://github.com/hyxhhh1013"
+                  href={profile.githubUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-medium designer-text-primary hover:underline"
                 >
-                  @hyxhhh1013
+                  {profile.githubHandle}
                 </a>
               </div>
             </div>

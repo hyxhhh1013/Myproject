@@ -316,10 +316,10 @@ export const About = () => {
           className="max-w-6xl mx-auto mb-8 sm:mb-10 pb-4 border-b designer-hairline flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4"
         >
           <div>
-            <div className="text-[11px] font-mono uppercase tracking-widest designer-accent-text mb-1.5">
+            <div className="text-xs font-mono uppercase tracking-[0.16em] designer-accent-text mb-1.5">
               01 // PROFILE
             </div>
-            <h2 className="designer-heading text-2xl sm:text-3xl md:text-4xl font-normal tracking-[-0.02em]">
+            <h2 className="designer-heading text-[30px] sm:text-[40px] md:text-5xl lg:text-[56px] font-medium leading-[1.08] tracking-[-0.025em]">
               {t('about.title')}
             </h2>
           </div>
@@ -349,7 +349,7 @@ export const About = () => {
                     <h3 className="text-lg font-semibold tracking-tight designer-text-primary">
                       {td(profile.name, 'Huang Yixuan')}
                     </h3>
-                    <span className="px-2.5 py-0.5 text-[10px] font-mono rounded-full bg-[#F3F1EC] dark:bg-[#22221F] text-[#8A6F48] dark:text-[#C8A97E] border designer-hairline">
+                    <span className="px-2.5 py-0.5 text-[11px] font-mono rounded-full bg-[#F3F1EC] dark:bg-[#22221F] designer-text-secondary border designer-hairline">
                       ENFJ · AI-NATIVE BUILDER
                     </span>
                   </div>
@@ -359,7 +359,7 @@ export const About = () => {
                 </div>
               </div>
 
-              <p className="text-sm designer-text-secondary leading-[1.8] whitespace-pre-line font-normal">
+              <p className="text-[15px] designer-text-secondary leading-[1.85] whitespace-pre-line font-normal">
                 {td(profile.bio || DEFAULT_BIO_ZH, DEFAULT_BIO_EN)}
               </p>
             </div>
@@ -424,15 +424,15 @@ export const About = () => {
 
               <div className="mt-3 pt-3 border-t designer-hairline space-y-2 text-xs designer-text-secondary">
                 <div>
-                  <span className="font-mono text-[10px] text-[#8A6F48] dark:text-[#C8A97E]">LABS // </span>
+                  <span className="font-mono text-[11px] designer-text-muted">LABS // </span>
                   {td('农业人工智能实验室 (AIFA) · 蝮蛇信息安全实验室', 'AIFA Lab · Viper InfoSec Lab')}
                 </div>
                 <div>
-                  <span className="font-mono text-[10px] text-[#8A6F48] dark:text-[#C8A97E]">COURSES // </span>
+                  <span className="font-mono text-[11px] designer-text-muted">COURSES // </span>
                   {td('数据结构 · 计网 · 操作系统 · 数据库 · 网安', 'DSA · Networks · OS · DB · Security')}
                 </div>
                 <div>
-                  <span className="font-mono text-[10px] text-[#8A6F48] dark:text-[#C8A97E]">TARGET // </span>
+                  <span className="font-mono text-[11px] designer-text-muted">TARGET // </span>
                   {td('AI Agent 工程 · AI 全栈研发 · FDE 驻场（可立即到岗 5天/周 × 3–6个月）', 'AI Agent · Full-Stack · FDE Intern (Immediate · 5d/wk · 3–6 mos)')}
                 </div>
               </div>
@@ -481,7 +481,7 @@ export const About = () => {
                   <span className="text-xs font-mono text-[#8A6F48] dark:text-[#C8A97E]">
                     @hyxhhh1013
                   </span>
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-mono">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 text-[11px] font-mono">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     {isLiveSynced ? td('实时同步', 'LIVE SYNC') : 'SYNCED'}
                   </span>
@@ -496,7 +496,7 @@ export const About = () => {
                     }}
                     disabled={syncingGithub}
                     title={td('从 GitHub 实时刷新仓库与贡献热力图', 'Force sync from GitHub API')}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#F3F1EC] dark:bg-[#1E1E1B] border designer-hairline text-[10px] font-mono designer-text-secondary hover:designer-text-primary transition-colors disabled:opacity-50"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#F3F1EC] dark:bg-[#1E1E1B] border designer-hairline text-[11px] font-mono designer-text-secondary hover:designer-text-primary transition-colors disabled:opacity-50"
                   >
                     <RefreshCw className={`w-3 h-3 ${syncingGithub ? 'animate-spin text-[#8A6F48]' : ''}`} />
                     <span>{td('刷新同步', 'Sync')}</span>
@@ -536,14 +536,14 @@ export const About = () => {
                           )}
                         </span>
                       </span>
-                      <span className="px-1.5 py-0.2 rounded bg-[#EAE6DC] dark:bg-[#262622] text-[10px] font-mono text-[#8A6F48] dark:text-[#C8A97E] shrink-0">
+                      <span className="px-1.5 py-0.2 rounded bg-[#EAE6DC] dark:bg-[#262622] text-[11px] font-mono designer-text-secondary shrink-0">
                         {repo.language.split('/')[0].trim()}
                       </span>
                     </div>
                     <p className="text-xs designer-text-secondary mt-1 line-clamp-1">
                       {td(repo.descZh, repo.descEn)}
                     </p>
-                    <div className="mt-1.5 flex items-center justify-between text-[10px] font-mono designer-text-muted">
+                    <div className="mt-1.5 flex items-center justify-between text-[11px] font-mono designer-text-muted">
                       <span>
                         {td(
                           `最近推送: ${formatPushedDate(repo.pushedAt)}`,
@@ -570,7 +570,7 @@ export const About = () => {
                       )
                     : `${t('about.github.commits')} (${totalContributions} ${td('次近期贡献', 'contributions')})`}
                 </span>
-                <div className="flex items-center gap-1 text-[10px]">
+                <div className="flex items-center gap-1 text-[11px]">
                   <span>{td('少', 'Less')}</span>
                   {([0, 1, 2, 3, 4] as const).map((lvl) => (
                     <span
@@ -596,7 +596,7 @@ export const About = () => {
                   {monthLabels.map((mLabel, idx) => (
                     <div
                       key={idx}
-                      className="text-[9px] font-mono text-[#8A6F48] dark:text-[#C8A97E] overflow-visible whitespace-nowrap leading-none"
+                      className="text-[11px] font-mono text-[#8A6F48] dark:text-[#C8A97E] overflow-visible whitespace-nowrap leading-none"
                     >
                       {mLabel}
                     </div>

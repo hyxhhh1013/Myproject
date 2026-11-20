@@ -38,16 +38,10 @@ export const cacheMiddleware = (duration: number) => {
  * @param key 缓存键或键的前缀
  */
 export const clearCache = (key: string) => {
-  if (cache.has(key)) {
-    cache.del(key);
-  } else {
-    const keys = cache.keys();
-    keys.forEach((cacheKey) => {
-      if (cacheKey.startsWith(key)) {
-        cache.del(cacheKey);
-      }
-    });
-  }
+  // Always clear the key AND every key built on it. Clearing only the exact key
+  // left '/api/photos?limit=100' (what the public page requests) cached for 5 min.
+  const stale = cache.keys().filter((cacheKey) => cacheKey.startsWith(key));
+  if (stale.length > 0) cache.del(stale);
 };
 
 /**

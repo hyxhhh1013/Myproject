@@ -3,7 +3,7 @@ import { prisma } from '../index';
 import { asyncHandler } from '../middleware/asyncHandler';
 
 export const getAllSocialMedia = asyncHandler(async (req: Request, res: Response) => {
-  const socialMedia = await prisma.socialMedia.findMany({ include: { user: true } });
+  const socialMedia = await prisma.socialMedia.findMany({ include: { user: { select: { id: true, name: true } } } });
   res.status(200).json(socialMedia);
 });
 
@@ -11,7 +11,7 @@ export const getSocialMediaById = asyncHandler(async (req: Request, res: Respons
   const { id } = req.params;
   const socialMedia = await prisma.socialMedia.findUnique({
     where: { id: parseInt(id) },
-    include: { user: true },
+    include: { user: { select: { id: true, name: true } } },
   });
 
   if (!socialMedia) {

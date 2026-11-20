@@ -1136,7 +1136,7 @@ export const FloatingAIChatbot: React.FC = () => {
           aria-label={td('打开 AI 助手与音乐播放器', 'Open AI Assistant & Music Player')}
           className={`${
             aiChatOpen ? 'hidden sm:flex' : 'flex'
-          } w-12 h-12 sm:w-14 sm:h-14 p-3 sm:p-3.5 bg-[#141413] text-[#FAF9F5] dark:bg-[#F2F0EA] dark:text-[#141413] rounded-full shadow-lg border designer-hairline hover:opacity-90 transition-opacity items-center justify-center relative`}
+          } w-12 h-12 sm:w-14 sm:h-14 p-3 sm:p-3.5 bg-[#141413] text-[#FAF9F5] dark:bg-[#F2F0EA] dark:text-[#141413] rounded-full shadow-lg border designer-hairline ring-1 ring-white/25 dark:ring-black/10 hover:opacity-90 transition-opacity items-center justify-center relative`}
           whileTap={{ scale: 0.94 }}
         >
           {aiChatOpen ? (

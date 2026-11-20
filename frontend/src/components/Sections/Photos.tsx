@@ -11,7 +11,9 @@ import { useI18n } from '../../i18n/i18nContext';
 import { PHOTO_CATEGORY_KEY_MAP } from '../../i18n/translations';
 
 const BASE_CATEGORY_KEYS = ['all', 'scenery', 'city', 'life', 'portrait', 'daily'];
-const BATCH_SIZE = 9;
+// Grid count per "load more". The column count now follows the page width
+// (4–5 columns on desktop), so 12 fills rows better than the old 9.
+const BATCH_SIZE = 12;
 
 const PHOTO_TITLE_EN_MAP: Record<string, string> = {
   '湖边的亭子': 'Lakeside Pavilion',
@@ -240,6 +242,9 @@ export const Photos = () => {
           exif: resolved.summaryFull,
           width: p.width,
           height: p.height,
+          isFeatured: !!p.isFeatured,
+          camera: resolved.cameraShort,
+          takenAt: p.takenAt,
         };
       });
   }, [apiPhotos, td]);
@@ -259,11 +264,64 @@ export const Photos = () => {
     return allPhotos.filter((p) => p.categoryKey === activeCategoryKey);
   }, [activeCategoryKey, allPhotos]);
 
-  const visiblePhotos = useMemo(() => {
-    return filteredPhotos.slice(0, visibleCount);
-  }, [filteredPhotos, visibleCount]);
+  // Exhibition placard numbers, all derived from the live archive (nothing typed by hand).
+  const archiveFacts = useMemo(() => {
+    const years = allPhotos
+      .map((p) => (p.takenAt ? new Date(p.takenAt).getFullYear() : NaN))
+      .filter((y) => Number.isFinite(y) && y > 1990);
+    const first = years.length ? Math.min(...years) : null;
+    const last = years.length ? Math.max(...years) : null;
+    return {
+      frames: allPhotos.length,
+      series: new Set(allPhotos.map((p) => p.categoryKey)).size,
+      cameras: Array.from(new Set(allPhotos.map((p) => p.camera).filter(Boolean))),
+      yearSpan: first === null ? null : first === last ? `${first}` : `${first}—${String(last).slice(2)}`,
+    };
+  }, [allPhotos]);
 
-  const hasMore = visiblePhotos.length < filteredPhotos.length;
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: allPhotos.length };
+    allPhotos.forEach((p) => {
+      counts[p.categoryKey] = (counts[p.categoryKey] || 0) + 1;
+    });
+    return counts;
+  }, [allPhotos]);
+
+  // Lead frame (gallery view only), shown full-bleed above the grid:
+  // 1. a photo pinned in the admin (isFeatured / 置顶) wins, whatever its shape —
+  //    portraits are shown uncropped on a blurred backdrop (adaptiveFrame);
+  // 2. otherwise the first clearly-landscape frame, so nothing gets cropped;
+  // 3. otherwise no lead.
+  const leadPhoto = useMemo(() => {
+    if (viewLayout !== 'gallery') return null;
+    const pinned = filteredPhotos.find((p) => p.isFeatured);
+    if (pinned) return pinned;
+    return (
+      filteredPhotos.find(
+        (p) =>
+          typeof p.width === 'number' &&
+          typeof p.height === 'number' &&
+          p.height > 0 &&
+          p.width / p.height >= 1.3,
+      ) ?? null
+    );
+  }, [filteredPhotos, viewLayout]);
+
+  const gridPool = useMemo(
+    () => (leadPhoto ? filteredPhotos.filter((p) => p !== leadPhoto) : filteredPhotos),
+    [filteredPhotos, leadPhoto],
+  );
+
+  const visiblePhotos = useMemo(() => gridPool.slice(0, visibleCount), [gridPool, visibleCount]);
+
+  const hasMore = visiblePhotos.length < gridPool.length;
+
+  // The lightbox walks the lead first, then the grid, so frame numbers read 01, 02, …
+  const frameOffset = leadPhoto ? 1 : 0;
+  const lightboxPhotos = useMemo(
+    () => (leadPhoto ? [leadPhoto, ...visiblePhotos] : visiblePhotos),
+    [leadPhoto, visiblePhotos],
+  );
 
   const handleLoadMore = () => {
     setLoadingMore(true);
@@ -280,9 +338,10 @@ export const Photos = () => {
   return (
     <section
       id="photos"
-      className="py-14 sm:py-28 transition-colors duration-300"
+      // Darkroom: the second ink band on the page — photographs read best on near-black
+      className="dark ink-band py-14 sm:py-28 transition-colors duration-300"
     >
-      <div className="container mx-auto px-4 sm:px-6 max-w-6xl">
+      <div className="container mx-auto px-4 sm:px-6">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -291,13 +350,34 @@ export const Photos = () => {
           className="mb-7 sm:mb-10 pb-4 sm:pb-5 border-b designer-hairline flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4"
         >
           <div>
-            <div className="text-[11px] font-mono uppercase tracking-widest designer-accent-text mb-1.5 sm:mb-2">
+            <div className="text-xs font-mono uppercase tracking-[0.16em] designer-accent-text mb-1.5 sm:mb-2">
               05 // 35MM ARCHIVE
             </div>
-            <h2 className="designer-heading text-2xl sm:text-3xl md:text-4xl font-normal tracking-[-0.02em]">
+            <h2 className="designer-heading text-[30px] sm:text-[40px] md:text-5xl lg:text-[56px] font-medium leading-[1.08] tracking-[-0.025em]">
               {t('photos.title')}
             </h2>
+            {archiveFacts.cameras.length > 0 && (
+              <p className="mt-3 text-xs font-mono designer-text-muted">{archiveFacts.cameras.join('  ·  ')}</p>
+            )}
           </div>
+
+          {/* Exhibition placard */}
+          {archiveFacts.frames > 0 && (
+            <dl className="flex items-end gap-7 sm:gap-10 pt-2 sm:pt-0">
+              {[
+                { label: td('作品', 'FRAMES'), value: String(archiveFacts.frames) },
+                { label: td('分类', 'SERIES'), value: String(archiveFacts.series) },
+                ...(archiveFacts.yearSpan ? [{ label: td('年份', 'YEARS'), value: archiveFacts.yearSpan }] : []),
+              ].map((s) => (
+                <div key={s.label} className="sm:text-right">
+                  <dt className="text-[11px] font-mono uppercase tracking-[0.16em] designer-text-muted">{s.label}</dt>
+                  <dd className="mt-1.5 designer-heading text-[26px] sm:text-[34px] leading-none font-medium tabular-nums">
+                    {s.value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          )}
         </motion.div>
 
         {/* Category Pills + Darkroom Contact Sheet Switcher */}
@@ -317,6 +397,9 @@ export const Photos = () => {
                   }`}
                 >
                   {getCategoryLabel(catKey)}
+                  {categoryCounts[catKey] > 0 && (
+                    <span className="ml-1.5 tabular-nums opacity-55">{categoryCounts[catKey]}</span>
+                  )}
                 </button>
               );
             })}
@@ -349,12 +432,56 @@ export const Photos = () => {
             </button>
           </div>
         </div>
+      </div>
 
+      {/* Full-bleed lead frame: the one place on the page that leaves the column grid */}
+      {leadPhoto && (
+        <motion.figure
+          key={leadPhoto.src}
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          onClick={() => setIndex(0)}
+          className="group relative w-full h-[62vw] sm:h-[50vw] max-h-[76vh] min-h-[260px] overflow-hidden cursor-pointer bg-[#141413] mb-8 sm:mb-14"
+        >
+          <ImageWithFallback
+            src={leadPhoto.src}
+            thumbnailSrc={leadPhoto.thumbnail}
+            alt={leadPhoto.title}
+            adaptiveFrame={true}
+            className="transition-transform duration-[1400ms] ease-out group-hover:scale-[1.025]"
+          />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-black/65 via-black/20 to-transparent z-20" />
+          <figcaption className="absolute inset-x-0 bottom-0 z-30">
+            <div className="container mx-auto px-4 sm:px-6 pb-5 sm:pb-9 flex flex-wrap items-end justify-between gap-x-6 gap-y-2 text-white">
+              <div className="min-w-0">
+                <div className="text-[11px] font-mono uppercase tracking-[0.16em] text-white/70 mb-1.5 sm:mb-2">
+                  35MM // 01A · {getCategoryLabel(leadPhoto.categoryKey)}
+                  {leadPhoto.isFeatured && <span className="ml-2 text-white/90">· {td('置顶', 'PINNED')}</span>}
+                </div>
+                <h3 className="font-serif text-2xl sm:text-4xl lg:text-5xl font-medium tracking-[-0.02em] leading-tight text-white">
+                  {leadPhoto.title}
+                </h3>
+              </div>
+              <div className="flex items-center gap-1.5 text-[11px] sm:text-xs font-mono text-white/75" title={leadPhoto.exif}>
+                <Camera className="w-3.5 h-3.5 stroke-[1.5]" />
+                <span>{leadPhoto.exifShort}</span>
+                <Maximize2 className="ml-3 w-3.5 h-3.5 stroke-[1.5] opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+            </div>
+          </figcaption>
+        </motion.figure>
+      )}
+
+      <div className="container mx-auto px-4 sm:px-6">
         <div
           className={
             viewLayout === 'contact'
-              ? 'columns-2 sm:columns-3 lg:columns-5 gap-3 space-y-3 p-4 rounded-2xl bg-[#141413] border designer-hairline'
-              : 'columns-1 sm:columns-2 lg:columns-3 gap-5 space-y-5'
+              ? // Column count follows the available width: each column is at least
+                // 140px (contact sheet) / 280px (gallery) and the browser fits as many as it can.
+                'columns-[140px] gap-3 space-y-3 p-4 rounded-2xl bg-[#141413] border designer-hairline'
+              : 'photo-wall columns-[280px] gap-4'
           }
         >
           <AnimatePresence>
@@ -367,6 +494,53 @@ export const Photos = () => {
               const aspectStyle = hasDimensions
                 ? { aspectRatio: `${photo.width} / ${photo.height}` }
                 : undefined;
+              const frameNo = String(i + 1 + frameOffset).padStart(2, '0');
+
+              // Gallery wall: bare prints, no card chrome. Pointer devices get the
+              // caption on hover (and the rest of the wall dims, see .photo-wall in
+              // index.css); touch devices get a quiet label under each print.
+              if (viewLayout === 'gallery') {
+                return (
+                  <motion.figure
+                    key={`${photo.src}-${i}`}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="photo-tile group relative break-inside-avoid mb-4 cursor-pointer"
+                    onClick={() => setIndex(i + frameOffset)}
+                  >
+                    <div className="relative w-full overflow-hidden rounded-md bg-white/[0.04]" style={aspectStyle}>
+                      <ImageWithFallback
+                        src={photo.thumbnail}
+                        alt={photo.title}
+                        naturalAspect={true}
+                        className="transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+                      />
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-0 z-20 hidden md:flex flex-col justify-between p-4 bg-gradient-to-t from-black/75 via-black/0 to-black/30 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                      >
+                        <div className="flex items-center justify-between text-[11px] font-mono uppercase tracking-[0.14em] text-white/75">
+                          <span>{frameNo}</span>
+                          <span>{getCategoryLabel(photo.categoryKey)}</span>
+                        </div>
+                        <div className="translate-y-1.5 group-hover:translate-y-0 transition-transform duration-300">
+                          <div className="font-serif text-xl font-medium leading-tight text-white">{photo.title}</div>
+                          <div className="mt-1.5 flex items-center gap-1.5 text-[11px] font-mono text-white/70">
+                            <Camera className="w-3 h-3 shrink-0 stroke-[1.5]" />
+                            <span className="truncate">{photo.exifShort}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <figcaption className="md:hidden mt-2 flex items-baseline justify-between gap-3">
+                      <span className="text-sm designer-text-primary truncate">{photo.title}</span>
+                      <span className="text-[11px] font-mono designer-text-muted truncate">{photo.exifShort}</span>
+                    </figcaption>
+                  </motion.figure>
+                );
+              }
 
               return (
                 <motion.div
@@ -380,18 +554,18 @@ export const Photos = () => {
                       ? 'relative group rounded-lg overflow-hidden cursor-pointer border border-white/15 bg-[#0D0D0C] flex flex-col break-inside-avoid mb-3'
                       : 'designer-card relative group rounded-2xl overflow-hidden cursor-pointer flex flex-col break-inside-avoid mb-5'
                   }
-                  onClick={() => setIndex(i)}
+                  onClick={() => setIndex(i + frameOffset)}
                 >
                   {/* Film Frame Number Header */}
                   <div
-                    className={`px-3 py-1.5 flex items-center justify-between text-[10px] font-mono border-b ${
+                    className={`px-3 py-1.5 flex items-center justify-between text-[11px] font-mono border-b ${
                       viewLayout === 'contact'
                         ? 'bg-[#141413] text-[#C8A97E] border-white/10'
                         : 'bg-[#FAF9F5] dark:bg-[#141412] designer-text-muted designer-hairline'
                     }`}
                   >
-                    <span className="text-[#8A6F48] dark:text-[#C8A97E]">
-                      35MM // {String(i + 1).padStart(2, '0')}A
+                    <span>
+                      35MM // {String(i + 1 + frameOffset).padStart(2, '0')}A
                     </span>
                     <span className="truncate max-w-[120px]">{getCategoryLabel(photo.categoryKey)}</span>
                   </div>
@@ -427,7 +601,7 @@ export const Photos = () => {
                       {photo.title}
                     </h3>
                     <div
-                      className={`flex items-center text-[10px] font-mono designer-text-muted ${
+                      className={`flex items-center text-[11px] font-mono designer-text-muted ${
                         viewLayout === 'contact' ? 'min-w-0' : 'shrink-0'
                       }`}
                       title={photo.exif}
@@ -482,7 +656,7 @@ export const Photos = () => {
 
         <Lightbox
           index={index}
-          slides={visiblePhotos.map((photo) => ({
+          slides={lightboxPhotos.map((photo) => ({
             src: photo.src,
             alt: photo.title,
             title: photo.title,

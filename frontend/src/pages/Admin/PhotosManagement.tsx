@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Trash2, Search, Loader2, Edit, Plus, X, Eye, EyeOff, Upload } from 'lucide-react';
+import { Trash2, Search, Loader2, Edit, Plus, X, Eye, EyeOff, Upload, Pin } from 'lucide-react';
 import { message } from 'antd';
 import axios from '../../utils/axiosConfig';
 import { getImageUrl } from '../../utils/imageUtils';
@@ -32,6 +32,7 @@ interface Photo {
   width?: number;
   height?: number;
   isVisible: boolean;
+  isFeatured?: boolean;
   orderIndex?: number;
   createdAt: string;
 }
@@ -51,6 +52,7 @@ const initialFormData = {
   shutterSpeed: '',
   iso: '',
   isVisible: true,
+  isFeatured: false,
 };
 
 const PhotosManagement = () => {
@@ -75,7 +77,8 @@ const PhotosManagement = () => {
   const fetchPhotos = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/api/photos');
+      // Admin endpoint: includes hidden photos and is not capped at 20 like the public list
+      const response = await axios.get('/api/photos/admin/all');
       const data = response.data?.photos || response.data?.data || [];
       setPhotos(data);
     } catch (error) {
@@ -116,6 +119,7 @@ const PhotosManagement = () => {
         shutterSpeed: photo.shutterSpeed || '',
         iso: photo.iso || '',
         isVisible: photo.isVisible,
+        isFeatured: !!photo.isFeatured,
       });
       setPreviewUrl(photo.imageUrl ? getImageUrl(photo.imageUrl) : '');
     } else {
@@ -210,6 +214,7 @@ const PhotosManagement = () => {
       if (formData.shutterSpeed.trim()) payloadData.append('shutterSpeed', formData.shutterSpeed.trim());
       if (formData.iso.trim()) payloadData.append('iso', formData.iso.trim());
       payloadData.append('isVisible', formData.isVisible.toString());
+      payloadData.append('isFeatured', formData.isFeatured.toString());
 
       const config = {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -262,6 +267,20 @@ const PhotosManagement = () => {
       
       // 更新localStorage，触发前端展示部分刷新
       localStorage.setItem('photosUpdated', Date.now().toString());
+    } catch (error) {
+      console.error('Failed to update photo:', error);
+      message.error('更新失败，请重试');
+    }
+  };
+
+  // 置顶 = isFeatured. The public gallery shows the first pinned photo as the
+  // full-width lead image; the API already sorts pinned photos first.
+  const handleToggleFeatured = async (id: number, currentState: boolean) => {
+    try {
+      await axios.put(`/api/photos/${id}`, { isFeatured: !currentState });
+      setPhotos(photos.map(p => p.id === id ? { ...p, isFeatured: !currentState } : p));
+      localStorage.setItem('photosUpdated', Date.now().toString());
+      message.success(!currentState ? '已置顶：将作为摄影区首图展示' : '已取消置顶');
     } catch (error) {
       console.error('Failed to update photo:', error);
       message.error('更新失败，请重试');
@@ -360,6 +379,17 @@ const PhotosManagement = () => {
                     {photo.isVisible ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
                   </button>
                   <button
+                    onClick={() => handleToggleFeatured(photo.id, !!photo.isFeatured)}
+                    className={`p-2 rounded-full transition-colors ${
+                      photo.isFeatured
+                        ? 'bg-[#8A6F48] text-white'
+                        : 'bg-white/90 text-gray-700 hover:bg-white'
+                    }`}
+                    title={photo.isFeatured ? '取消置顶' : '置顶（作为摄影区首图）'}
+                  >
+                    <Pin className="w-5 h-5" />
+                  </button>
+                  <button
                     onClick={() => handleDelete(photo.id)}
                     disabled={deletingId === photo.id}
                     className="p-2 bg-red-500/90 rounded-full text-white hover:bg-red-600 transition-colors disabled:opacity-50"
@@ -372,6 +402,12 @@ const PhotosManagement = () => {
               {!photo.isVisible && (
                 <div className="absolute top-2 right-2 bg-gray-800/80 text-white text-xs px-2 py-1 rounded">
                   已隐藏
+                </div>
+              )}
+              {photo.isFeatured && (
+                <div className="absolute top-2 left-2 inline-flex items-center gap-1 bg-[#8A6F48] text-white text-xs px-2 py-1 rounded">
+                  <Pin className="w-3 h-3" />
+                  置顶
                 </div>
               )}
             </div>
@@ -640,6 +676,22 @@ const PhotosManagement = () => {
                 />
                 <label htmlFor="photoIsVisible" className="text-sm text-gray-700 dark:text-gray-300">
                   在前端显示
+                </label>
+              </div>
+
+              <div className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  id="photoIsFeatured"
+                  checked={formData.isFeatured}
+                  onChange={(e) => setFormData(prev => ({ ...prev, isFeatured: e.target.checked }))}
+                  className="mt-0.5 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <label htmlFor="photoIsFeatured" className="text-sm text-gray-700 dark:text-gray-300">
+                  置顶
+                  <span className="block text-xs text-gray-500 dark:text-gray-400">
+                    第一张置顶照片会作为摄影区顶部的通栏大图；竖图会完整显示，不会被裁切
+                  </span>
                 </label>
               </div>
 

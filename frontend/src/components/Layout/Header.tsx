@@ -87,7 +87,7 @@ export const Header = () => {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 w-full z-50 bg-[#FAF9F5]/97 dark:bg-[#0D0D0C]/97 backdrop-blur-md border-b designer-hairline transition-colors duration-300">
+    <header className="fixed top-0 left-0 right-0 w-full z-50 bg-[#FAF9F5]/[0.97] dark:bg-[#0D0D0C]/[0.97] backdrop-blur-md border-b designer-hairline transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-3 sm:py-4 flex justify-between items-center gap-3 sm:gap-4">
         {/* Brand Wordmark */}
         <div className="text-base sm:text-[17px] font-mono font-semibold tracking-tight designer-text-primary cursor-pointer whitespace-nowrap shrink-0">

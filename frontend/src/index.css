@@ -10,17 +10,20 @@
 :root,
 html[data-skin="editorial"] {
   --bg-canvas: #FAF9F5;
-  --bg-alt: #F3F1EC;
+  --bg-alt: #F0EDE6;
   --bg-card: #FFFFFF;
   --bg-pill: #EFECE6;
-  --border-hairline: rgba(20, 20, 19, 0.085);
+  --border-hairline: rgba(20, 20, 19, 0.1);
   --text-primary: #141413;
   --text-secondary: #5F5E58;
   --text-muted: #8E8C84;
   --accent-primary: #141413;
   --accent-fg: #FAF9F5;
   --accent-label: #8A6F48;
-  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), 0 8px 24px rgba(0, 0, 0, 0.025);
+  /* Two-step elevation: resting cards must actually lift off the paper */
+  --card-shadow: 0 1px 2px rgba(20, 20, 19, 0.05), 0 12px 32px -14px rgba(20, 20, 19, 0.16);
+  --card-shadow-hover: 0 2px 4px rgba(20, 20, 19, 0.06), 0 22px 44px -16px rgba(20, 20, 19, 0.24);
+  --hero-glow: rgba(226, 184, 112, 0.2);
 }
 
 html.dark[data-skin="editorial"] {
@@ -36,6 +39,8 @@ html.dark[data-skin="editorial"] {
   --accent-fg: #0D0D0C;
   --accent-label: #D2B488;
   --card-shadow: 0 1px 0 inset rgba(255, 255, 255, 0.06), 0 16px 36px rgba(0, 0, 0, 0.45);
+  --card-shadow-hover: 0 1px 0 inset rgba(255, 255, 255, 0.09), 0 24px 48px rgba(0, 0, 0, 0.55);
+  --hero-glow: rgba(210, 180, 136, 0.1);
 }
 
 /* SKIN 02: LINEAR OBSIDIAN (曜石微光) */
@@ -183,6 +188,67 @@ html[lang^="zh"] .designer-heading {
   color: var(--text-primary);
 }
 
+/* Hero backdrop: a drafting grid that fades out toward the edges, a soft glow in
+   the skin's accent colour behind the headline, and a whisper of paper grain.
+   Colours derive from the skin tokens, so every skin and dark mode follow along.
+   Each layer is its own declaration so an unsupported color-mix() drops only that layer. */
+.hero-backdrop {
+  --hero-line: color-mix(in srgb, var(--text-primary) 5.5%, transparent);
+  background-image:
+    linear-gradient(to right, var(--hero-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--hero-line) 1px, transparent 1px);
+  background-size: 64px 64px;
+  background-position: center -1px;
+  -webkit-mask-image: radial-gradient(ellipse 72% 68% at 50% 42%, #000 28%, transparent 78%);
+  mask-image: radial-gradient(ellipse 72% 68% at 50% 42%, #000 28%, transparent 78%);
+}
+
+.hero-backdrop::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 46% 38% at 50% 40%,
+    var(--hero-glow, color-mix(in srgb, var(--accent-label) 16%, transparent)),
+    transparent 70%
+  );
+}
+
+.hero-backdrop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.045 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  mix-blend-mode: multiply;
+}
+
+html.dark .hero-backdrop::before {
+  background: radial-gradient(
+    ellipse 46% 38% at 50% 40%,
+    var(--hero-glow, color-mix(in srgb, var(--accent-label) 11%, transparent)),
+    transparent 70%
+  );
+}
+
+html.dark .hero-backdrop::after {
+  filter: invert(1);
+  mix-blend-mode: screen;
+  opacity: 0.6;
+}
+
+/* Highlighter stroke under the name: the one splash of colour in the headline */
+.hero-name-mark {
+  background-image: linear-gradient(
+    transparent 68%,
+    color-mix(in srgb, var(--accent-label) 20%, transparent) 68%,
+    color-mix(in srgb, var(--accent-label) 20%, transparent) 92%,
+    transparent 92%
+  );
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  padding: 0 0.06em;
+}
+
 .designer-card {
   background-color: var(--bg-card);
   color: var(--text-primary);
@@ -196,6 +262,7 @@ html[lang^="zh"] .designer-heading {
 
 .designer-card:hover {
   border-color: rgba(138, 111, 72, 0.26);
+  box-shadow: var(--card-shadow-hover, var(--card-shadow));
 }
 
 .designer-hairline {
@@ -395,6 +462,115 @@ section#experience,
 section#contact {
   background-color: var(--bg-alt) !important;
   border-bottom: 1px solid var(--border-hairline);
+}
+
+/* ==========================================================================
+   INK BAND — one inverted section to break the all-paper rhythm.
+   Add `dark ink-band` to a <section>: `dark` flips every Tailwind dark: variant
+   inside it, `ink-band` re-points the design tokens to the skin's ink palette.
+   ========================================================================== */
+.ink-band {
+  --bg-canvas: #141413;
+  --bg-alt: #141413;
+  --bg-card: #1C1C1A;
+  --bg-pill: #262522;
+  --border-hairline: rgba(255, 255, 255, 0.1);
+  --text-primary: #F4F2EC;
+  --text-secondary: #C8C5BC;
+  --text-muted: #9C998F;
+  --accent-primary: #F4F2EC;
+  --accent-fg: #141413;
+  --accent-label: #D2B488;
+  --card-shadow: 0 1px 0 inset rgba(255, 255, 255, 0.05), 0 18px 40px -12px rgba(0, 0, 0, 0.6);
+  --card-shadow-hover: 0 1px 0 inset rgba(255, 255, 255, 0.08), 0 26px 52px -14px rgba(0, 0, 0, 0.7);
+  color: var(--text-primary);
+  color-scheme: dark;
+}
+
+html[data-skin="titanium"] .ink-band {
+  --bg-canvas: #0D0D10;
+  --bg-alt: #0D0D10;
+  --bg-card: #16161A;
+  --bg-pill: #1E1E24;
+  --text-primary: #F4F4F5;
+  --text-secondary: #C4C4CC;
+  --text-muted: #9E9EA8;
+  --accent-primary: #F4F4F5;
+  --accent-fg: #09090B;
+  --accent-label: #C4C4CC;
+}
+
+html[data-skin="forest"] .ink-band {
+  --bg-canvas: #13201A;
+  --bg-alt: #13201A;
+  --bg-card: #1A2A22;
+  --bg-pill: #22342B;
+  --text-primary: #E8EFEA;
+  --text-secondary: #B8C9BF;
+  --text-muted: #8FA397;
+  --accent-primary: #D8E6DD;
+  --accent-fg: #0B120E;
+  --accent-label: #D89179;
+}
+
+html[data-skin="cobalt"] .ink-band {
+  --bg-canvas: #1C1C1A;
+  --bg-alt: #1C1C1A;
+  --bg-card: #252522;
+  --bg-pill: #2E2E2A;
+  --text-primary: #F0F0ED;
+  --text-secondary: #C6C5BE;
+  --text-muted: #9D9C94;
+  --accent-primary: #E0531F;
+  --accent-fg: #FFFFFF;
+  --accent-label: #EC6A3B;
+}
+
+/* Site-wide dark mode: keep the band one step lighter than the canvas so it still reads as a band */
+html.dark[data-skin="editorial"] .ink-band {
+  --bg-canvas: #151513;
+  --bg-alt: #151513;
+  --bg-card: #1D1D1A;
+}
+
+.ink-band .designer-pill {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+/* Buttons inside an ink band use the same treatment as site-wide dark mode */
+.ink-band .designer-btn-primary {
+  border-color: rgba(255, 255, 255, 0.85);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.45) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.2) inset,
+    0 4px 12px rgba(0, 0, 0, 0.45);
+}
+
+.ink-band .designer-btn-secondary {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.ink-band .designer-btn-secondary:hover:not(:disabled) {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.09) inset,
+    0 4px 12px rgba(0, 0, 0, 0.45);
+}
+
+/* Photo wall: hovering one print quietly steps the rest back, like walking up
+   to a frame in a gallery. Pointer devices only; :has() unsupported = no dim. */
+.photo-tile {
+  transition: opacity 0.35s ease, filter 0.35s ease;
+}
+
+@media (hover: hover) {
+  .photo-wall:has(.photo-tile:hover) .photo-tile:not(:hover) {
+    opacity: 0.4 !important;
+    filter: saturate(0.5);
+  }
 }
 
 /* Restyle Section Cards & Buttons to Match Designer Minimalist Aesthetic (Zero Neon Blue) */

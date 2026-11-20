@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   getAllPhotos,
+  getAllPhotosForAdmin,
   createPhoto,
   updatePhoto,
   deletePhoto,
@@ -27,6 +28,9 @@ const router = Router();
 
 // 获取所有作品 - 添加缓存（5分钟）
 router.get('/', cacheMiddleware(300), validateRequest(getPhotosSchema, 'query'), getAllPhotos);
+
+// Admin list: hidden photos included, no paging, never cached
+router.get('/admin/all', protect, getAllPhotosForAdmin);
 
 // 批量删除作品
 router.post('/bulk-delete', protect, async (req, res, next) => {
