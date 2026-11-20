@@ -292,15 +292,12 @@ export const Photos = () => {
         >
           <div>
             <div className="text-[11px] font-mono uppercase tracking-widest designer-accent-text mb-1.5 sm:mb-2">
-              05 // 35MM PHOTOGRAPHIC ARCHIVE
+              05 // 35MM ARCHIVE
             </div>
             <h2 className="designer-heading text-2xl sm:text-3xl md:text-4xl font-normal tracking-[-0.02em]">
               {t('photos.title')}
             </h2>
           </div>
-          <p className="designer-text-muted text-xs sm:text-sm font-mono">
-            {t('photos.subtitle')}
-          </p>
         </motion.div>
 
         {/* Category Pills + Darkroom Contact Sheet Switcher */}

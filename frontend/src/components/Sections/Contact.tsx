@@ -71,15 +71,12 @@ export const Contact = React.memo(() => {
         >
           <div>
             <div className="text-[11px] font-mono uppercase tracking-widest designer-accent-text mb-1.5 sm:mb-2">
-              06 // INITIATE DIALOGUE
+              06 // CONTACT
             </div>
             <h2 className="designer-heading text-2xl sm:text-3xl md:text-4xl font-normal tracking-[-0.02em]">
               {t('contact.title')}
             </h2>
           </div>
-          <p className="designer-text-muted text-xs sm:text-sm font-mono">
-            {t('contact.subtitle')}
-          </p>
         </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 max-w-6xl mx-auto items-start">
@@ -92,12 +89,9 @@ export const Contact = React.memo(() => {
             className="lg:col-span-5 flex flex-col justify-between space-y-6"
           >
             <div>
-              <h3 className="text-xl sm:text-2xl font-semibold tracking-tight designer-text-primary mb-3">
+              <h3 className="text-xl sm:text-2xl font-semibold tracking-tight designer-text-primary">
                 {t('contact.letsTalk')}
               </h3>
-              <p className="designer-text-secondary leading-relaxed text-sm sm:text-base">
-                {t('contact.youCanReach')}
-              </p>
             </div>
 
             <div className="space-y-3 pt-2 border-t designer-hairline text-xs sm:text-sm font-mono">

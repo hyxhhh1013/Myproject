@@ -317,15 +317,12 @@ export const About = () => {
         >
           <div>
             <div className="text-[11px] font-mono uppercase tracking-widest designer-accent-text mb-1.5">
-              01 // PROFILE &amp; TELEMETRY
+              01 // PROFILE
             </div>
             <h2 className="designer-heading text-2xl sm:text-3xl md:text-4xl font-normal tracking-[-0.02em]">
               {t('about.title')}
             </h2>
           </div>
-          <p className="designer-text-muted text-xs sm:text-sm font-mono">
-            {t('about.subtitle')}
-          </p>
         </motion.div>
 
         {/* Clean 4-Card Bento Grid + Bottom Marquee */}

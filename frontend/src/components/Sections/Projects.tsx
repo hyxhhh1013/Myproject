@@ -896,17 +896,14 @@ export const Projects: React.FC = () => {
         >
           <div>
             <div className="text-[11px] font-mono uppercase tracking-widest designer-accent-text mb-1.5">
-              03 // SELECTED WORKS (FLAGSHIP + 3 AWARDED BUILDS)
+              03 // SELECTED WORKS
             </div>
             <h2 className="designer-heading text-2xl sm:text-3xl md:text-4xl font-normal tracking-[-0.02em]">
               {t('projects.title')}
             </h2>
           </div>
-          <div className="flex flex-col sm:items-end gap-2">
-            <p className="designer-text-muted text-xs sm:text-sm font-mono">
-              {t('projects.subtitle')}
-            </p>
-            {activeSkillFilter && (
+          {activeSkillFilter && (
+            <div className="flex flex-col sm:items-end gap-2">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full designer-pill text-xs font-mono">
                 <span>
                   {td(`筛选: ${activeSkillFilter}`, `Filter: ${activeSkillFilter}`)}
@@ -920,8 +917,8 @@ export const Projects: React.FC = () => {
                   {t('skills.clearFilter')}
                 </button>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </motion.div>
 
         <div className="max-w-6xl mx-auto">
