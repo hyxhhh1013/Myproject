@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../index';
 import multer from 'multer';
 import logger from '../utils/logger';
@@ -6,9 +7,21 @@ import { FileUploadRequest } from '../types/express';
 import cache from '../utils/cache';
 import { optimizeImage } from '../utils/imageUtils';
 import { asyncHandler } from '../middleware/asyncHandler';
+import { parseProjectInput } from '../validations/projectValidation';
+import { parseStringArray } from '../validations/contentFieldHelpers';
 
 const PROJECT_CACHE_KEY = 'projects_list';
-const CLEAR_PROJECT_CACHE = () => cache.del(PROJECT_CACHE_KEY);
+// List entries are cached as `projects_list_p{page}_l{limit}`, so clear by prefix.
+const CLEAR_PROJECT_CACHE = () =>
+  cache.del(cache.keys().filter((key) => key.startsWith(PROJECT_CACHE_KEY)));
+
+// The homepage and the admin both want every row, so the default page holds them all;
+// `?page=&limit=` still paginates (limit is clamped to 1..MAX_LIMIT).
+const DEFAULT_LIMIT = 100;
+const MAX_LIMIT = 200;
+
+// Never ship the owner's password hash with a public list.
+const PUBLIC_USER_SELECT = { select: { id: true, name: true, email: true } } as const;
 
 const storage = multer.memoryStorage();
 
@@ -26,13 +39,29 @@ const upload = multer({ storage, fileFilter, limits: { fileSize: 100 * 1024 * 10
 
 export { upload };
 
+const toPositiveInt = (raw: unknown, fallback: number) => {
+  const value = parseInt(String(raw ?? ''), 10);
+  return Number.isInteger(value) && value > 0 ? value : fallback;
+};
+
+const uploadedFilesToUrls = async (files: unknown): Promise<string[]> => {
+  if (!Array.isArray(files) || files.length === 0) return [];
+  return Promise.all(
+    (files as Express.Multer.File[]).map(async (file) => {
+      if (file.mimetype.startsWith('image/')) {
+        return await optimizeImage(file.buffer);
+      }
+      return `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+    }),
+  );
+};
+
 export const getAllProjects = asyncHandler(async (req: Request, res: Response) => {
-  const { page = '1', limit = '10' } = req.query;
-  const pageNum = parseInt(page as string);
-  const limitNum = parseInt(limit as string);
+  const pageNum = toPositiveInt(req.query.page, 1);
+  const limitNum = Math.min(toPositiveInt(req.query.limit, DEFAULT_LIMIT), MAX_LIMIT);
   const skip = (pageNum - 1) * limitNum;
 
-  const cacheKey = `${PROJECT_CACHE_KEY}_p${page}_l${limit}`;
+  const cacheKey = `${PROJECT_CACHE_KEY}_p${pageNum}_l${limitNum}`;
   const cachedData = cache.get(cacheKey);
   if (cachedData) {
     return res.status(200).json(cachedData);
@@ -40,8 +69,8 @@ export const getAllProjects = asyncHandler(async (req: Request, res: Response) =
 
   const [projects, total] = await Promise.all([
     prisma.project.findMany({
-      include: { user: { select: { id: true, name: true, email: true } } },
-      orderBy: [{ orderIndex: 'asc' }, { createdAt: 'desc' }],
+      include: { user: PUBLIC_USER_SELECT },
+      orderBy: [{ orderIndex: 'asc' }, { id: 'asc' }],
       skip,
       take: limitNum,
     }),
@@ -62,7 +91,7 @@ export const getProjectById = asyncHandler(async (req: Request, res: Response) =
   const { id } = req.params;
   const project = await prisma.project.findUnique({
     where: { id: parseInt(id) },
-    include: { user: true },
+    include: { user: PUBLIC_USER_SELECT },
   });
 
   if (!project) {
@@ -73,48 +102,15 @@ export const getProjectById = asyncHandler(async (req: Request, res: Response) =
 });
 
 export const createProject = asyncHandler(async (req: FileUploadRequest, res: Response) => {
-  const {
-    userId, title, description, intro, startDate, endDate, technologies,
-    responsibilities, challengesProblem, challengesSolution, githubUrl, demoUrl,
-    orderIndex, isVisible, isFeatured,
-  } = req.body;
-
-  let images: string[] = [];
-  let imageUrl = '';
-
-  if (req.files && Array.isArray(req.files) && req.files.length > 0) {
-    images = await Promise.all(
-      req.files.map(async (file: Express.Multer.File) => {
-        if (file.mimetype.startsWith('image/')) {
-          return await optimizeImage(file.buffer);
-        }
-        return `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
-      }),
-    );
-    imageUrl = images[0];
-  }
+  // Validate before touching uploads so a bad field never leaves orphaned image files.
+  const input = parseProjectInput(req.body ?? {}, 'create') as Prisma.ProjectUncheckedCreateInput;
+  const images = await uploadedFilesToUrls(req.files);
 
   const project = await prisma.project.create({
     data: {
-      userId: parseInt(userId) || 1,
-      title,
-      description,
-      intro: intro || null,
-      startDate: startDate ? new Date(startDate) : new Date(),
-      endDate: endDate ? new Date(endDate) : null,
-      technologies: typeof technologies === 'string' && !technologies.startsWith('[')
-        ? JSON.stringify(technologies.split(',').map((t: string) => t.trim()))
-        : technologies,
-      responsibilities: responsibilities || null,
-      challengesProblem: challengesProblem || null,
-      challengesSolution: challengesSolution || null,
-      githubUrl: githubUrl || null,
-      demoUrl: demoUrl || null,
-      imageUrl: imageUrl || null,
+      ...input,
+      imageUrl: images[0] || null,
       images: JSON.stringify(images),
-      orderIndex: orderIndex ? parseInt(orderIndex) : 0,
-      isVisible: isVisible !== undefined ? (isVisible === 'true' || isVisible === true) : true,
-      isFeatured: isFeatured !== undefined ? (isFeatured === 'true' || isFeatured === true) : false,
     },
   });
 
@@ -125,54 +121,16 @@ export const createProject = asyncHandler(async (req: FileUploadRequest, res: Re
 
 export const updateProject = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const {
-    title, description, intro, startDate, endDate, technologies,
-    responsibilities, challengesProblem, challengesSolution, githubUrl, demoUrl,
-    orderIndex, isVisible, isFeatured, existingImages,
-  } = req.body;
+  const body = req.body ?? {};
+  // Partial update: absent = unchanged, '' = null (see contentFieldHelpers).
+  const dataToUpdate = parseProjectInput(body, 'update') as Prisma.ProjectUncheckedUpdateInput;
 
-  let finalImages: string[] = [];
+  const existingImages =
+    body.existingImages !== undefined ? parseStringArray(body.existingImages, 'existingImages') : [];
+  const newImages = await uploadedFilesToUrls((req as any).files);
 
-  if (existingImages) {
-    try {
-      const parsed = JSON.parse(existingImages);
-      if (Array.isArray(parsed)) finalImages = parsed;
-    } catch (e) { /* ignore */ }
-  }
-
-  if ((req as any).files && (req as any).files.length > 0) {
-    const newImages = await Promise.all(
-      (req as any).files.map(async (file: Express.Multer.File) => {
-        if (file.mimetype.startsWith('image/')) {
-          return await optimizeImage(file.buffer);
-        }
-        return `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
-      }),
-    );
-    finalImages = [...finalImages, ...newImages];
-  }
-
-  const dataToUpdate: any = {};
-  if (title !== undefined) dataToUpdate.title = title;
-  if (description !== undefined) dataToUpdate.description = description;
-  if (intro !== undefined) dataToUpdate.intro = intro || null;
-  if (startDate !== undefined) dataToUpdate.startDate = new Date(startDate);
-  if (endDate !== undefined) dataToUpdate.endDate = endDate ? new Date(endDate) : null;
-  if (technologies !== undefined) {
-    dataToUpdate.technologies = typeof technologies === 'string'
-      ? JSON.stringify(technologies.split(',').map((t: string) => t.trim()))
-      : technologies;
-  }
-  if (responsibilities !== undefined) dataToUpdate.responsibilities = responsibilities || null;
-  if (challengesProblem !== undefined) dataToUpdate.challengesProblem = challengesProblem || null;
-  if (challengesSolution !== undefined) dataToUpdate.challengesSolution = challengesSolution || null;
-  if (githubUrl !== undefined) dataToUpdate.githubUrl = githubUrl || null;
-  if (demoUrl !== undefined) dataToUpdate.demoUrl = demoUrl || null;
-  if (orderIndex !== undefined) dataToUpdate.orderIndex = parseInt(orderIndex);
-  if (isVisible !== undefined) dataToUpdate.isVisible = isVisible === 'true' || isVisible === true;
-  if (isFeatured !== undefined) dataToUpdate.isFeatured = isFeatured === 'true' || isFeatured === true;
-
-  if (existingImages !== undefined || ((req as any).files && (req as any).files.length > 0)) {
+  if (body.existingImages !== undefined || newImages.length > 0) {
+    const finalImages = [...existingImages, ...newImages];
     dataToUpdate.images = JSON.stringify(finalImages);
     dataToUpdate.imageUrl = finalImages.length > 0 ? finalImages[0] : null;
   }

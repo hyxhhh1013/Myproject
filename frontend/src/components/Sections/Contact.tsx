@@ -5,11 +5,13 @@ import axios from '../../utils/axiosConfig';
 import { message } from 'antd';
 import { useI18n } from '../../i18n/i18nContext';
 import { playSuccessChime } from '../../utils/soundEffects';
+import { useSiteProfile } from '../Layout/Footer';
 
 export const Contact = React.memo(() => {
   const { t, td } = useI18n();
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const profile = useSiteProfile();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -25,7 +27,7 @@ export const Contact = React.memo(() => {
   };
 
   const handleCopyEmail = () => {
-    navigator.clipboard.writeText('hyxhhh1013@gmail.com');
+    navigator.clipboard.writeText(profile.email);
     playSuccessChime();
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
@@ -102,10 +104,10 @@ export const Contact = React.memo(() => {
                 </span>
                 <div className="flex items-center gap-2">
                   <a
-                    href="mailto:hyxhhh1013@gmail.com"
+                    href={`mailto:${profile.email}`}
                     className="font-medium designer-text-primary hover:underline break-all"
                   >
-                    hyxhhh1013@gmail.com
+                    {profile.email}
                   </a>
                   <button
                     type="button"
@@ -124,7 +126,7 @@ export const Contact = React.memo(() => {
                   BASE
                 </span>
                 <span className="font-medium designer-text-primary">
-                  {td('中国 · 湖南长沙', 'Changsha, Hunan, China')}
+                  {td(profile.location || '中国 · 湖南长沙', profile.locationEn || 'Changsha, Hunan, China')}
                 </span>
               </div>
 
@@ -134,12 +136,12 @@ export const Contact = React.memo(() => {
                   GITHUB
                 </span>
                 <a
-                  href="https://github.com/hyxhhh1013"
+                  href={profile.githubUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-medium designer-text-primary hover:underline"
                 >
-                  @hyxhhh1013
+                  {profile.githubHandle}
                 </a>
               </div>
             </div>

@@ -10,6 +10,7 @@ import {
   X,
 } from 'lucide-react';
 import { scroller } from 'react-scroll';
+import axios from '../../utils/axiosConfig';
 import { useI18n } from '../../i18n/i18nContext';
 import { useAppStore } from '../../store/useAppStore';
 import { playToggleSwitch, playSuccessChime } from '../../utils/soundEffects';
@@ -174,6 +175,79 @@ const DEFAULT_CORE_SKILLS: SkillItem[] = [
   },
 ];
 
+// ---- API rows (GET /api/skills) -------------------------------------------
+// Capability cards are rows with category 'capability'; legacy percentage rows
+// (Frontend/Backend/DevOps/其他) are ignored. No capability row → DEFAULT_CORE_SKILLS.
+interface ApiSkill {
+  id: number;
+  name?: string | null;
+  nameEn?: string | null;
+  shortLabel?: string | null;
+  category?: string | null;
+  badge?: string | null;
+  badgeEn?: string | null;
+  metrics?: unknown;
+  stack?: unknown;
+  linkedProjects?: unknown;
+  highlight?: string | null;
+  highlightEn?: string | null;
+  orderIndex?: number | null;
+  isVisible?: boolean | null;
+}
+
+const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
+
+// JSON columns arrive as a JSON string (or already parsed); tolerate both, plus a comma list.
+const parseJsonArray = (v: unknown): unknown[] => {
+  if (Array.isArray(v)) return v;
+  if (typeof v !== 'string' || !v.trim()) return [];
+  const text = v.trim();
+  if (text.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(text);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return text.split(',');
+};
+
+const parseObjects = (v: unknown): Record<string, unknown>[] =>
+  parseJsonArray(v).filter((x): x is Record<string, unknown> => !!x && typeof x === 'object');
+
+const toSkillItem = (row: ApiSkill, index: number): SkillItem => {
+  const name = str(row.name);
+  return {
+    id: row.id,
+    indexCode: String(index + 1).padStart(2, '0'),
+    name,
+    nameEn: str(row.nameEn),
+    shortLabel: str(row.shortLabel) || name,
+    badgeZh: str(row.badge),
+    badgeEn: str(row.badgeEn),
+    metrics: parseObjects(row.metrics)
+      .map((m) => ({ value: str(m.value), labelZh: str(m.label), labelEn: str(m.labelEn) }))
+      .filter((m) => m.value || m.labelZh),
+    stack: parseJsonArray(row.stack).map((x) => str(x)).filter(Boolean),
+    projects: parseObjects(row.linkedProjects)
+      .map((p) => ({ zh: str(p.zh), en: str(p.en) }))
+      .filter((p) => p.zh || p.en)
+      .map((p) => ({ zh: p.zh || p.en, en: p.en })),
+    highlightZh: str(row.highlight),
+    highlightEn: str(row.highlightEn),
+  };
+};
+
+const capabilitySkills = (rows: ApiSkill[]): SkillItem[] | null => {
+  const capability = rows.filter((r) => r.category === 'capability');
+  if (capability.length === 0) return null;
+  const visible = capability
+    .filter((r) => r.isVisible !== false)
+    .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0) || a.id - b.id);
+  return visible.length > 0 ? visible.map(toSkillItem) : null;
+};
+
 const FOODIE_PICKS_ZH = [
   '01 // 笨萝卜浏阳菜馆 · 醋蒸鸡 + 酸菜炒粉皮',
   '02 // 茶颜悦色 · 幽兰拿铁（少冰少糖）',
@@ -192,23 +266,43 @@ export const Skills: React.FC = () => {
   const { t, td } = useI18n();
   const { activeSkillFilter, setActiveSkillFilter } = useAppStore();
 
+  const [skills, setSkills] = useState<SkillItem[]>(DEFAULT_CORE_SKILLS);
   const [selectedSkill, setSelectedSkill] = useState<SkillItem>(DEFAULT_CORE_SKILLS[0]);
   const [easterEggMsg, setEasterEggMsg] = useState<string | null>(null);
   const [foodIdx, setFoodIdx] = useState(0);
   const [guitarStrumCount, setGuitarStrumCount] = useState(0);
 
   useEffect(() => {
+    const fetchSkills = async () => {
+      try {
+        const response = await axios.get('/api/skills');
+        const body = response.data;
+        const data: unknown = Array.isArray(body) ? body : Array.isArray(body?.data) ? body.data : [];
+        const mapped = Array.isArray(data) ? capabilitySkills(data as ApiSkill[]) : null;
+        if (mapped) {
+          setSkills(mapped);
+          setSelectedSkill(mapped[0]);
+        }
+      } catch {
+        // Keep DEFAULT_CORE_SKILLS
+      }
+    };
+
+    fetchSkills();
+  }, []);
+
+  useEffect(() => {
     if (activeSkillFilter) {
-      const matched = DEFAULT_CORE_SKILLS.find(
+      const matched = skills.find(
         (s) =>
           s.name.toLowerCase().includes(activeSkillFilter.toLowerCase()) ||
-          activeSkillFilter.toLowerCase().includes(s.shortLabel.split('/')[0].toLowerCase()),
+          activeSkillFilter.toLowerCase().includes(s.shortLabel.split('/')[0].trim().toLowerCase()),
       );
       if (matched) {
         setSelectedSkill(matched);
       }
     }
-  }, [activeSkillFilter]);
+  }, [activeSkillFilter, skills]);
 
   const triggerGuitarEasterEgg = () => {
     try {
@@ -340,7 +434,7 @@ export const Skills: React.FC = () => {
             transition={{ duration: 0.5 }}
             className="lg:col-span-5 designer-card p-3 sm:p-4 rounded-2xl flex flex-col justify-between gap-1.5"
           >
-            {DEFAULT_CORE_SKILLS.map((skill) => {
+            {skills.map((skill) => {
               const isSelected = selectedSkill.id === skill.id;
               return (
                 <button
@@ -428,9 +522,9 @@ export const Skills: React.FC = () => {
 
                   {/* 3 Concrete Engineering Proof Metrics */}
                   <div className="mt-5 grid grid-cols-3 gap-2.5 sm:gap-3">
-                    {selectedSkill.metrics.map((m) => (
+                    {selectedSkill.metrics.map((m, idx) => (
                       <div
-                        key={m.labelZh}
+                        key={`${m.labelZh}-${idx}`}
                         className="p-3 sm:p-3.5 rounded-xl bg-[#F6F4EF] dark:bg-[#1C1B18] border designer-hairline"
                       >
                         <div className="font-mono text-lg sm:text-xl font-semibold tracking-tight text-[#8A6F48] dark:text-[#C8A97E]">
@@ -450,9 +544,9 @@ export const Skills: React.FC = () => {
 
                   {/* Core Stack Tags */}
                   <div className="mt-5 flex flex-wrap gap-1.5">
-                    {selectedSkill.stack.map((tag) => (
+                    {selectedSkill.stack.map((tag, idx) => (
                       <span
-                        key={tag}
+                        key={`${tag}-${idx}`}
                         className="px-2.5 py-1 rounded-md bg-[#F3F1EC] dark:bg-[#22211E] border designer-hairline text-[11px] font-mono designer-text-secondary"
                       >
                         {tag}
@@ -467,12 +561,12 @@ export const Skills: React.FC = () => {
                     {td('关联实战项目', 'LINKED PROJECTS')}
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {selectedSkill.projects.map((proj) => (
+                    {selectedSkill.projects.map((proj, idx) => (
                       <button
-                        key={proj.zh}
+                        key={`${proj.zh}-${idx}`}
                         type="button"
                         onClick={() =>
-                          handleJumpToProjectsWithSkill(selectedSkill.shortLabel.split('/')[0])
+                          handleJumpToProjectsWithSkill(selectedSkill.shortLabel.split('/')[0].trim())
                         }
                         className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#141413] text-[#FAF9F5] hover:bg-[#8A6F48] dark:bg-[#F2F0EA] dark:text-[#141413] dark:hover:bg-[#C8A97E] text-xs font-mono transition-colors"
                       >

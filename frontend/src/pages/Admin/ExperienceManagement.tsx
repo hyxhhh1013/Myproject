@@ -3,29 +3,75 @@ import { Trash2, Search, Loader2, Edit, Plus, X, Eye, EyeOff, Building2, Calenda
 import { message } from 'antd';
 import axios from '../../utils/axiosConfig';
 import { getImageUrl } from '../../utils/imageUtils';
+import RowsEditor, {
+  METRIC_COLUMNS,
+  METRIC_KEYS,
+  parseJsonRows,
+  parseJsonStringList,
+  serializeCommaList,
+  serializeRows,
+  type RowValue,
+  type RowsEditorColumn,
+} from '../../components/Admin/RowsEditor';
 
 interface Experience {
   id: number;
   company: string;
+  companyEn?: string | null;
   position: string;
+  positionEn?: string | null;
   startDate: string;
   endDate?: string | null;
-  description?: string;
+  description?: string | null;
+  descriptionEn?: string | null;
+  tags?: string | string[] | null;
+  linkUrl?: string | null;
+  linkLabel?: string | null;
+  highlights?: string | Record<string, unknown>[] | null; // JSON string (or already-parsed array)
+  metrics?: string | Record<string, unknown>[] | null; // JSON string (or already-parsed array)
   images?: string[];
   isVisible?: boolean;
   orderIndex?: number;
   createdAt?: string;
 }
 
+// Featured-card modules: [{ code, title, titleEn, desc, descEn }]
+const HIGHLIGHT_COLUMNS: RowsEditorColumn[] = [
+  { key: 'code', label: '编号', placeholder: '例如：01 / AGENT', span: 2 },
+  { key: 'title', label: '标题（中文）', placeholder: '例如：经营 Agent（35 个只读工具）', span: 2 },
+  { key: 'titleEn', label: '标题（英文）', placeholder: 'e.g. Operations Agent', span: 2 },
+  { key: 'desc', label: '描述（中文）', multiline: true, span: 3 },
+  { key: 'descEn', label: '描述（英文）', multiline: true, span: 3 },
+];
+const HIGHLIGHT_KEYS = HIGHLIGHT_COLUMNS.map(col => col.key);
+
 const initialFormData = {
   company: '',
+  companyEn: '',
   position: '',
+  positionEn: '',
   startDate: '',
   endDate: '',
+  ongoing: false,
   description: '',
+  descriptionEn: '',
+  tags: '',
+  linkUrl: '',
+  linkLabel: '',
+  highlights: [] as RowValue[],
+  metrics: [] as RowValue[],
+  orderIndex: '0',
   images: [] as string[],
   isVisible: true,
 };
+
+const inputClass =
+  'w-full px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500';
+const labelClass = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1';
+
+// Same order as the homepage: orderIndex asc, then id asc.
+const byHomepageOrder = (a: Experience, b: Experience) =>
+  (a.orderIndex ?? 0) - (b.orderIndex ?? 0) || a.id - b.id;
 
 const ExperienceManagement = () => {
   const [experiences, setExperiences] = useState<Experience[]>([]);
@@ -49,9 +95,7 @@ const ExperienceManagement = () => {
       setLoading(true);
       const response = await axios.get('/api/experience');
       const data = Array.isArray(response.data) ? response.data : response.data?.data || [];
-      setExperiences(data.sort((a: Experience, b: Experience) => 
-        new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
-      ));
+      setExperiences([...data].sort(byHomepageOrder));
     } catch (error) {
       console.error('Failed to fetch experiences:', error);
       message.error('获取经历失败，请重试');
@@ -65,17 +109,29 @@ const ExperienceManagement = () => {
       setEditingExperience(experience);
       setFormData({
         company: experience.company,
+        companyEn: experience.companyEn || '',
         position: experience.position,
+        positionEn: experience.positionEn || '',
         startDate: experience.startDate.split('T')[0],
         endDate: experience.endDate ? experience.endDate.split('T')[0] : '',
+        ongoing: !experience.endDate,
         description: experience.description || '',
+        descriptionEn: experience.descriptionEn || '',
+        tags: parseJsonStringList(experience.tags).join(', '),
+        linkUrl: experience.linkUrl || '',
+        linkLabel: experience.linkLabel || '',
+        highlights: parseJsonRows(experience.highlights, HIGHLIGHT_KEYS),
+        metrics: parseJsonRows(experience.metrics, METRIC_KEYS),
+        orderIndex: String(experience.orderIndex ?? 0),
         images: experience.images || [],
         isVisible: experience.isVisible ?? true,
       });
       setPreviewUrls(experience.images?.map(img => getImageUrl(img)) || []);
     } else {
       setEditingExperience(null);
-      setFormData(initialFormData);
+      // New entries go to the end so they never silently replace the featured card.
+      const nextOrder = experiences.length > 0 ? Math.max(...experiences.map(e => e.orderIndex ?? 0)) + 1 : 0;
+      setFormData({ ...initialFormData, orderIndex: String(nextOrder) });
       setPreviewUrls([]);
     }
     setSelectedFiles([]);
@@ -139,19 +195,40 @@ const ExperienceManagement = () => {
       message.warning('请填写公司名称、职位和开始日期');
       return;
     }
+    if (!formData.ongoing && !formData.endDate) {
+      message.warning('请填写结束日期，或勾选「至今」');
+      return;
+    }
+    if (!formData.ongoing && formData.endDate < formData.startDate) {
+      message.warning('结束日期不能早于开始日期');
+      return;
+    }
 
     try {
       setSubmitting(true);
       const payloadData = new FormData();
+      // Optional fields: on create send only filled ones; on update always send them,
+      // so a cleared field goes out as '' (backend: empty = null, absent = unchanged).
+      const isUpdate = !!editingExperience;
+      const appendOptional = (key: string, value: string) => {
+        if (isUpdate || value !== '') payloadData.append(key, value);
+      };
+
       payloadData.append('company', formData.company.trim());
+      appendOptional('companyEn', formData.companyEn.trim());
       payloadData.append('position', formData.position.trim());
+      appendOptional('positionEn', formData.positionEn.trim());
       payloadData.append('startDate', new Date(formData.startDate).toISOString());
-      if (formData.endDate) {
-        payloadData.append('endDate', new Date(formData.endDate).toISOString());
-      }
-      if (formData.description.trim()) {
-        payloadData.append('description', formData.description.trim());
-      }
+      // Ongoing (至今) = empty end date → stored as null.
+      appendOptional('endDate', !formData.ongoing && formData.endDate ? new Date(formData.endDate).toISOString() : '');
+      appendOptional('description', formData.description.trim());
+      appendOptional('descriptionEn', formData.descriptionEn.trim());
+      appendOptional('tags', serializeCommaList(formData.tags));
+      appendOptional('linkUrl', formData.linkUrl.trim());
+      appendOptional('linkLabel', formData.linkLabel.trim());
+      appendOptional('highlights', serializeRows(formData.highlights, HIGHLIGHT_KEYS));
+      appendOptional('metrics', serializeRows(formData.metrics, METRIC_KEYS));
+      payloadData.append('orderIndex', String(Math.max(0, parseInt(formData.orderIndex, 10) || 0)));
       payloadData.append('isVisible', formData.isVisible.toString());
 
       // Append existing images that weren't removed
@@ -205,6 +282,7 @@ const ExperienceManagement = () => {
 
   const handleToggleVisible = async (id: number, currentState: boolean) => {
     try {
+      // Partial update: send only isVisible so nothing else is touched.
       await axios.put(`/api/experience/${id}`, { isVisible: !currentState });
       setExperiences(experiences.map(e => e.id === id ? { ...e, isVisible: !currentState } : e));
       
@@ -219,8 +297,13 @@ const ExperienceManagement = () => {
   const filteredExperiences = experiences.filter(exp =>
     exp.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
     exp.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (exp.companyEn || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (exp.positionEn || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (exp.description || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // The first visible experience (homepage order) is the homepage featured card.
+  const featuredId = experiences.find(e => e.isVisible !== false)?.id;
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -256,7 +339,7 @@ const ExperienceManagement = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-800 dark:text-white">工作经历</h2>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">管理您的工作经历</p>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">管理您的工作经历 · 按首页顺序排列（排序数字越小越靠前）</p>
         </div>
         <div className="flex items-center gap-4">
           <span className="text-sm text-gray-500">共 {experiences.length} 段经历</span>
@@ -298,12 +381,25 @@ const ExperienceManagement = () => {
                       <Building2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        {exp.position}
-                      </h3>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                          {exp.position}
+                        </h3>
+                        {exp.id === featuredId && (
+                          <span className="px-2 py-0.5 text-[10px] font-mono rounded bg-blue-600 text-white">
+                            首页主卡 · FEATURED
+                          </span>
+                        )}
+                        <span className="text-xs font-mono text-gray-400">排序 {exp.orderIndex ?? 0}</span>
+                      </div>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
                         {exp.company}
                       </p>
+                      {(exp.positionEn || exp.companyEn) && (
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                          {[exp.positionEn, exp.companyEn].filter(Boolean).join(' · ')}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <button
@@ -333,6 +429,16 @@ const ExperienceManagement = () => {
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 whitespace-pre-line">
                     {exp.description}
                   </p>
+                )}
+
+                {parseJsonStringList(exp.tags).length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-4">
+                    {parseJsonStringList(exp.tags).map((tag, i) => (
+                      <span key={i} className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded text-xs">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
                 )}
 
                 <div className="flex gap-2 pt-4 border-t border-gray-100 dark:border-gray-700">
@@ -365,7 +471,7 @@ const ExperienceManagement = () => {
 
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
               <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
                 {editingExperience ? '编辑工作经历' : '添加工作经历'}
@@ -378,73 +484,204 @@ const ExperienceManagement = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  公司名称 *
-                </label>
-                <input
-                  type="text"
-                  value={formData.company}
-                  onChange={(e) => setFormData(prev => ({ ...prev, company: e.target.value }))}
-                  className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="例如：阿里巴巴"
-                  required
-                />
+            <form onSubmit={handleSubmit} className="p-6 space-y-5">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                首页中英文切换时分别显示中文 / 英文字段；英文留空时首页可能回退显示中文。
+              </p>
+
+              {/* 排序 */}
+              <div className="p-4 bg-blue-50/60 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/40 rounded-lg">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+                  <div>
+                    <label className={labelClass}>排序</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={formData.orderIndex}
+                      onChange={(e) => setFormData(prev => ({ ...prev, orderIndex: e.target.value }))}
+                      className={inputClass}
+                    />
+                  </div>
+                  <p className="md:col-span-2 md:pt-7 text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                    数字越小越靠前（相同时按创建先后）。<strong>排序最靠前的「可见」经历是首页的主卡</strong>（显示模块亮点与关键指标），其余按顺序显示在时间线中。
+                    {editingExperience && editingExperience.id === featuredId && (
+                      <span className="ml-1 text-blue-600 dark:text-blue-400 font-medium">当前这条就是首页主卡。</span>
+                    )}
+                  </p>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  职位名称 *
-                </label>
-                <input
-                  type="text"
-                  value={formData.position}
-                  onChange={(e) => setFormData(prev => ({ ...prev, position: e.target.value }))}
-                  className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="例如：高级前端工程师"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
+              {/* 职位 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    开始日期 *
-                  </label>
+                  <label className={labelClass}>职位名称（中文）*</label>
                   <input
-                    type="date"
-                    value={formData.startDate}
-                    onChange={(e) => setFormData(prev => ({ ...prev, startDate: e.target.value }))}
-                    className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    type="text"
+                    value={formData.position}
+                    onChange={(e) => setFormData(prev => ({ ...prev, position: e.target.value }))}
+                    className={inputClass}
+                    placeholder="例如：FDE 驻场工程师"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    结束日期
-                  </label>
+                  <label className={labelClass}>职位名称（英文）</label>
+                  <input
+                    type="text"
+                    value={formData.positionEn}
+                    onChange={(e) => setFormData(prev => ({ ...prev, positionEn: e.target.value }))}
+                    className={inputClass}
+                    placeholder="e.g. Forward-Deployed Engineer"
+                  />
+                </div>
+              </div>
+
+              {/* 公司 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>公司名称（中文）*</label>
+                  <input
+                    type="text"
+                    value={formData.company}
+                    onChange={(e) => setFormData(prev => ({ ...prev, company: e.target.value }))}
+                    className={inputClass}
+                    placeholder="例如：阿里巴巴"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>公司名称（英文）</label>
+                  <input
+                    type="text"
+                    value={formData.companyEn}
+                    onChange={(e) => setFormData(prev => ({ ...prev, companyEn: e.target.value }))}
+                    className={inputClass}
+                    placeholder="e.g. Alibaba Group"
+                  />
+                </div>
+              </div>
+
+              {/* 日期 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>开始日期 *</label>
                   <input
                     type="date"
-                    value={formData.endDate}
-                    onChange={(e) => setFormData(prev => ({ ...prev, endDate: e.target.value }))}
-                    className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={formData.startDate}
+                    onChange={(e) => setFormData(prev => ({ ...prev, startDate: e.target.value }))}
+                    className={inputClass}
+                    required
                   />
-                  <p className="text-xs text-gray-400 mt-1">留空表示至今</p>
+                  <p className="text-xs text-gray-400 mt-2">
+                    首页只显示到月份，例如「2026.06 — 至今」/「JUN 2026 — PRESENT」。
+                  </p>
+                </div>
+                <div>
+                  <label className={labelClass}>结束日期</label>
+                  <input
+                    type="date"
+                    value={formData.ongoing ? '' : formData.endDate}
+                    onChange={(e) => setFormData(prev => ({ ...prev, endDate: e.target.value }))}
+                    disabled={formData.ongoing}
+                    className={`${inputClass} disabled:opacity-50 disabled:cursor-not-allowed`}
+                  />
+                  <label className="mt-2 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                    <input
+                      type="checkbox"
+                      checked={formData.ongoing}
+                      onChange={(e) => setFormData(prev => ({ ...prev, ongoing: e.target.checked, endDate: e.target.checked ? '' : prev.endDate }))}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    至今（仍在进行，不填结束日期）
+                  </label>
+                </div>
+              </div>
+
+              {/* 描述 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>工作描述（中文）</label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                    className={inputClass}
+                    placeholder="描述您的工作内容和成就（每行一条）"
+                    rows={4}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>工作描述（英文）</label>
+                  <textarea
+                    value={formData.descriptionEn}
+                    onChange={(e) => setFormData(prev => ({ ...prev, descriptionEn: e.target.value }))}
+                    className={inputClass}
+                    placeholder="English description"
+                    rows={4}
+                  />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  工作描述
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="描述您的工作内容和成就（每行一条）"
-                  rows={4}
+                <label className={labelClass}>标签（逗号分隔）</label>
+                <input
+                  type="text"
+                  value={formData.tags}
+                  onChange={(e) => setFormData(prev => ({ ...prev, tags: e.target.value }))}
+                  className={inputClass}
+                  placeholder="例如：LangGraph, FastAPI, React"
                 />
+              </div>
+
+              {/* 链接 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>链接地址</label>
+                  <input
+                    type="url"
+                    value={formData.linkUrl}
+                    onChange={(e) => setFormData(prev => ({ ...prev, linkUrl: e.target.value }))}
+                    className={inputClass}
+                    placeholder="https://example.com"
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>链接文字</label>
+                  <input
+                    type="text"
+                    value={formData.linkLabel}
+                    onChange={(e) => setFormData(prev => ({ ...prev, linkLabel: e.target.value }))}
+                    className={inputClass}
+                    placeholder="例如：example.com"
+                  />
+                </div>
+              </div>
+
+              {/* 主卡专属 */}
+              <div className="p-4 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg space-y-4">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  以下两项<strong>只在首页主卡（排序最靠前的可见经历）上显示</strong>，其他经历可留空。
+                </p>
+                <div>
+                  <label className={labelClass}>模块亮点</label>
+                  <RowsEditor
+                    columns={HIGHLIGHT_COLUMNS}
+                    value={formData.highlights}
+                    onChange={(rows) => setFormData(prev => ({ ...prev, highlights: rows }))}
+                    addLabel="添加模块"
+                    emptyText="暂无模块亮点"
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>关键指标（建议 4 条）</label>
+                  <RowsEditor
+                    columns={METRIC_COLUMNS}
+                    value={formData.metrics}
+                    onChange={(rows) => setFormData(prev => ({ ...prev, metrics: rows }))}
+                    addLabel="添加指标"
+                    emptyText="暂无指标"
+                  />
+                </div>
               </div>
 
               <div>
@@ -505,7 +742,7 @@ const ExperienceManagement = () => {
                   className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                 />
                 <label htmlFor="expIsVisible" className="text-sm text-gray-700 dark:text-gray-300">
-                  在前端显示
+                  在首页显示
                 </label>
               </div>
 

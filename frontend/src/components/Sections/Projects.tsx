@@ -27,19 +27,45 @@ import {
   FANDINGLE_BLUEPRINT_SVG,
 } from '../../utils/projectBlueprints';
 
-// Each project gets its own quiet tint behind the preview frame, so the four
-// cards stop reading as one beige block. Keyed by the stable indexCode.
-const PROJECT_MATS: Record<string, string> = {
-  '01': 'bg-[#E2EAD9] dark:bg-[#18211A]', // 禾书耕文 · agri sage
-  '02': 'bg-[#E6E0F2] dark:bg-[#1D1A28]', // 梦境拓扑 · dream lavender
-  '03': 'bg-[#DCE3EB] dark:bg-[#151B22]', // 界外 · steel blue
-  '04': 'bg-[#F5E1CC] dark:bg-[#281D14]', // 饭定了 · warm apricot
+// The four known projects get presentation extras the DB does not hold: a quiet
+// tint behind the preview frame (so the cards stop reading as one beige block),
+// a cover image used when no screenshot is uploaded, and — for the flagship —
+// the stat strip shown until metrics are entered in the admin.
+type KnownProjectKey = 'heshu' | 'dreamtop' | 'outbounds' | 'fandingle';
+
+const PROJECT_MATS: Record<KnownProjectKey, string> = {
+  heshu: 'bg-[#E2EAD9] dark:bg-[#18211A]', // 禾书耕文 · agri sage
+  dreamtop: 'bg-[#E6E0F2] dark:bg-[#1D1A28]', // 梦境拓扑 · dream lavender
+  outbounds: 'bg-[#DCE3EB] dark:bg-[#151B22]', // 界外 · steel blue
+  fandingle: 'bg-[#F5E1CC] dark:bg-[#281D14]', // 饭定了 · warm apricot
 };
-const projectMat = (indexCode: string) => PROJECT_MATS[indexCode] ?? 'bg-[#F2EFE8] dark:bg-[#191816]';
+const projectMat = (key?: KnownProjectKey) =>
+  (key && PROJECT_MATS[key]) || 'bg-[#F2EFE8] dark:bg-[#191816]';
+
+const PROJECT_COVERS: Record<KnownProjectKey, string> = {
+  heshu: HESHU_BLUEPRINT_SVG,
+  dreamtop: DREAMTOP_BLUEPRINT_SVG,
+  outbounds: OUTBOUNDS_BLUEPRINT_SVG,
+  fandingle: FANDINGLE_BLUEPRINT_SVG,
+};
+
+interface ProjectMetric {
+  value: string;
+  label: string;
+  labelEn: string;
+}
+
+const HESHU_METRICS: ProjectMetric[] = [
+  { value: '~3 Days', label: '初稿周期 · 已出 10+ 篇', labelEn: 'Draft Cycle · 10+ Papers' },
+  { value: '46 Tools', label: 'LangGraph · 11 路 SSE', labelEn: 'LangGraph · 11 SSE' },
+  { value: '176,230', label: '2,749 篇文献知识块', labelEn: '2,749 Papers Indexed' },
+  { value: '2000+', label: '测试 · 124 API · 5 模板', labelEn: 'Tests · 124 APIs' },
+];
 
 export interface ProjectData {
   id: number;
   indexCode: string;
+  key?: KnownProjectKey;
   title: string;
   titleEn: string;
   badge: string;
@@ -58,12 +84,14 @@ export interface ProjectData {
   github?: string;
   demoLink?: string;
   images: string[];
+  metrics?: ProjectMetric[];
 }
 
 const DEFAULT_PROJECTS: ProjectData[] = [
   {
     id: 1,
     indexCode: '01',
+    key: 'heshu',
     title: '禾书耕文 · 科研论文写作系统',
     titleEn: 'HeShu · AI4Science Writing System',
     badge: 'AIFA 实验室重点项目 · 2026.03–至今',
@@ -92,10 +120,12 @@ const DEFAULT_PROJECTS: ProjectData[] = [
     github: 'https://github.com/hyxhhh1013/AI-assisted-writing-system-for-agricultural-research',
     demoLink: 'https://ai4science.hyxhhh.site/',
     images: [HESHU_BLUEPRINT_SVG],
+    metrics: HESHU_METRICS,
   },
   {
     id: 2,
     indexCode: '02',
+    key: 'dreamtop',
     title: '梦境拓扑 DreamTop',
     titleEn: 'DreamTop · Subconscious Topology',
     badge: '字节跳动 Trae · 湖南农大三等奖',
@@ -128,6 +158,7 @@ const DEFAULT_PROJECTS: ProjectData[] = [
   {
     id: 3,
     indexCode: '03',
+    key: 'outbounds',
     title: '界外 Outbounds',
     titleEn: 'Outbounds · Multi-Universe Hub',
     badge: '字节跳动 Trae · 中南大学二等奖',
@@ -160,6 +191,7 @@ const DEFAULT_PROJECTS: ProjectData[] = [
   {
     id: 4,
     indexCode: '04',
+    key: 'fandingle',
     title: '饭定了 · 校园餐饮协同决策',
     titleEn: 'FanDingLe · Campus Dining Decision',
     badge: 'LEV0 黑客松 · 2026.06 最佳创意奖',
@@ -191,6 +223,140 @@ const DEFAULT_PROJECTS: ProjectData[] = [
   },
 ];
 
+// ---- API rows (GET /api/projects) -----------------------------------------
+interface ApiProject {
+  id: number;
+  title?: string | null;
+  titleEn?: string | null;
+  badge?: string | null;
+  badgeEn?: string | null;
+  description?: string | null;
+  descriptionEn?: string | null;
+  technologies?: unknown;
+  responsibilities?: string | null;
+  responsibilitiesEn?: string | null;
+  challengesProblem?: string | null;
+  challengesProblemEn?: string | null;
+  challengesSolution?: string | null;
+  challengesSolutionEn?: string | null;
+  githubUrl?: string | null;
+  demoUrl?: string | null;
+  imageUrl?: string | null;
+  images?: unknown;
+  metrics?: unknown;
+  orderIndex?: number | null;
+  isVisible?: boolean | null;
+}
+
+const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
+
+// JSON columns arrive as a JSON string (or already parsed); tolerate both, plus a comma list.
+const parseJsonArray = (v: unknown): unknown[] => {
+  if (Array.isArray(v)) return v;
+  if (typeof v !== 'string' || !v.trim()) return [];
+  const text = v.trim();
+  if (text.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(text);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return text.split(',');
+};
+
+const parseStringList = (v: unknown): string[] =>
+  parseJsonArray(v).map((x) => str(x)).filter(Boolean);
+
+const splitLines = (v: unknown): string[] =>
+  str(v)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+const sortByOrder = <T extends { id: number; orderIndex?: number | null }>(rows: T[]): T[] =>
+  [...rows].sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0) || a.id - b.id);
+
+const isProjectsSynced = (rows: ApiProject[]) => rows.some((r) => str(r.badge) || str(r.titleEn));
+
+// Recognises the four known projects by title keyword / repo / demo URL.
+const KNOWN_PROJECT_MATCHERS: Record<KnownProjectKey, (p: ApiProject) => boolean> = {
+  heshu: (p) => {
+    const t = `${p.title || ''} ${p.titleEn || ''}`.toLowerCase();
+    return (
+      t.includes('禾书') ||
+      t.includes('农业') ||
+      t.includes('科研') ||
+      (p.githubUrl || '').toLowerCase().includes('agricultural-research')
+    );
+  },
+  dreamtop: (p) =>
+    `${p.title || ''} ${p.titleEn || ''}`.toLowerCase().includes('梦境') ||
+    (p.githubUrl || '').toLowerCase().includes('dream-topology'),
+  outbounds: (p) => {
+    const t = `${p.title || ''} ${p.titleEn || ''}`.toLowerCase();
+    return t.includes('界外') || t.includes('outbounds') || (p.githubUrl || '').toLowerCase().includes('outbounds');
+  },
+  fandingle: (p) => {
+    const t = `${p.title || ''} ${p.titleEn || ''}`.toLowerCase();
+    return t.includes('饭定了') || t.includes('选餐') || (p.demoUrl || '').toLowerCase().includes('eat.hyxhhh');
+  },
+};
+const KNOWN_PROJECT_ORDER: KnownProjectKey[] = ['heshu', 'dreamtop', 'outbounds', 'fandingle'];
+const detectKnownProject = (p: ApiProject) => KNOWN_PROJECT_ORDER.find((k) => KNOWN_PROJECT_MATCHERS[k](p));
+
+const parseProjectImages = (p: ApiProject): string[] => {
+  const list = parseStringList(p.images).map((img) => getImageUrl(img)).filter(Boolean);
+  if (list.length > 0) return list;
+  const single = getImageUrl(str(p.imageUrl));
+  return single ? [single] : [];
+};
+
+const parseMetrics = (v: unknown): ProjectMetric[] =>
+  parseJsonArray(v)
+    .map((m) => {
+      const o = (m && typeof m === 'object' ? m : {}) as Record<string, unknown>;
+      return { value: str(o.value), label: str(o.label), labelEn: str(o.labelEn) };
+    })
+    .filter((m) => m.value || m.label);
+
+const toProjectData = (row: ApiProject, index: number): ProjectData => {
+  const key = detectKnownProject(row);
+  const responsibilities = splitLines(row.responsibilities);
+  const responsibilitiesEn = splitLines(row.responsibilitiesEn);
+  const images = parseProjectImages(row);
+  const metrics = parseMetrics(row.metrics);
+  return {
+    id: row.id,
+    indexCode: String(index + 1).padStart(2, '0'),
+    key,
+    title: str(row.title),
+    titleEn: str(row.titleEn),
+    badge: str(row.badge),
+    badgeEn: str(row.badgeEn),
+    description: str(row.description),
+    descriptionEn: str(row.descriptionEn),
+    stack: parseStringList(row.technologies),
+    responsibilities,
+    responsibilitiesEn: responsibilitiesEn.length > 0 ? responsibilitiesEn : responsibilities,
+    challenges: {
+      problem: str(row.challengesProblem),
+      problemEn: str(row.challengesProblemEn),
+      solution: str(row.challengesSolution),
+      solutionEn: str(row.challengesSolutionEn),
+    },
+    github: str(row.githubUrl),
+    demoLink: str(row.demoUrl),
+    images: images.length > 0 ? images : key ? [PROJECT_COVERS[key]] : [],
+    metrics: metrics.length > 0 ? metrics : key === 'heshu' ? HESHU_METRICS : [],
+  };
+};
+
+// Stat strip columns: the classic 4-up strip, or a single row for fewer items.
+const metricCols = (count: number) =>
+  count >= 4 ? 'grid-cols-2 sm:grid-cols-4' : count === 3 ? 'grid-cols-3' : count === 2 ? 'grid-cols-2' : 'grid-cols-1';
+
 const FlagshipProjectCard: React.FC<{
   project: ProjectData;
   isHighlighted: boolean;
@@ -212,6 +378,7 @@ const FlagshipProjectCard: React.FC<{
       ? project.images
       : ['https://picsum.photos/seed/proj/900/540'];
   const currentImage = images[activeImgIdx] || images[0];
+  const metrics = project.metrics ?? [];
 
   const handlePrev = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -264,7 +431,7 @@ const FlagshipProjectCard: React.FC<{
         <div className="lg:col-span-7 border-b lg:border-b-0 lg:border-r designer-hairline flex flex-col justify-between bg-[#FAF9F5]/50 dark:bg-[#121210]/50">
           <div
             onClick={() => onOpenLightbox(images, activeImgIdx)}
-            className={`aspect-[16/10] ${projectMat(project.indexCode)} border-b designer-hairline p-3 sm:p-4 lg:p-5 relative group cursor-pointer`}
+            className={`aspect-[16/10] ${projectMat(project.key)} border-b designer-hairline p-3 sm:p-4 lg:p-5 relative group cursor-pointer`}
           >
             <div className="w-full h-full rounded-xl overflow-hidden bg-[#FAF9F5] dark:bg-[#141413] ring-1 ring-[#141413]/10 dark:ring-white/10 shadow-[0_14px_34px_-10px_rgba(20,20,19,0.16)] flex flex-col transition-transform duration-500 group-hover:-translate-y-0.5">
               {/* Minimal Warm-Sand Browser Chrome */}
@@ -334,19 +501,16 @@ const FlagshipProjectCard: React.FC<{
           </div>
 
           {/* 4 Compact Quantitative Metrics */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-[var(--border-hairline)]">
-            {[
-              { val: '~3 Days', label: td('初稿周期 · 已出 10+ 篇', 'Draft Cycle · 10+ Papers') },
-              { val: '46 Tools', label: td('LangGraph · 11 路 SSE', 'LangGraph · 11 SSE') },
-              { val: '176,230', label: td('2,749 篇文献知识块', '2,749 Papers Indexed') },
-              { val: '2000+', label: td('测试 · 124 API · 5 模板', 'Tests · 124 APIs') },
-            ].map((m, i) => (
-              <div key={i} className="p-3 sm:p-3.5 text-left bg-[var(--bg-card)]">
-                <div className="text-sm sm:text-base font-mono font-bold designer-text-primary">{m.val}</div>
-                <div className="text-[11px] designer-text-secondary mt-0.5 truncate">{m.label}</div>
-              </div>
-            ))}
-          </div>
+          {metrics.length > 0 && (
+            <div className={`grid ${metricCols(metrics.length)} gap-px bg-[var(--border-hairline)]`}>
+              {metrics.map((m, i) => (
+                <div key={i} className="p-3 sm:p-3.5 text-left bg-[var(--bg-card)]">
+                  <div className="text-sm sm:text-base font-mono font-bold designer-text-primary">{m.value}</div>
+                  <div className="text-[11px] designer-text-secondary mt-0.5 truncate">{td(m.label, m.labelEn)}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Right 5 Cols: Fixed-Height Tab Body + Actions */}
@@ -452,7 +616,7 @@ const FlagshipProjectCard: React.FC<{
                         openAiWithPrompt(
                           td(
                             `请深入讲讲「${project.title}」的技术架构与解决方案！`,
-                            `Deep-dive the technical architecture and engineering solutions of "${project.titleEn}"!`,
+                            `Deep-dive the technical architecture and engineering solutions of "${project.titleEn || project.title}"!`,
                           ),
                         )
                       }
@@ -558,7 +722,7 @@ const ProjectCard: React.FC<{
         {/* Image Frame with Warm-Sand Showcase Mat + Minimal Browser Bezel */}
         <div
           onClick={() => onOpenLightbox(images, activeImgIdx)}
-          className={`aspect-[16/10] ${projectMat(project.indexCode)} border-b designer-hairline p-2.5 sm:p-3.5 relative group cursor-pointer`}
+          className={`aspect-[16/10] ${projectMat(project.key)} border-b designer-hairline p-2.5 sm:p-3.5 relative group cursor-pointer`}
         >
           <div className="w-full h-full rounded-lg overflow-hidden bg-[#FAF9F5] dark:bg-[#141413] ring-1 ring-[#141413]/10 dark:ring-white/10 shadow-[0_10px_24px_-8px_rgba(20,20,19,0.16)] flex flex-col transition-transform duration-500 group-hover:-translate-y-0.5">
             {/* Minimal Warm-Sand Browser Chrome */}
@@ -742,7 +906,7 @@ const ProjectCard: React.FC<{
                     openAiWithPrompt(
                       td(
                         `请深入讲讲「${project.title}」项目的技术架构与难点突破！`,
-                        `Break down the architecture and engineering challenges of "${project.titleEn}"!`,
+                        `Break down the architecture and engineering challenges of "${project.titleEn || project.title}"!`,
                       ),
                     )
                   }
@@ -818,66 +982,48 @@ export const Projects: React.FC = () => {
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const response = await axios.get('/api/projects');
-        const data = response.data?.data || response.data || [];
-        if (Array.isArray(data) && data.length > 0) {
-          const merged = DEFAULT_PROJECTS.map((defProj) => {
-            const dbMatch = data.find((p: any) => {
-              const tStr = (p.title || '').toLowerCase();
-              const gStr = (p.githubUrl || '').toLowerCase();
-              const dStr = (p.demoUrl || '').toLowerCase();
-              if (defProj.id === 1) {
-                return (
-                  tStr.includes('禾书') ||
-                  tStr.includes('农业') ||
-                  tStr.includes('科研') ||
-                  gStr.includes('agricultural-research')
-                );
-              }
-              if (defProj.id === 2) {
-                return tStr.includes('梦境') || gStr.includes('dream-topology');
-              }
-              if (defProj.id === 3) {
-                return tStr.includes('界外') || tStr.includes('outbounds') || gStr.includes('outbounds');
-              }
-              if (defProj.id === 4) {
-                return tStr.includes('饭定了') || tStr.includes('选餐') || dStr.includes('eat.hyxhhh');
-              }
-              return (
-                p.title &&
-                (p.title.includes(defProj.title.split(' ')[0]) ||
-                  defProj.title.includes(p.title.split(' ')[0]))
-              );
-            });
-            if (!dbMatch) return defProj;
+        const response = await axios.get('/api/projects', { params: { limit: 100 } });
+        const body = response.data;
+        const data: unknown = Array.isArray(body) ? body : Array.isArray(body?.data) ? body.data : [];
+        if (!Array.isArray(data) || data.length === 0) return;
+        const rows = data as ApiProject[];
 
-            let parsedImages: string[] = [];
-            if (Array.isArray(dbMatch.images) && dbMatch.images.length > 0) {
-              parsedImages = dbMatch.images.map((img: string) => getImageUrl(img));
-            } else if (typeof dbMatch.images === 'string' && dbMatch.images.trim().startsWith('[')) {
-              try {
-                parsedImages = JSON.parse(dbMatch.images).map((img: string) => getImageUrl(img));
-              } catch {
-                parsedImages = [];
-              }
-            } else if (dbMatch.imageUrl) {
-              parsedImages = [getImageUrl(dbMatch.imageUrl)];
-            }
-
-            const combinedImages =
-              parsedImages.length > 0
-                ? parsedImages
-                : defProj.images;
-
-            return {
-              ...defProj,
-              github: dbMatch.githubUrl || defProj.github,
-              demoLink: defProj.id === 1 ? defProj.demoLink : dbMatch.demoUrl || defProj.demoLink,
-              images: combinedImages,
-            };
-          });
-          setProjects(merged);
+        // Synced DB: the rows ARE the section (order, hiding, additions).
+        if (isProjectsSynced(rows)) {
+          const visible = sortByOrder(rows.filter((r) => r.isVisible !== false));
+          if (visible.length > 0) setProjects(visible.map(toProjectData));
+          return;
         }
+
+        // Not synced yet: hardcoded copy + a few live fields from matching rows.
+        const merged = DEFAULT_PROJECTS.map((defProj) => {
+          const matches = defProj.key ? KNOWN_PROJECT_MATCHERS[defProj.key] : undefined;
+          const dbMatch = matches ? rows.find(matches) : undefined;
+          if (!dbMatch) return defProj;
+
+          let parsedImages: string[] = [];
+          if (Array.isArray(dbMatch.images) && dbMatch.images.length > 0) {
+            parsedImages = dbMatch.images.map((img: string) => getImageUrl(img));
+          } else if (typeof dbMatch.images === 'string' && dbMatch.images.trim().startsWith('[')) {
+            try {
+              parsedImages = JSON.parse(dbMatch.images).map((img: string) => getImageUrl(img));
+            } catch {
+              parsedImages = [];
+            }
+          } else if (dbMatch.imageUrl) {
+            parsedImages = [getImageUrl(dbMatch.imageUrl)];
+          }
+
+          const combinedImages = parsedImages.length > 0 ? parsedImages : defProj.images;
+
+          return {
+            ...defProj,
+            github: dbMatch.githubUrl || defProj.github,
+            demoLink: defProj.id === 1 ? defProj.demoLink : dbMatch.demoUrl || defProj.demoLink,
+            images: combinedImages,
+          };
+        });
+        setProjects(merged);
       } catch {
         // Keep DEFAULT_PROJECTS
       }
@@ -900,12 +1046,12 @@ export const Projects: React.FC = () => {
       }
       if (
         (filterLower.includes('mcp') || filterLower.includes('tool')) &&
-        (proj.id === 1 || proj.id === 2)
+        (proj.key === 'heshu' || proj.key === 'dreamtop')
       ) {
         return true;
       }
       if (filterLower.includes('fastapi') || filterLower.includes('python')) {
-        return proj.id === 1;
+        return proj.key === 'heshu';
       }
       if (filterLower.includes('pg') || filterLower.includes('prisma') || filterLower.includes('postgres')) {
         return true;

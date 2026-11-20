@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link as ScrollLink } from 'react-scroll';
 import { ArrowUpRight, FileText, Copy, Check } from 'lucide-react';
 import { ImageWithFallback } from '../UI/ImageWithFallback';
-import axios from '../../utils/axiosConfig';
 import { useI18n } from '../../i18n/i18nContext';
 import { playSuccessChime } from '../../utils/soundEffects';
+import { useSiteProfile } from '../Layout/Footer';
 
 const GITHUB_AVATAR = 'https://avatars.githubusercontent.com/hyxhhh1013';
 
@@ -51,27 +51,13 @@ const HERO_PROOF = [
 export const Hero: React.FC = () => {
   const { language, t, td } = useI18n();
   const [copied, setCopied] = useState(false);
+  const profile = useSiteProfile();
 
-  const [heroName, setHeroName] = useState<string>('黄奕轩');
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const userResponse = await axios.get('/api/users/1');
-        const userData = userResponse.data?.data || userResponse.data;
-        if (userData && userData.name && userData.name !== '张三' && userData.name !== 'Admin') {
-          setHeroName(userData.name);
-        }
-      } catch {
-        // Keep default heroName
-      }
-    };
-
-    fetchData();
-  }, []);
+  const heroName =
+    profile.name && profile.name !== '张三' && profile.name !== 'Admin' ? profile.name : '黄奕轩';
 
   const handleCopyEmail = () => {
-    navigator.clipboard.writeText('hyxhhh1013@gmail.com');
+    navigator.clipboard.writeText(profile.email);
     playSuccessChime();
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
@@ -188,11 +174,11 @@ export const Hero: React.FC = () => {
                 ) : (
                   <Copy className="w-3 h-3 opacity-70" />
                 )}
-                <span>{copied ? t('idcard.copied') : 'hyxhhh1013@gmail.com'}</span>
+                <span>{copied ? t('idcard.copied') : profile.email}</span>
               </button>
               <span aria-hidden="true" className="opacity-40">·</span>
               <a
-                href="https://github.com/hyxhhh1013"
+                href={profile.githubUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-0.5 hover:designer-text-primary transition-colors"

@@ -16,6 +16,20 @@ import { getImageUrl } from '../../utils/imageUtils';
 import { ImageWithFallback } from '../UI/ImageWithFallback';
 import { useI18n } from '../../i18n/i18nContext';
 
+interface ExperienceModule {
+  code: string;
+  title: string;
+  titleEn: string;
+  desc: string;
+  descEn: string;
+}
+
+interface ExperienceStat {
+  value: string;
+  label: string;
+  labelEn: string;
+}
+
 interface ExperienceItem {
   id: number;
   indexCode: string;
@@ -31,7 +45,56 @@ interface ExperienceItem {
   linkUrl?: string;
   linkLabel?: string;
   images: string[];
+  // Featured (first) card only: top-bar tags, 2x2 modules, 4 stats and photo caption.
+  featuredTags?: string[];
+  highlights?: ExperienceModule[];
+  metrics?: ExperienceStat[];
+  photoCaption?: string;
+  photoCaptionEn?: string;
 }
+
+// Presentation of the FDE residency card while the DB has no highlights/metrics for it.
+const FDE_FEATURED_TAGS = ['React', 'Vite', 'TypeScript', 'FastAPI', 'LangGraph', 'PostgreSQL', '巨量引擎 API'];
+
+const FDE_MODULES: ExperienceModule[] = [
+  {
+    code: '01 / AGENT',
+    title: '经营 Agent（35 个只读工具）',
+    titleEn: 'Operations Agent (35 Read-Only Tools)',
+    desc: '到账、退费、课消、转化、投流与看板同口径直接问；异常仅拟任务草稿，人工确认后才写库。',
+    descEn: 'Unified with dashboard metrics across 35 read-only tools; anomalies draft tasks requiring human approval.',
+  },
+  {
+    code: '02 / PIPELINE',
+    title: '整线绑定（驻场 15 周 · 8 部门）',
+    titleEn: 'Full-Line Integration (15 Weeks · 8 Teams)',
+    desc: '覆盖引流、签单、排课、售后与财务核对（FastAPI 100+ 路由），沉淀 45 份同日更新业务流程。',
+    descEn: 'Covered lead-to-finance workflows across 100+ FastAPI routes with 45 same-day updated process docs.',
+  },
+  {
+    code: '03 / WORKFLOW',
+    title: '家教与雅思双线 & 三级审批硬闸',
+    titleEn: 'Dual-Line Conversion & Server Hard Gates',
+    desc: '家教与雅思共用一库、表前缀隔离；电子合同签审才落档，消课三级审批与课酬按日指派做在服务端。',
+    descEn: 'Shared DB with table-prefix isolation; server-side hard gates for e-contracts and 3-tier approval.',
+  },
+  {
+    code: '04 / ATTRIBUTION',
+    title: '投流回台（巨量引擎 19 条 API）',
+    titleEn: 'Ad Attribution (19 Ocean Engine APIs)',
+    desc: '按账户、计划、广告、素材四层按日拉回消耗与线索成本；改预算须人工确认，单次不超 ±20%。',
+    descEn: '4-level daily ad spend & CPL attribution via 19 official APIs; budget edits capped at ±20% with HITL.',
+  },
+];
+
+const FDE_STATS: ExperienceStat[] = [
+  { value: '15 Weeks', label: '连续驻场 · 对接 8 部门', labelEn: 'On-Site · 8 Teams' },
+  { value: '35 Tools', label: '经营 Agent 只读工具', labelEn: 'Read-Only Agent Tools' },
+  { value: '100+ Routes', label: 'FastAPI 双业务线中台', labelEn: 'FastAPI Middle Platform' },
+  { value: '19 APIs', label: '巨量引擎四层投流归因', labelEn: 'Ocean Engine APIs' },
+];
+
+const FDE_PHOTO_CAPTION = { zh: '洋葱教育驻场交付现场', en: 'Onion Education On-Site Residency' };
 
 const DEFAULT_EXPERIENCES: ExperienceItem[] = [
   {
@@ -49,6 +112,11 @@ const DEFAULT_EXPERIENCES: ExperienceItem[] = [
     descriptionEn:
       'On-site for 15 weeks across 8 teams. Shipped a 35-tool Operations Agent, full-link Tutoring & IELTS middle platform across 100+ FastAPI routes, and 19 Ocean Engine ad attribution APIs.',
     images: [],
+    featuredTags: FDE_FEATURED_TAGS,
+    highlights: FDE_MODULES,
+    metrics: FDE_STATS,
+    photoCaption: FDE_PHOTO_CAPTION.zh,
+    photoCaptionEn: FDE_PHOTO_CAPTION.en,
   },
   {
     id: 2,
@@ -120,41 +188,135 @@ const DEFAULT_EXPERIENCES: ExperienceItem[] = [
   },
 ];
 
-const FDE_MODULES = [
-  {
-    code: '01 / AGENT',
-    titleZh: '经营 Agent（35 个只读工具）',
-    titleEn: 'Operations Agent (35 Read-Only Tools)',
-    descZh: '到账、退费、课消、转化、投流与看板同口径直接问；异常仅拟任务草稿，人工确认后才写库。',
-    descEn: 'Unified with dashboard metrics across 35 read-only tools; anomalies draft tasks requiring human approval.',
-  },
-  {
-    code: '02 / PIPELINE',
-    titleZh: '整线绑定（驻场 15 周 · 8 部门）',
-    titleEn: 'Full-Line Integration (15 Weeks · 8 Teams)',
-    descZh: '覆盖引流、签单、排课、售后与财务核对（FastAPI 100+ 路由），沉淀 45 份同日更新业务流程。',
-    descEn: 'Covered lead-to-finance workflows across 100+ FastAPI routes with 45 same-day updated process docs.',
-  },
-  {
-    code: '03 / WORKFLOW',
-    titleZh: '家教与雅思双线 & 三级审批硬闸',
-    titleEn: 'Dual-Line Conversion & Server Hard Gates',
-    descZh: '家教与雅思共用一库、表前缀隔离；电子合同签审才落档，消课三级审批与课酬按日指派做在服务端。',
-    descEn: 'Shared DB with table-prefix isolation; server-side hard gates for e-contracts and 3-tier approval.',
-  },
-  {
-    code: '04 / ATTRIBUTION',
-    titleZh: '投流回台（巨量引擎 19 条 API）',
-    titleEn: 'Ad Attribution (19 Ocean Engine APIs)',
-    descZh: '按账户、计划、广告、素材四层按日拉回消耗与线索成本；改预算须人工确认，单次不超 ±20%。',
-    descEn: '4-level daily ad spend & CPL attribution via 19 official APIs; budget edits capped at ±20% with HITL.',
-  },
-];
-
 const TECH_TAG_EN_MAP: Record<string, string> = {
   '巨量引擎 API': 'Ocean Engine API',
   '巨量引擎': 'Ocean Engine API',
   '智谱 GLM': 'Zhipu GLM-4',
+};
+
+// ---- API rows (GET /api/experience) ---------------------------------------
+interface ApiExperience {
+  id: number;
+  company?: string | null;
+  companyEn?: string | null;
+  position?: string | null;
+  positionEn?: string | null;
+  description?: string | null;
+  descriptionEn?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  tags?: unknown;
+  linkUrl?: string | null;
+  linkLabel?: string | null;
+  highlights?: unknown;
+  metrics?: unknown;
+  images?: unknown;
+  orderIndex?: number | null;
+  isVisible?: boolean | null;
+}
+
+const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
+
+// JSON columns arrive as a JSON string (or already parsed); tolerate both, plus a comma list.
+const parseJsonArray = (v: unknown): unknown[] => {
+  if (Array.isArray(v)) return v;
+  if (typeof v !== 'string' || !v.trim()) return [];
+  const text = v.trim();
+  if (text.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(text);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return text.split(',');
+};
+
+const parseStringList = (v: unknown): string[] =>
+  parseJsonArray(v).map((x) => str(x)).filter(Boolean);
+
+const parseObjects = (v: unknown): Record<string, unknown>[] =>
+  parseJsonArray(v).filter((x): x is Record<string, unknown> => !!x && typeof x === 'object');
+
+const sortByOrder = <T extends { id: number; orderIndex?: number | null }>(rows: T[]): T[] =>
+  [...rows].sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0) || a.id - b.id);
+
+const isExperienceSynced = (rows: ApiExperience[]) =>
+  rows.some((r) => str(r.positionEn) || parseStringList(r.tags).length > 0);
+
+const MONTHS_EN = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+
+// Year/month of a stored date. The +12h shift keeps a local-midnight date saved from
+// any UTC±12 timezone (e.g. 2026-05-31T16:00Z for 2026-06-01 in Beijing) in its month.
+const yearMonth = (v: unknown): { y: number; m: number } | null => {
+  if (typeof v !== 'string' && !(v instanceof Date)) return null;
+  const t = new Date(v).getTime();
+  if (Number.isNaN(t)) return null;
+  const d = new Date(t + 12 * 60 * 60 * 1000);
+  return { y: d.getUTCFullYear(), m: d.getUTCMonth() };
+};
+
+// zh `2026.06 — 至今` / `2025.07 — 2025.08`; en `JUN 2026 — PRESENT` / `JUL 2025 — AUG 2025`.
+const dateLabels = (start: unknown, end: unknown) => {
+  const s = yearMonth(start);
+  const e = yearMonth(end);
+  const zh = (p: { y: number; m: number }) => `${p.y}.${String(p.m + 1).padStart(2, '0')}`;
+  const en = (p: { y: number; m: number }) => `${MONTHS_EN[p.m]} ${p.y}`;
+  return {
+    zh: `${s ? zh(s) : ''} — ${e ? zh(e) : '至今'}`.trim(),
+    en: `${s ? en(s) : ''} — ${e ? en(e) : 'PRESENT'}`.trim(),
+  };
+};
+
+const isOnionFde = (r: ApiExperience) =>
+  /洋葱|onion/i.test(`${r.company || ''} ${r.companyEn || ''}`);
+
+const toExperienceItem = (row: ApiExperience, index: number): ExperienceItem => {
+  const dates = dateLabels(row.startDate, row.endDate);
+  const tags = parseStringList(row.tags);
+  const linkUrl = str(row.linkUrl);
+  const item: ExperienceItem = {
+    id: row.id,
+    indexCode: String(index + 1).padStart(2, '0'),
+    position: str(row.position),
+    positionEn: str(row.positionEn),
+    company: str(row.company),
+    companyEn: str(row.companyEn),
+    dateLabel: dates.zh,
+    dateLabelEn: dates.en,
+    tags,
+    description: str(row.description),
+    descriptionEn: str(row.descriptionEn),
+    linkUrl: linkUrl || undefined,
+    linkLabel: str(row.linkLabel) || linkUrl.replace(/^https?:\/\//, '').replace(/\/$/, '') || undefined,
+    images: parseStringList(row.images).map((img) => getImageUrl(img)).filter(Boolean),
+  };
+  if (index > 0) return item;
+
+  // Featured residency card: modules from `highlights`, stats from `metrics`; the known
+  // FDE residency keeps its hardcoded presentation while those are still empty.
+  const known = isOnionFde(row);
+  const highlights = parseObjects(row.highlights)
+    .map((h) => ({
+      code: str(h.code),
+      title: str(h.title),
+      titleEn: str(h.titleEn),
+      desc: str(h.desc),
+      descEn: str(h.descEn),
+    }))
+    .filter((h) => h.title || h.desc);
+  const metrics = parseObjects(row.metrics)
+    .map((m) => ({ value: str(m.value), label: str(m.label), labelEn: str(m.labelEn) }))
+    .filter((m) => m.value || m.label);
+  return {
+    ...item,
+    featuredTags: tags.length > 0 ? tags : known ? FDE_FEATURED_TAGS : [],
+    highlights: highlights.length > 0 ? highlights : known ? FDE_MODULES : [],
+    metrics: metrics.length > 0 ? metrics : known ? FDE_STATS : [],
+    photoCaption: known ? FDE_PHOTO_CAPTION.zh : undefined,
+    photoCaptionEn: known ? FDE_PHOTO_CAPTION.en : undefined,
+  };
 };
 
 const FeaturedResidencyCard: React.FC<{
@@ -164,6 +326,9 @@ const FeaturedResidencyCard: React.FC<{
   const { td } = useI18n();
   const [imgIndex, setImgIndex] = useState(0);
   const images = item.images && item.images.length > 0 ? item.images : [];
+  const topTags = item.featuredTags ?? item.tags;
+  const modules = item.highlights ?? [];
+  const stats = item.metrics ?? [];
 
   const handlePrev = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -195,7 +360,7 @@ const FeaturedResidencyCard: React.FC<{
           </span>
         </div>
         <div className="flex flex-wrap gap-1.5">
-          {['React', 'Vite', 'TypeScript', 'FastAPI', 'LangGraph', 'PostgreSQL', '巨量引擎 API'].map(
+          {topTags.map(
             (tech) => (
               <span
                 key={tech}
@@ -222,24 +387,32 @@ const FeaturedResidencyCard: React.FC<{
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {FDE_MODULES.map((mod) => (
-                <div
-                  key={mod.code}
-                  className="p-3.5 rounded-xl bg-[#F6F4EF] dark:bg-[#1E1E1B] border designer-hairline"
-                >
-                  <div className="text-[11px] font-mono designer-text-muted mb-0.5">
-                    {mod.code}
+            {modules.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {modules.map((mod, idx) => (
+                  <div
+                    key={`${mod.code}-${idx}`}
+                    className="p-3.5 rounded-xl bg-[#F6F4EF] dark:bg-[#1E1E1B] border designer-hairline"
+                  >
+                    <div className="text-[11px] font-mono designer-text-muted mb-0.5">
+                      {mod.code}
+                    </div>
+                    <h4 className="text-xs sm:text-sm font-semibold designer-text-primary mb-1">
+                      {td(mod.title, mod.titleEn)}
+                    </h4>
+                    <p className="text-[13px] designer-text-secondary leading-relaxed">
+                      {td(mod.desc, mod.descEn)}
+                    </p>
                   </div>
-                  <h4 className="text-xs sm:text-sm font-semibold designer-text-primary mb-1">
-                    {td(mod.titleZh, mod.titleEn)}
-                  </h4>
-                  <p className="text-[13px] designer-text-secondary leading-relaxed">
-                    {td(mod.descZh, mod.descEn)}
-                  </p>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              item.description && (
+                <p className="text-sm sm:text-[15px] designer-text-secondary leading-relaxed max-w-2xl">
+                  {td(item.description, item.descriptionEn)}
+                </p>
+              )
+            )}
           </div>
         </div>
 
@@ -259,7 +432,7 @@ const FeaturedResidencyCard: React.FC<{
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent flex items-end justify-between p-3.5">
                 <span className="text-xs font-mono text-white">
-                  {td('洋葱教育驻场交付现场', 'Onion Education On-Site Residency')}
+                  {td(item.photoCaption || item.company, item.photoCaptionEn || item.companyEn)}
                 </span>
                 <Maximize2 className="w-3.5 h-3.5 text-white shrink-0 stroke-[1.5]" />
               </div>
@@ -287,21 +460,20 @@ const FeaturedResidencyCard: React.FC<{
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-px bg-[var(--border-hairline)] flex-1">
-            {[
-              { val: '15 Weeks', label: td('连续驻场 · 对接 8 部门', 'On-Site · 8 Teams') },
-              { val: '35 Tools', label: td('经营 Agent 只读工具', 'Read-Only Agent Tools') },
-              { val: '100+ Routes', label: td('FastAPI 双业务线中台', 'FastAPI Middle Platform') },
-              { val: '19 APIs', label: td('巨量引擎四层投流归因', 'Ocean Engine APIs') },
-            ].map((stat, idx) => (
-              <div key={idx} className="p-3 sm:p-3.5 flex flex-col justify-center bg-[var(--bg-card)]">
-                <div className="text-sm sm:text-lg font-mono font-bold designer-text-primary">
-                  {stat.val}
+          {stats.length > 0 && (
+            <div className="grid grid-cols-2 gap-px bg-[var(--border-hairline)] flex-1">
+              {stats.map((stat, idx) => (
+                <div key={idx} className="p-3 sm:p-3.5 flex flex-col justify-center bg-[var(--bg-card)]">
+                  <div className="text-sm sm:text-lg font-mono font-bold designer-text-primary">
+                    {stat.value}
+                  </div>
+                  <div className="text-[11px] sm:text-xs designer-text-secondary mt-0.5">
+                    {td(stat.label, stat.labelEn)}
+                  </div>
                 </div>
-                <div className="text-[11px] sm:text-xs designer-text-secondary mt-0.5">{stat.label}</div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </motion.div>
@@ -426,6 +598,14 @@ export const Experience: React.FC = () => {
         const response = await axios.get('/api/experience');
         const data = response.data?.data || response.data || [];
         if (Array.isArray(data) && data.length > 0) {
+          // Synced DB: the rows ARE the section (order, hiding, additions).
+          if (isExperienceSynced(data as ApiExperience[])) {
+            const visible = sortByOrder((data as ApiExperience[]).filter((r) => r.isVisible !== false));
+            if (visible.length > 0) setExperiences(visible.map(toExperienceItem));
+            return;
+          }
+
+          // Not synced yet: hardcoded copy + uploaded photos from matching rows.
           setExperiences((prev) =>
             prev.map((defExp) => {
               const found = data.find(

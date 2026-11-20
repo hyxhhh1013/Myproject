@@ -67,6 +67,16 @@ model Experience {
   updatedAt   DateTime  @updatedAt @map("updated_at")
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // Homepage content fields (2026-11). JSON columns are stored as TEXT, like `images`.
+  positionEn    String? @map("position_en") @db.Text
+  companyEn     String? @map("company_en") @db.Text
+  descriptionEn String? @map("description_en") @db.Text
+  tags          String? @db.Text // JSON string[]
+  linkUrl       String? @map("link_url") @db.Text
+  linkLabel     String? @map("link_label")
+  highlights    String? @db.Text // JSON [{ code, title, titleEn, desc, descEn }] — featured card modules
+  metrics       String? @db.Text // JSON [{ value, label, labelEn }] — featured card stats
+
   @@index([userId])
   @@index([isVisible])
   @@index([orderIndex])
@@ -87,6 +97,18 @@ model Skill {
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Capability-card fields (2026-11). The homepage Skills section renders only rows
+  // with category = 'capability'; legacy percentage rows keep the old shape.
+  nameEn         String? @map("name_en")
+  shortLabel     String? @map("short_label")
+  badge          String?
+  badgeEn        String? @map("badge_en")
+  metrics        String? @db.Text // JSON [{ value, label, labelEn }]
+  stack          String? @db.Text // JSON string[]
+  linkedProjects String? @map("linked_projects") @db.Text // JSON [{ zh, en }]
+  highlight      String? @db.Text
+  highlightEn    String? @map("highlight_en") @db.Text
 
   @@index([userId])
   @@index([isVisible])
@@ -119,6 +141,17 @@ model Project {
   updatedAt          DateTime  @updatedAt @map("updated_at")
   isFeatured         Boolean   @default(false) @map("is_featured")
   user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Homepage content fields (2026-11). `responsibilitiesEn` is one item per line like
+  // `responsibilities`; `metrics` is JSON [{ value, label, labelEn }] for the flagship card.
+  titleEn              String? @map("title_en") @db.Text
+  badge                String? @db.Text
+  badgeEn              String? @map("badge_en") @db.Text
+  descriptionEn        String? @map("description_en") @db.Text
+  responsibilitiesEn   String? @map("responsibilities_en") @db.Text
+  challengesProblemEn  String? @map("challenges_problem_en") @db.Text
+  challengesSolutionEn String? @map("challenges_solution_en") @db.Text
+  metrics              String? @db.Text
 
   @@index([userId])
   @@index([isVisible])

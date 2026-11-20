@@ -8,6 +8,7 @@
     "start": "node dist/index.js",
     "dev": "nodemon src/index.ts",
     "sync-data": "ts-node src/utils/syncData.ts",
+    "sync-homepage": "ts-node scripts/sync_homepage_content.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio"

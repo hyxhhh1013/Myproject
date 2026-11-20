@@ -4,10 +4,118 @@ import axios from '../../utils/axiosConfig';
 import { useI18n } from '../../i18n/i18nContext';
 import { useAppStore } from '../../store/useAppStore';
 
+// ---- Site profile (GET /api/users/1), shared by Hero, Contact and Footer ----
+// Email = user.email, GitHub = the socialMedia row whose platform matches /github/i,
+// location = user.location (only once the DB content has been synced, since the
+// pre-sync value differs from the copy on the page). Hardcoded values are the fallbacks.
+export interface SiteProfile {
+  name: string;
+  email: string;
+  githubUrl: string;
+  githubHandle: string;
+  location: string;
+  locationEn: string;
+}
+
+const DEFAULT_PROFILE: SiteProfile = {
+  name: '',
+  email: 'hyxhhh1013@gmail.com',
+  githubUrl: 'https://github.com/hyxhhh1013',
+  githubHandle: '@hyxhhh1013',
+  location: '',
+  locationEn: '',
+};
+
+type ApiRow = Record<string, unknown>;
+
+const text = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
+
+const rows = (v: unknown): ApiRow[] =>
+  Array.isArray(v) ? v.filter((x): x is ApiRow => !!x && typeof x === 'object') : [];
+
+const hasList = (v: unknown): boolean => {
+  if (Array.isArray(v)) return v.length > 0;
+  const raw = text(v);
+  if (!raw.startsWith('[')) return raw.length > 0;
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0;
+  } catch {
+    return false;
+  }
+};
+
+// Same markers as the Projects / Experience / Skills sections' synced gates.
+const isProfileSynced = (user: ApiRow): boolean =>
+  rows(user.projects).some((p) => text(p.badge) || text(p.titleEn)) ||
+  rows(user.experience).some((e) => text(e.positionEn) || hasList(e.tags)) ||
+  rows(user.skills).some((s) => s.category === 'capability');
+
+const toGithubUrl = (raw: string): string => {
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (/github\.com\//i.test(raw)) return `https://${raw.replace(/^\/+/, '')}`;
+  return `https://github.com/${raw.replace(/^@/, '')}`;
+};
+
+const toSiteProfile = (user: ApiRow): SiteProfile => {
+  const email = text(user.email);
+  const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && !/@example\.(com|org|net)$/i.test(email);
+  const githubRow = rows(user.socialMedia).find((r) => /github/i.test(text(r.platform)) && text(r.url));
+  const githubUrl = githubRow ? toGithubUrl(text(githubRow.url)) : DEFAULT_PROFILE.githubUrl;
+  const handle = githubUrl.match(/github\.com\/([^/?#]+)/i)?.[1];
+  const location = isProfileSynced(user) ? text(user.location) : '';
+  return {
+    name: text(user.name),
+    email: validEmail ? email : DEFAULT_PROFILE.email,
+    githubUrl,
+    githubHandle: handle ? `@${handle}` : DEFAULT_PROFILE.githubHandle,
+    location,
+    // No English column: reuse the value only when it is not written in CJK.
+    locationEn: location && !/[\u3000-\u9fff\uff00-\uffef]/.test(location) ? location : '',
+  };
+};
+
+// One request for all three consumers (they mount together); refreshed after 30 s.
+let profileCache: { at: number; request: Promise<SiteProfile | null> } | null = null;
+
+const loadSiteProfile = (): Promise<SiteProfile | null> => {
+  if (!profileCache || Date.now() - profileCache.at > 30_000) {
+    profileCache = {
+      at: Date.now(),
+      request: axios
+        .get('/api/users/1')
+        .then((res) => {
+          const user = res.data?.data || res.data;
+          return user && typeof user === 'object' ? toSiteProfile(user as ApiRow) : null;
+        })
+        .catch(() => {
+          profileCache = null;
+          return null;
+        }),
+    };
+  }
+  return profileCache.request;
+};
+
+export const useSiteProfile = (): SiteProfile => {
+  const [profile, setProfile] = useState<SiteProfile>(DEFAULT_PROFILE);
+  useEffect(() => {
+    let alive = true;
+    loadSiteProfile().then((loaded) => {
+      if (alive && loaded) setProfile(loaded);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return profile;
+};
+
 export const Footer = () => {
   const [icpCode, setIcpCode] = useState<string>('湘ICP备2025152056号');
   const { td } = useI18n();
   const { setCommandOpen } = useAppStore();
+  const profile = useSiteProfile();
 
   useEffect(() => {
     const fetchConfig = async () => {
@@ -53,17 +161,17 @@ export const Footer = () => {
 
         <div className="flex items-center gap-3">
           <a
-            href="https://github.com/hyxhhh1013"
+            href={profile.githubUrl}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="GitHub @hyxhhh1013"
+            aria-label={`GitHub ${profile.githubHandle}`}
             className="p-2.5 rounded-full bg-[#F3F1EC] dark:bg-[#141413] border designer-hairline text-[#141413] dark:text-[#F0EFEA] hover:border-[#8A6F48] hover:text-[#8A6F48] dark:hover:text-[#C9A87C] transition-all"
           >
             <Github className="w-4 h-4" />
           </a>
           <a
-            href="mailto:hyxhhh1013@gmail.com"
-            aria-label="Email hyxhhh1013@gmail.com"
+            href={`mailto:${profile.email}`}
+            aria-label={`Email ${profile.email}`}
             className="p-2.5 rounded-full bg-[#F3F1EC] dark:bg-[#141413] border designer-hairline text-[#141413] dark:text-[#F0EFEA] hover:border-[#8A6F48] hover:text-[#8A6F48] dark:hover:text-[#C9A87C] transition-all"
           >
             <Mail className="w-4 h-4" />
