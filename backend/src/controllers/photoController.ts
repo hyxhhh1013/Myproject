@@ -106,6 +106,16 @@ export const getAllPhotos = asyncHandler(async (req: Request, res: Response) => 
   res.json(responseData);
 });
 
+// Admin list: every photo including hidden ones, no paging (the admin grid
+// filters client-side). The public GET / stays visible-only and paged.
+export const getAllPhotosForAdmin = asyncHandler(async (_req: Request, res: Response) => {
+  const photos = await prisma.photo.findMany({
+    orderBy: [{ isFeatured: 'desc' }, { orderIndex: 'asc' }, { takenAt: 'desc' }],
+    include: { category: { select: { id: true, name: true, slug: true } } },
+  });
+  res.json({ photos, total: photos.length });
+});
+
 export const createPhoto = asyncHandler(async (req: any, res: Response) => {
   const file: Express.Multer.File | undefined = req.file;
 

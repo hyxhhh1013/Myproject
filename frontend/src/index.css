@@ -539,6 +539,40 @@ html.dark[data-skin="editorial"] .ink-band {
     0 1px 3px rgba(0, 0, 0, 0.35);
 }
 
+/* Buttons inside an ink band use the same treatment as site-wide dark mode */
+.ink-band .designer-btn-primary {
+  border-color: rgba(255, 255, 255, 0.85);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.45) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.2) inset,
+    0 4px 12px rgba(0, 0, 0, 0.45);
+}
+
+.ink-band .designer-btn-secondary {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.ink-band .designer-btn-secondary:hover:not(:disabled) {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.09) inset,
+    0 4px 12px rgba(0, 0, 0, 0.45);
+}
+
+/* Photo wall: hovering one print quietly steps the rest back, like walking up
+   to a frame in a gallery. Pointer devices only; :has() unsupported = no dim. */
+.photo-tile {
+  transition: opacity 0.35s ease, filter 0.35s ease;
+}
+
+@media (hover: hover) {
+  .photo-wall:has(.photo-tile:hover) .photo-tile:not(:hover) {
+    opacity: 0.4 !important;
+    filter: saturate(0.5);
+  }
+}
+
 /* Restyle Section Cards & Buttons to Match Designer Minimalist Aesthetic (Zero Neon Blue) */
 section .bg-blue-600,
 footer .bg-blue-600 {
