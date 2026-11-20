@@ -34,10 +34,10 @@ export const TechStackMarquee: React.FC<TechStackMarqueeProps> = ({
   return (
     <div className="designer-card p-4 sm:p-5 rounded-2xl overflow-hidden">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-3.5 pb-2.5 border-b designer-hairline">
-        <h3 className="text-[#8E8C84] text-[10px] sm:text-[11px] font-mono uppercase tracking-widest">
+        <h3 className="text-[#8E8C84] text-[11px] font-mono uppercase tracking-widest">
           {td('ENGINEERING & AI TOOLCHAIN // 技术栈矩阵', 'ENGINEERING & AI TOOLCHAIN')}
         </h3>
-        <span className="text-[10px] sm:text-[11px] font-mono text-[#8A6F48] dark:text-[#C8A97E]">
+        <span className="text-[11px] font-mono text-[#8A6F48] dark:text-[#C8A97E]">
           {td('CLICK ANY NODE TO INSPECT →', 'CLICK ANY NODE TO INSPECT →')}
         </span>
       </div>
@@ -51,7 +51,7 @@ export const TechStackMarquee: React.FC<TechStackMarqueeProps> = ({
               onClick={() => onSelectTech?.(item.name)}
               className="inline-flex items-center gap-2.5 px-4 py-2 bg-[#F6F4EF] dark:bg-[#1E1E1B] hover:bg-[#141413] hover:text-[#FAF9F5] dark:hover:bg-[#F2F0EA] dark:hover:text-[#141413] transition-colors duration-200 rounded-lg border designer-hairline shrink-0 group/pill"
             >
-              <span className="text-[10px] font-mono text-[#8A6F48] dark:text-[#C8A97E] group-hover/pill:text-current opacity-80">
+              <span className="text-[11px] font-mono designer-text-muted group-hover/pill:text-current">
                 {item.tag}
               </span>
               <span className="text-xs sm:text-sm font-medium whitespace-nowrap">

@@ -27,6 +27,16 @@ import {
   FANDINGLE_BLUEPRINT_SVG,
 } from '../../utils/projectBlueprints';
 
+// Each project gets its own quiet tint behind the preview frame, so the four
+// cards stop reading as one beige block. Keyed by the stable indexCode.
+const PROJECT_MATS: Record<string, string> = {
+  '01': 'bg-[#E2EAD9] dark:bg-[#18211A]', // 禾书耕文 · agri sage
+  '02': 'bg-[#E6E0F2] dark:bg-[#1D1A28]', // 梦境拓扑 · dream lavender
+  '03': 'bg-[#DCE3EB] dark:bg-[#151B22]', // 界外 · steel blue
+  '04': 'bg-[#F5E1CC] dark:bg-[#281D14]', // 饭定了 · warm apricot
+};
+const projectMat = (indexCode: string) => PROJECT_MATS[indexCode] ?? 'bg-[#F2EFE8] dark:bg-[#191816]';
+
 export interface ProjectData {
   id: number;
   indexCode: string;
@@ -232,7 +242,7 @@ const FlagshipProjectCard: React.FC<{
           <span className="px-2 py-0.5 rounded bg-[#141413] text-[#FAF9F5] dark:bg-[#F2F0EA] dark:text-[#141413] font-semibold">
             FLAGSHIP // {project.indexCode}
           </span>
-          <span className="text-[#8A6F48] dark:text-[#C8A97E] font-medium">
+          <span className="designer-text-secondary font-medium">
             {td(project.badge, project.badgeEn)}
           </span>
         </div>
@@ -240,7 +250,7 @@ const FlagshipProjectCard: React.FC<{
           {project.stack.slice(0, 6).map((tag) => (
             <span
               key={tag}
-              className="px-2 py-0.5 bg-[#F3F1EC] dark:bg-[#22221F] designer-text-secondary text-[10px] font-mono rounded border designer-hairline"
+              className="px-2 py-0.5 bg-[#F3F1EC] dark:bg-[#22221F] designer-text-secondary text-[11px] font-mono rounded border designer-hairline"
             >
               {tag}
             </span>
@@ -254,17 +264,17 @@ const FlagshipProjectCard: React.FC<{
         <div className="lg:col-span-7 border-b lg:border-b-0 lg:border-r designer-hairline flex flex-col justify-between bg-[#FAF9F5]/50 dark:bg-[#121210]/50">
           <div
             onClick={() => onOpenLightbox(images, activeImgIdx)}
-            className="aspect-[16/10] bg-[#F2EFE8] dark:bg-[#191816] border-b designer-hairline p-3 sm:p-4 lg:p-5 relative group cursor-pointer"
+            className={`aspect-[16/10] ${projectMat(project.indexCode)} border-b designer-hairline p-3 sm:p-4 lg:p-5 relative group cursor-pointer`}
           >
             <div className="w-full h-full rounded-xl overflow-hidden bg-[#FAF9F5] dark:bg-[#141413] ring-1 ring-[#141413]/10 dark:ring-white/10 shadow-[0_14px_34px_-10px_rgba(20,20,19,0.16)] flex flex-col transition-transform duration-500 group-hover:-translate-y-0.5">
               {/* Minimal Warm-Sand Browser Chrome */}
-              <div className="h-6 sm:h-7 px-3 bg-[#FAF8F4] dark:bg-[#1D1C19] border-b border-[#141413]/8 dark:border-white/8 flex items-center justify-between gap-2 shrink-0">
+              <div className="h-6 sm:h-7 px-3 bg-[#FAF8F4] dark:bg-[#1D1C19] border-b border-[#141413]/[0.08] dark:border-white/[0.08] flex items-center justify-between gap-2 shrink-0">
                 <div className="flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#D5CEC2] dark:bg-[#3A3833]" />
                   <span className="w-1.5 h-1.5 rounded-full bg-[#D5CEC2] dark:bg-[#3A3833]" />
                   <span className="w-1.5 h-1.5 rounded-full bg-[#D5CEC2] dark:bg-[#3A3833]" />
                 </div>
-                <span className="text-[10px] font-mono text-[#8A8478] dark:text-[#8E8A80] truncate">
+                <span className="text-[11px] font-mono text-[#8A8478] dark:text-[#8E8A80] truncate">
                   {(project.demoLink || '').replace(/^https?:\/\//, '').replace(/\/$/, '') || project.indexCode}
                 </span>
                 <Maximize2 className="w-3 h-3 text-[#8A6F48]/70 group-hover:text-[#8A6F48] dark:text-[#C8A97E]/70 dark:group-hover:text-[#C8A97E] transition-colors shrink-0" />
@@ -277,9 +287,8 @@ const FlagshipProjectCard: React.FC<{
                   thumbnailSrc={currentImage}
                   alt={td(project.title, project.titleEn)}
                   adaptiveFrame={true}
-                  className="saturate-[0.88] contrast-[0.98] group-hover:saturate-100 group-hover:contrast-100 transition-all duration-500"
+                  className="transition-transform duration-500"
                 />
-                <div className="pointer-events-none absolute inset-0 bg-[#8A6F48]/[0.04] group-hover:bg-transparent transition-colors duration-500" />
               </div>
             </div>
 
@@ -396,14 +405,14 @@ const FlagshipProjectCard: React.FC<{
                     transition={{ duration: 0.14 }}
                     className="space-y-3"
                   >
-                    <p className="designer-text-secondary text-xs sm:text-sm leading-relaxed">
+                    <p className="designer-text-secondary text-sm sm:text-[15px] leading-relaxed">
                       {td(project.description, project.descriptionEn)}
                     </p>
-                    <ul className="space-y-1.5 pt-2 border-t designer-hairline text-xs designer-text-secondary">
+                    <ul className="space-y-1.5 pt-2 border-t designer-hairline text-[13px] designer-text-secondary">
                       {(td('zh', 'en') === 'en' ? project.responsibilitiesEn : project.responsibilities).map(
                         (item, idx) => (
                           <li key={idx} className="flex items-start gap-2 leading-relaxed">
-                            <span className="text-[10px] font-mono text-[#8A6F48] dark:text-[#C8A97E] mt-0.5 shrink-0">
+                            <span className="text-[11px] font-mono designer-text-muted mt-0.5 shrink-0">
                               0{idx + 1}
                             </span>
                             <span>{item}</span>
@@ -422,18 +431,18 @@ const FlagshipProjectCard: React.FC<{
                     className="space-y-2.5"
                   >
                     <div className="p-3 rounded-xl bg-[#F6F4EF] dark:bg-[#1E1E1B] border designer-hairline">
-                      <div className="text-[10px] font-mono uppercase text-[#8A6F48] dark:text-[#C8A97E] mb-0.5">
+                      <div className="text-[11px] font-mono uppercase text-[#8A6F48] dark:text-[#C8A97E] mb-0.5">
                         I. {t('project.problem')}
                       </div>
-                      <p className="text-xs designer-text-secondary leading-relaxed">
+                      <p className="text-[13px] designer-text-secondary leading-relaxed">
                         {td(project.challenges.problem, project.challenges.problemEn)}
                       </p>
                     </div>
                     <div className="p-3 rounded-xl bg-[#F6F4EF] dark:bg-[#1E1E1B] border designer-hairline">
-                      <div className="text-[10px] font-mono uppercase text-[#8A6F48] dark:text-[#C8A97E] mb-0.5">
+                      <div className="text-[11px] font-mono uppercase text-[#8A6F48] dark:text-[#C8A97E] mb-0.5">
                         II. {t('project.solution')}
                       </div>
-                      <p className="text-xs designer-text-secondary leading-relaxed">
+                      <p className="text-[13px] designer-text-secondary leading-relaxed">
                         {td(project.challenges.solution, project.challenges.solutionEn)}
                       </p>
                     </div>
@@ -538,7 +547,7 @@ const ProjectCard: React.FC<{
       <div>
         {/* Top Metadata Bar */}
         <div className="px-5 py-2.5 border-b designer-hairline bg-[#FAF9F5] dark:bg-[#141412] flex items-center justify-between gap-2 text-[11px] font-mono">
-          <span className="text-[#8A6F48] dark:text-[#C8A97E] font-medium shrink-0">
+          <span className="designer-text-muted font-medium shrink-0">
             PLATE // {project.indexCode}
           </span>
           <span className="designer-text-muted text-right truncate">
@@ -549,17 +558,17 @@ const ProjectCard: React.FC<{
         {/* Image Frame with Warm-Sand Showcase Mat + Minimal Browser Bezel */}
         <div
           onClick={() => onOpenLightbox(images, activeImgIdx)}
-          className="aspect-[16/10] bg-[#F2EFE8] dark:bg-[#191816] border-b designer-hairline p-2.5 sm:p-3.5 relative group cursor-pointer"
+          className={`aspect-[16/10] ${projectMat(project.indexCode)} border-b designer-hairline p-2.5 sm:p-3.5 relative group cursor-pointer`}
         >
           <div className="w-full h-full rounded-lg overflow-hidden bg-[#FAF9F5] dark:bg-[#141413] ring-1 ring-[#141413]/10 dark:ring-white/10 shadow-[0_10px_24px_-8px_rgba(20,20,19,0.16)] flex flex-col transition-transform duration-500 group-hover:-translate-y-0.5">
             {/* Minimal Warm-Sand Browser Chrome */}
-            <div className="h-5 sm:h-6 px-2.5 bg-[#FAF8F4] dark:bg-[#1D1C19] border-b border-[#141413]/8 dark:border-white/8 flex items-center justify-between gap-2 shrink-0">
+            <div className="h-5 sm:h-6 px-2.5 bg-[#FAF8F4] dark:bg-[#1D1C19] border-b border-[#141413]/[0.08] dark:border-white/[0.08] flex items-center justify-between gap-2 shrink-0">
               <div className="flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#D5CEC2] dark:bg-[#3A3833]" />
                 <span className="w-1.5 h-1.5 rounded-full bg-[#D5CEC2] dark:bg-[#3A3833]" />
                 <span className="w-1.5 h-1.5 rounded-full bg-[#D5CEC2] dark:bg-[#3A3833]" />
               </div>
-              <span className="text-[9.5px] font-mono text-[#8A8478] dark:text-[#8E8A80] truncate">
+              <span className="text-[11px] font-mono text-[#8A8478] dark:text-[#8E8A80] truncate">
                 {(project.demoLink || '').replace(/^https?:\/\//, '').replace(/\/$/, '') || project.indexCode}
               </span>
               <Maximize2 className="w-2.5 h-2.5 text-[#8A6F48]/70 group-hover:text-[#8A6F48] dark:text-[#C8A97E]/70 dark:group-hover:text-[#C8A97E] transition-colors shrink-0" />
@@ -572,9 +581,8 @@ const ProjectCard: React.FC<{
                 thumbnailSrc={currentImage}
                 alt={td(project.title, project.titleEn)}
                 adaptiveFrame={true}
-                className="saturate-[0.88] contrast-[0.98] group-hover:saturate-100 group-hover:contrast-100 transition-all duration-500"
+                className="transition-transform duration-500"
               />
-              <div className="pointer-events-none absolute inset-0 bg-[#8A6F48]/[0.04] group-hover:bg-transparent transition-colors duration-500" />
             </div>
           </div>
 
@@ -673,7 +681,7 @@ const ProjectCard: React.FC<{
                 transition={{ duration: 0.14 }}
                 className="space-y-3"
               >
-                <p className="designer-text-secondary text-xs leading-relaxed line-clamp-2">
+                <p className="designer-text-secondary text-[13px] leading-relaxed line-clamp-2">
                   {td(project.description, project.descriptionEn)}
                 </p>
 
@@ -681,18 +689,18 @@ const ProjectCard: React.FC<{
                   {project.stack.slice(0, 5).map((tag) => (
                     <span
                       key={tag}
-                      className="px-2 py-0.5 bg-[#F3F1EC] dark:bg-[#22221F] designer-text-secondary text-[10px] font-mono rounded border designer-hairline"
+                      className="px-2 py-0.5 bg-[#F3F1EC] dark:bg-[#22221F] designer-text-secondary text-[11px] font-mono rounded border designer-hairline"
                     >
                       {tag}
                     </span>
                   ))}
                 </div>
 
-                <ul className="space-y-1 pt-2 border-t designer-hairline text-xs designer-text-secondary">
+                <ul className="space-y-1 pt-2 border-t designer-hairline text-[13px] designer-text-secondary">
                   {(td('zh', 'en') === 'en' ? project.responsibilitiesEn : project.responsibilities).map(
                     (item, idx) => (
                       <li key={idx} className="flex items-start gap-2 leading-relaxed">
-                        <span className="text-[10px] font-mono text-[#8A6F48] dark:text-[#C8A97E] mt-0.5 shrink-0">
+                        <span className="text-[11px] font-mono designer-text-muted mt-0.5 shrink-0">
                           0{idx + 1}
                         </span>
                         <span className="line-clamp-1">{item}</span>
@@ -711,19 +719,19 @@ const ProjectCard: React.FC<{
                 className="space-y-2"
               >
                 <div className="p-2.5 rounded-xl bg-[#F6F4EF] dark:bg-[#1E1E1B] border designer-hairline">
-                  <div className="text-[10px] font-mono uppercase text-[#8A6F48] dark:text-[#C8A97E]">
+                  <div className="text-[11px] font-mono uppercase text-[#8A6F48] dark:text-[#C8A97E]">
                     I. {t('project.problem')}
                   </div>
-                  <p className="text-xs designer-text-secondary leading-relaxed line-clamp-2 mt-0.5">
+                  <p className="text-[13px] designer-text-secondary leading-relaxed line-clamp-2 mt-0.5">
                     {td(project.challenges.problem, project.challenges.problemEn)}
                   </p>
                 </div>
 
                 <div className="p-2.5 rounded-xl bg-[#F6F4EF] dark:bg-[#1E1E1B] border designer-hairline">
-                  <div className="text-[10px] font-mono uppercase text-[#8A6F48] dark:text-[#C8A97E]">
+                  <div className="text-[11px] font-mono uppercase text-[#8A6F48] dark:text-[#C8A97E]">
                     II. {t('project.solution')}
                   </div>
-                  <p className="text-xs designer-text-secondary leading-relaxed line-clamp-2 mt-0.5">
+                  <p className="text-[13px] designer-text-secondary leading-relaxed line-clamp-2 mt-0.5">
                     {td(project.challenges.solution, project.challenges.solutionEn)}
                   </p>
                 </div>
@@ -925,10 +933,10 @@ export const Projects: React.FC = () => {
           className="max-w-6xl mx-auto mb-8 sm:mb-10 pb-4 border-b designer-hairline flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4"
         >
           <div>
-            <div className="text-[11px] font-mono uppercase tracking-widest designer-accent-text mb-1.5">
+            <div className="text-xs font-mono uppercase tracking-[0.16em] designer-accent-text mb-1.5">
               03 // SELECTED WORKS
             </div>
-            <h2 className="designer-heading text-2xl sm:text-3xl md:text-4xl font-normal tracking-[-0.02em]">
+            <h2 className="designer-heading text-[30px] sm:text-[40px] md:text-5xl lg:text-[56px] font-medium leading-[1.08] tracking-[-0.025em]">
               {t('projects.title')}
             </h2>
           </div>

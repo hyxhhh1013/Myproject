@@ -199,7 +199,7 @@ const FeaturedResidencyCard: React.FC<{
             (tech) => (
               <span
                 key={tech}
-                className="px-2 py-0.5 rounded bg-[#F3F1EC] dark:bg-[#22221F] designer-text-secondary border designer-hairline text-[10px]"
+                className="px-2 py-0.5 rounded bg-[#F3F1EC] dark:bg-[#22221F] designer-text-secondary border designer-hairline text-[11px]"
               >
                 {td(tech, TECH_TAG_EN_MAP[tech] || tech)}
               </span>
@@ -217,7 +217,7 @@ const FeaturedResidencyCard: React.FC<{
               <h3 className="text-xl font-semibold tracking-tight designer-text-primary">
                 {td(item.position, item.positionEn)}
               </h3>
-              <p className="text-xs font-mono text-[#8A6F48] dark:text-[#C8A97E] mt-0.5">
+              <p className="text-xs font-mono designer-text-secondary mt-0.5">
                 {td(item.company, item.companyEn)}
               </p>
             </div>
@@ -228,13 +228,13 @@ const FeaturedResidencyCard: React.FC<{
                   key={mod.code}
                   className="p-3.5 rounded-xl bg-[#F6F4EF] dark:bg-[#1E1E1B] border designer-hairline"
                 >
-                  <div className="text-[10px] font-mono text-[#8A6F48] dark:text-[#C8A97E] mb-0.5">
+                  <div className="text-[11px] font-mono designer-text-muted mb-0.5">
                     {mod.code}
                   </div>
                   <h4 className="text-xs sm:text-sm font-semibold designer-text-primary mb-1">
                     {td(mod.titleZh, mod.titleEn)}
                   </h4>
-                  <p className="text-xs designer-text-secondary leading-relaxed">
+                  <p className="text-[13px] designer-text-secondary leading-relaxed">
                     {td(mod.descZh, mod.descEn)}
                   </p>
                 </div>
@@ -308,45 +308,87 @@ const FeaturedResidencyCard: React.FC<{
   );
 };
 
-const ChronicleGridCard: React.FC<{
+// One entry on the vertical timeline that follows the featured residency card.
+// Desktop: date column | rail + dot | content. Mobile: a single column hung off the rail.
+// Ongoing roles ("至今") get a filled dot so the reader sees what is current at a glance.
+const ChronicleTimelineEntry: React.FC<{
   item: ExperienceItem;
   index: number;
+  isLast: boolean;
   onOpenLightbox: (images: string[], idx: number) => void;
-}> = ({ item, index, onOpenLightbox }) => {
+}> = ({ item, index, isLast, onOpenLightbox }) => {
   const { td } = useI18n();
   const images = item.images && item.images.length > 0 ? item.images : [];
+  const isCurrent = item.dateLabel.includes('至今');
+  const dotClass = `absolute -left-[5px] w-[9px] h-[9px] rounded-full border-2 border-[var(--accent-label)] ${
+    isCurrent
+      ? 'bg-[var(--accent-label)] shadow-[0_0_0_4px_color-mix(in_srgb,var(--accent-label)_18%,transparent)]'
+      : 'bg-[var(--bg-alt)]'
+  }`;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
+    <motion.li
+      initial={{ opacity: 0, y: 14 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
+      viewport={{ once: true, margin: '-40px' }}
       transition={{ duration: 0.4, delay: index * 0.05 }}
-      className="designer-card rounded-2xl overflow-hidden flex flex-col justify-between h-full"
+      className="relative grid grid-cols-1 md:grid-cols-[176px_1fr] md:gap-x-10"
     >
-      <div>
-        <div className="px-4 sm:px-5 py-2.5 border-b designer-hairline bg-[#FAF9F5] dark:bg-[#141412] flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono">
-          <span className="inline-flex items-center gap-1.5 text-[#8A6F48] dark:text-[#C8A97E] font-medium">
-            <Calendar className="w-3 h-3 stroke-[1.5]" />
-            {item.indexCode} // {td(item.dateLabel, item.dateLabelEn)}
-          </span>
-          <div className="flex flex-wrap gap-1">
-            {item.tags.slice(0, 2).map((tag) => (
-              <span
-                key={tag}
-                className="px-2 py-0.5 text-[10px] font-mono rounded bg-[#F3F1EC] dark:bg-[#22221F] designer-text-secondary border designer-hairline"
-              >
-                {td(tag, TECH_TAG_EN_MAP[tag] || tag)}
-              </span>
-            ))}
-          </div>
+      {/* Date label: own column on desktop, sits on the rail on mobile */}
+      <div className="relative pl-7 border-l designer-hairline md:border-l-0 md:pl-0 md:pt-0.5 md:text-right">
+        <span aria-hidden="true" className={`md:hidden top-1 ${dotClass}`} />
+        <div className="text-xs font-mono designer-text-secondary tabular-nums">
+          {td(item.dateLabel, item.dateLabelEn)}
         </div>
+        <div className="mt-1 text-[11px] font-mono designer-text-muted">{item.indexCode}</div>
+      </div>
 
-        <div className="p-4 sm:p-5 flex items-start gap-3.5 sm:gap-4">
+      {/* Content hung off the rail */}
+      <div
+        className={`relative pl-7 md:pl-10 border-l designer-hairline pt-2.5 md:pt-0 ${
+          isLast ? 'pb-1' : 'pb-10 sm:pb-12'
+        }`}
+      >
+        <span aria-hidden="true" className={`hidden md:block top-1.5 ${dotClass}`} />
+
+        <div className="flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-6">
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              <h3 className="text-lg sm:text-xl font-semibold tracking-tight designer-text-primary leading-snug">
+                {td(item.position, item.positionEn)}
+              </h3>
+              {item.linkUrl && (
+                <a
+                  href={item.linkUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-0.5 text-xs font-mono designer-accent-text hover:underline underline-offset-4 shrink-0"
+                >
+                  <span>{item.linkLabel || 'Link'}</span>
+                  <ArrowUpRight className="w-3 h-3" />
+                </a>
+              )}
+            </div>
+            <p className="mt-1 text-[13px] designer-text-secondary">{td(item.company, item.companyEn)}</p>
+            <p className="mt-3 text-sm sm:text-[15px] designer-text-secondary leading-relaxed max-w-2xl">
+              {td(item.description, item.descriptionEn)}
+            </p>
+            <div className="mt-3.5 flex flex-wrap gap-1.5">
+              {item.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="px-2 py-0.5 text-[11px] font-mono rounded bg-[var(--bg-card)] designer-text-secondary border designer-hairline"
+                >
+                  {td(tag, TECH_TAG_EN_MAP[tag] || tag)}
+                </span>
+              ))}
+            </div>
+          </div>
+
           {images.length > 0 && (
             <div
               onClick={() => onOpenLightbox(images, 0)}
-              className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border designer-hairline shrink-0 cursor-pointer group relative bg-[#141413]"
+              className="w-full sm:w-40 aspect-[4/3] rounded-xl overflow-hidden border designer-hairline shrink-0 cursor-pointer group relative bg-[#141413]"
             >
               <ImageWithFallback
                 src={images[0]}
@@ -359,39 +401,14 @@ const ChronicleGridCard: React.FC<{
               </div>
             </div>
           )}
-
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <h3 className="text-base font-semibold tracking-tight designer-text-primary leading-snug">
-                {td(item.position, item.positionEn)}
-              </h3>
-              {item.linkUrl && (
-                <a
-                  href={item.linkUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-0.5 text-[11px] font-mono text-[#8A6F48] dark:text-[#C8A97E] hover:underline shrink-0"
-                >
-                  <span>{item.linkLabel || 'Link'}</span>
-                  <ArrowUpRight className="w-3 h-3" />
-                </a>
-              )}
-            </div>
-            <p className="text-xs font-mono text-[#8A6F48] dark:text-[#C8A97E] mt-0.5 mb-2">
-              {td(item.company, item.companyEn)}
-            </p>
-            <p className="text-xs designer-text-secondary leading-relaxed line-clamp-3">
-              {td(item.description, item.descriptionEn)}
-            </p>
-          </div>
         </div>
       </div>
-    </motion.div>
+    </motion.li>
   );
 };
 
 export const Experience: React.FC = () => {
-  const { t } = useI18n();
+  const { t, td } = useI18n();
   const [experiences, setExperiences] = useState<ExperienceItem[]>(DEFAULT_EXPERIENCES);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -457,10 +474,10 @@ export const Experience: React.FC = () => {
           className="max-w-6xl mx-auto mb-8 sm:mb-10 pb-4 border-b designer-hairline flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4"
         >
           <div>
-            <div className="text-[11px] font-mono uppercase tracking-widest designer-accent-text mb-1.5">
+            <div className="text-xs font-mono uppercase tracking-[0.16em] designer-accent-text mb-1.5">
               04 // EXPERIENCE
             </div>
-            <h2 className="designer-heading text-2xl sm:text-3xl md:text-4xl font-normal tracking-[-0.02em]">
+            <h2 className="designer-heading text-[30px] sm:text-[40px] md:text-5xl lg:text-[56px] font-medium leading-[1.08] tracking-[-0.025em]">
               {t('experience.title')}
             </h2>
           </div>
@@ -471,16 +488,24 @@ export const Experience: React.FC = () => {
             <FeaturedResidencyCard item={featuredFde} onOpenLightbox={openLightbox} />
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
-            {chronicleItems.map((exp, index) => (
-              <ChronicleGridCard
-                key={exp.id}
-                item={exp}
-                index={index}
-                onOpenLightbox={openLightbox}
-              />
-            ))}
-          </div>
+          {chronicleItems.length > 0 && (
+            <div className="mt-12 sm:mt-16">
+              <div className="mb-6 sm:mb-8 md:pl-[256px] text-xs font-mono uppercase tracking-[0.16em] designer-text-muted">
+                {td('TIMELINE // 更多经历', 'TIMELINE // MORE')}
+              </div>
+              <ol className="relative">
+                {chronicleItems.map((exp, index) => (
+                  <ChronicleTimelineEntry
+                    key={exp.id}
+                    item={exp}
+                    index={index}
+                    isLast={index === chronicleItems.length - 1}
+                    onOpenLightbox={openLightbox}
+                  />
+                ))}
+              </ol>
+            </div>
+          )}
         </div>
 
         <Lightbox

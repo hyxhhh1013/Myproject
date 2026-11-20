@@ -299,7 +299,7 @@ export const Skills: React.FC = () => {
   return (
     <section
       id="skills"
-      className="py-14 sm:py-28 transition-colors duration-300 relative overflow-hidden"
+      className="dark ink-band py-14 sm:py-28 transition-colors duration-300 relative overflow-hidden"
     >
       <div className="container mx-auto px-4 sm:px-6 relative z-10">
         {/* Section Header */}
@@ -311,10 +311,10 @@ export const Skills: React.FC = () => {
           className="max-w-6xl mx-auto mb-8 sm:mb-10 pb-4 sm:pb-5 border-b designer-hairline flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4"
         >
           <div>
-            <div className="text-[11px] font-mono uppercase tracking-widest designer-accent-text mb-1.5 sm:mb-2">
+            <div className="text-xs font-mono uppercase tracking-[0.16em] designer-accent-text mb-1.5 sm:mb-2">
               02 // CAPABILITIES
             </div>
-            <h2 className="designer-heading text-2xl sm:text-3xl md:text-4xl font-normal tracking-[-0.02em]">
+            <h2 className="designer-heading text-[30px] sm:text-[40px] md:text-5xl lg:text-[56px] font-medium leading-[1.08] tracking-[-0.025em]">
               {t('skills.title')}
             </h2>
           </div>
@@ -378,7 +378,7 @@ export const Skills: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="px-2 py-0.5 rounded-md bg-[#EFECE5] dark:bg-[#262522] text-[10px] font-mono text-[#8A6F48] dark:text-[#C8A97E]">
+                    <span className="px-2 py-0.5 rounded-md bg-[#EFECE5] dark:bg-[#262522] text-[11px] font-mono text-[#8A6F48] dark:text-[#C8A97E]">
                       {td(skill.badgeZh, skill.badgeEn)}
                     </span>
                     <ChevronRight
@@ -444,7 +444,7 @@ export const Skills: React.FC = () => {
                   </div>
 
                   {/* Architecture Summary */}
-                  <p className="mt-5 text-sm designer-text-secondary leading-[1.8]">
+                  <p className="mt-5 text-[15px] designer-text-secondary leading-[1.8]">
                     {td(selectedSkill.highlightZh, selectedSkill.highlightEn)}
                   </p>
 
@@ -463,7 +463,7 @@ export const Skills: React.FC = () => {
 
                 {/* Linked Shipped Projects */}
                 <div className="pt-5 border-t designer-hairline">
-                  <div className="text-[10px] font-mono uppercase tracking-[0.18em] designer-text-muted mb-3">
+                  <div className="text-[11px] font-mono uppercase tracking-[0.18em] designer-text-muted mb-3">
                     {td('关联实战项目', 'LINKED PROJECTS')}
                   </div>
                   <div className="flex flex-wrap gap-2">

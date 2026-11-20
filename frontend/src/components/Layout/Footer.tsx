@@ -34,11 +34,11 @@ export const Footer = () => {
               {td('黄奕轩 · Huang Yixuan', 'Huang Yixuan · Portfolio')}
             </span>
           </div>
-          <p className="font-mono-tech text-[10px] sm:text-[11px] uppercase tracking-[0.1em] sm:tracking-[0.16em] text-[#6E6C66] dark:text-[#9E9C94]">
+          <p className="font-mono-tech text-[11px] uppercase tracking-[0.1em] sm:tracking-[0.16em] text-[#6E6C66] dark:text-[#9E9C94]">
             &copy; {new Date().getFullYear()} {td('黄奕轩 (Huang Yixuan)', 'Huang Yixuan')} · CRAFTED WITH SWISS EDITORIAL GRIDS
           </p>
           {icpCode && (
-            <p className="font-mono-tech text-[10px] tracking-[0.14em] text-[#6E6C66]/80 dark:text-[#9E9C94]/80 mt-1">
+            <p className="font-mono-tech text-[11px] tracking-[0.14em] text-[#6E6C66]/80 dark:text-[#9E9C94]/80 mt-1">
               <a
                 href="https://beian.miit.gov.cn/"
                 target="_blank"

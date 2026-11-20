@@ -265,6 +265,22 @@ export const Photos = () => {
 
   const hasMore = visiblePhotos.length < filteredPhotos.length;
 
+  // Gallery view pulls the first clearly-landscape frame out of the masonry and
+  // runs it edge to edge. Portraits are never cropped into a banner; with no
+  // landscape frame in view there is simply no lead. Indexes stay those of
+  // visiblePhotos so frame numbers and the lightbox order are unchanged.
+  const leadIndex = useMemo(() => {
+    if (viewLayout !== 'gallery') return -1;
+    return visiblePhotos.findIndex(
+      (p) =>
+        typeof p.width === 'number' &&
+        typeof p.height === 'number' &&
+        p.height > 0 &&
+        p.width / p.height >= 1.3,
+    );
+  }, [visiblePhotos, viewLayout]);
+  const leadPhoto = leadIndex >= 0 ? visiblePhotos[leadIndex] : null;
+
   const handleLoadMore = () => {
     setLoadingMore(true);
     setTimeout(() => {
@@ -291,10 +307,10 @@ export const Photos = () => {
           className="mb-7 sm:mb-10 pb-4 sm:pb-5 border-b designer-hairline flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4"
         >
           <div>
-            <div className="text-[11px] font-mono uppercase tracking-widest designer-accent-text mb-1.5 sm:mb-2">
+            <div className="text-xs font-mono uppercase tracking-[0.16em] designer-accent-text mb-1.5 sm:mb-2">
               05 // 35MM ARCHIVE
             </div>
-            <h2 className="designer-heading text-2xl sm:text-3xl md:text-4xl font-normal tracking-[-0.02em]">
+            <h2 className="designer-heading text-[30px] sm:text-[40px] md:text-5xl lg:text-[56px] font-medium leading-[1.08] tracking-[-0.025em]">
               {t('photos.title')}
             </h2>
           </div>
@@ -349,7 +365,47 @@ export const Photos = () => {
             </button>
           </div>
         </div>
+      </div>
 
+      {/* Full-bleed lead frame: the one place on the page that leaves the column grid */}
+      {leadPhoto && (
+        <motion.figure
+          key={leadPhoto.src}
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          onClick={() => setIndex(leadIndex)}
+          className="group relative w-full h-[62vw] sm:h-[50vw] max-h-[76vh] min-h-[260px] overflow-hidden cursor-pointer bg-[#141413] mb-8 sm:mb-14"
+        >
+          <ImageWithFallback
+            src={leadPhoto.src}
+            thumbnailSrc={leadPhoto.thumbnail}
+            alt={leadPhoto.title}
+            className="transition-transform duration-[1400ms] ease-out group-hover:scale-[1.025]"
+          />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-black/65 via-black/20 to-transparent z-20" />
+          <figcaption className="absolute inset-x-0 bottom-0 z-30">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 pb-5 sm:pb-9 flex flex-wrap items-end justify-between gap-x-6 gap-y-2 text-white">
+              <div className="min-w-0">
+                <div className="text-[11px] font-mono uppercase tracking-[0.16em] text-white/70 mb-1.5 sm:mb-2">
+                  35MM // {String(leadIndex + 1).padStart(2, '0')}A · {getCategoryLabel(leadPhoto.categoryKey)}
+                </div>
+                <h3 className="font-serif text-2xl sm:text-4xl lg:text-5xl font-medium tracking-[-0.02em] leading-tight text-white">
+                  {leadPhoto.title}
+                </h3>
+              </div>
+              <div className="flex items-center gap-1.5 text-[11px] sm:text-xs font-mono text-white/75" title={leadPhoto.exif}>
+                <Camera className="w-3.5 h-3.5 stroke-[1.5]" />
+                <span>{leadPhoto.exifShort}</span>
+                <Maximize2 className="ml-3 w-3.5 h-3.5 stroke-[1.5] opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+            </div>
+          </figcaption>
+        </motion.figure>
+      )}
+
+      <div className="container mx-auto px-4 sm:px-6 max-w-6xl">
         <div
           className={
             viewLayout === 'contact'
@@ -359,6 +415,7 @@ export const Photos = () => {
         >
           <AnimatePresence>
             {visiblePhotos.map((photo, i) => {
+              if (i === leadIndex) return null;
               const hasDimensions =
                 typeof photo.width === 'number' &&
                 typeof photo.height === 'number' &&
@@ -384,13 +441,13 @@ export const Photos = () => {
                 >
                   {/* Film Frame Number Header */}
                   <div
-                    className={`px-3 py-1.5 flex items-center justify-between text-[10px] font-mono border-b ${
+                    className={`px-3 py-1.5 flex items-center justify-between text-[11px] font-mono border-b ${
                       viewLayout === 'contact'
                         ? 'bg-[#141413] text-[#C8A97E] border-white/10'
                         : 'bg-[#FAF9F5] dark:bg-[#141412] designer-text-muted designer-hairline'
                     }`}
                   >
-                    <span className="text-[#8A6F48] dark:text-[#C8A97E]">
+                    <span>
                       35MM // {String(i + 1).padStart(2, '0')}A
                     </span>
                     <span className="truncate max-w-[120px]">{getCategoryLabel(photo.categoryKey)}</span>
@@ -427,7 +484,7 @@ export const Photos = () => {
                       {photo.title}
                     </h3>
                     <div
-                      className={`flex items-center text-[10px] font-mono designer-text-muted ${
+                      className={`flex items-center text-[11px] font-mono designer-text-muted ${
                         viewLayout === 'contact' ? 'min-w-0' : 'shrink-0'
                       }`}
                       title={photo.exif}
