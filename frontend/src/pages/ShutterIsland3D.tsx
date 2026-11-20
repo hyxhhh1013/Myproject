@@ -3684,7 +3684,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
 
       {/* 5. Proximity Interaction Prompt Banner */}
       <AnimatePresence>
-        {nearbyPrompt && !selectedEasel && !activeStation && !selectedMemory && (
+        {nearbyPrompt && !selectedEasel && !activeStation && !selectedMemory && !underwaterMode && !viewfinderMode && (
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
