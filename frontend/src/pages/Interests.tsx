@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useLayoutEffect, useState, useRef, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import axios from '../utils/axiosConfig';
 import {
@@ -38,6 +38,7 @@ import { ShutterIsland3D } from './ShutterIsland3D';
 import { InteractiveReadingRoom } from '../components/UI/InteractiveReadingRoom';
 import Lightbox from 'yet-another-react-lightbox';
 import 'yet-another-react-lightbox/styles.css';
+import './Interests.css';
 import {
   playVinylNeedle,
   playToggleSwitch,
@@ -54,17 +55,78 @@ interface DanmakuItem {
 }
 
 const DEFAULT_DANMAKU: DanmakuItem[] = [
-  { id: 101, content: '欢迎来到奕轩的数字花园 · 极简沙白质感太舒服了', color: 'bronze', orderIndex: 1 },
-  { id: 102, content: '禾书耕文的 AI4Science 架构拆解很硬核！', color: 'ink', orderIndex: 2 },
-  { id: 103, content: '长沙笨萝卜醋蒸鸡永远的神', color: 'terracotta', orderIndex: 3 },
-  { id: 104, content: '黑胶唱机点播放真的有 Lofi 电钢琴和弦伴奏 ♪', color: 'moss', orderIndex: 4 },
-  { id: 105, content: '祝早日拿到心仪的 AI Agent / 全栈 Offer', color: 'bronze', orderIndex: 5 },
-  { id: 106, content: '同为农大学子前来打卡支持！', color: 'ink', orderIndex: 6 },
+  { id: 101, content: '欢迎来到奕轩的数字花园 · 极简沙白质感太舒服了', color: 'primary', orderIndex: 1 },
+  { id: 102, content: '禾书耕文的 AI4Science 架构拆解很硬核！', color: 'darkblue', orderIndex: 2 },
+  { id: 103, content: '长沙笨萝卜醋蒸鸡永远的神', color: 'pink', orderIndex: 3 },
+  { id: 104, content: '黑胶唱机点播放真的有 Lofi 电钢琴和弦伴奏 ♪', color: 'slate', orderIndex: 4 },
+  { id: 105, content: '祝早日拿到心仪的 AI Agent / 全栈 Offer', color: 'primary', orderIndex: 5 },
+  { id: 106, content: '同为农大学子前来打卡支持！', color: 'blue', orderIndex: 6 },
 ];
+
+/**
+ * Danmaku colours. Keys are the values the backend accepts
+ * (backend/src/validations/danmakuValidation.ts) — the page renders them in the site palette.
+ * Older rows may carry the retired page tones (bronze/ink/moss/terracotta), so those still render.
+ */
+const DANMAKU_TONE_STYLES: Record<string, string> = {
+  primary: 'bg-[#8A6F48] text-[#FAF9F5]',
+  pink: 'bg-[#A35566] text-[#FFF7F8]',
+  blue: 'bg-[#3F5A78] text-[#F4F6F8]',
+  darkblue: 'bg-[#22324A] text-[#F4F6F8]',
+  slate: 'bg-[#4B5560] text-[#F4F6F8]',
+  gray: 'bg-[#6B6A64] text-[#FAF9F5]',
+  bronze: 'bg-[#8A6F48] text-[#FAF9F5]',
+  ink: 'bg-[#141413] text-[#FAF9F5]',
+  moss: 'bg-[#1E3329] text-[#FAF9F5]',
+  terracotta: 'bg-[#9E553F] text-[#FAF9F5]',
+};
+
+type DanmakuTone = 'primary' | 'pink' | 'blue' | 'darkblue' | 'slate';
+
+const DANMAKU_TONE_PICKER: { id: DanmakuTone; labelZh: string; labelEn: string; swatch: string }[] = [
+  { id: 'primary', labelZh: '暖铜', labelEn: 'Bronze', swatch: 'bg-[#8A6F48]' },
+  { id: 'pink', labelZh: '豆沙粉', labelEn: 'Rose', swatch: 'bg-[#A35566]' },
+  { id: 'blue', labelZh: '雾霾蓝', labelEn: 'Mist blue', swatch: 'bg-[#3F5A78]' },
+  { id: 'darkblue', labelZh: '墨蓝', labelEn: 'Ink blue', swatch: 'bg-[#22324A]' },
+  { id: 'slate', labelZh: '石板灰', labelEn: 'Slate', swatch: 'bg-[#4B5560]' },
+];
+
+const isTestDanmaku = (content: string) => {
+  const c = content.trim().toLowerCase();
+  return !c || c === 'test' || c.includes('测试');
+};
+
+// Rough rendered width of a note (text-xs mono + px-4), used to size the marquee loop.
+const estimateDanmakuWidth = (text: string) => {
+  let w = 34;
+  for (const ch of text) w += /[\u0000-ɏ]/.test(ch) ? 7.3 : 12.5;
+  return w;
+};
+
+const DANMAKU_LANES = 4;
+const DANMAKU_LANE_SPEEDS = [34, 27, 38, 30]; // px per second — lanes drift at different paces
+const DANMAKU_MIN_LOOP_PX = 1280; // each half of a lane's track must outrun the widest canvas
+
+// Books on the reading-room shelf (CURATED_BOOKS in components/UI/InteractiveReadingRoom.tsx).
+const READING_SHELF_SIZE = 4;
 
 interface ParsedLyricLine {
   time: number;
   text: string;
+}
+
+// Credit lines ("作词 : 郑润泽", "制作人：李淘") that streaming LRCs prepend to the lyrics.
+const LRC_CREDIT_RE =
+  /^(作词|作曲|编曲|制作人|制作|出品|监制|混音|母带|和声|吉他|贝斯|鼓|弦乐|录音|配唱|原唱|发行|策划|统筹|OP|SP|词|曲|Lyricist|Lyrics|Composer|Arranger|Producer|Mixing|Mastering)\s*[:：]\s*(.+)$/i;
+
+function extractLrcCredits(lrcString?: string): string[] {
+  if (!lrcString) return [];
+  return lrcString
+    .split(/\r?\n/)
+    .map((line) => line.replace(/\[\d{2}:\d{2}\.\d{2,3}\]/g, '').trim())
+    .map((text) => text.match(LRC_CREDIT_RE))
+    .filter((m): m is RegExpMatchArray => !!m)
+    .map((m) => `${m[1]} ${m[2].trim()}`);
 }
 
 function parseLrcLyrics(lrcString?: string): ParsedLyricLine[] {
@@ -77,6 +139,10 @@ function parseLrcLyrics(lrcString?: string): ParsedLyricLine[] {
   lines.forEach((line) => {
     const text = line.replace(/\[\d{2}:\d{2}\.\d{2,3}\]/g, '').trim();
     if (!text && !line.match(timeExp)) return;
+    if (LRC_CREDIT_RE.test(text)) {
+      hasTimeTags = hasTimeTags || /\[\d{2}:\d{2}\.\d{2,3}\]/.test(line);
+      return;
+    }
 
     let match: RegExpExecArray | null;
     const regex = new RegExp(timeExp);
@@ -96,7 +162,7 @@ function parseLrcLyrics(lrcString?: string): ParsedLyricLine[] {
   if (!hasTimeTags) {
     return lines
       .map((l) => l.trim())
-      .filter(Boolean)
+      .filter((text) => text && !LRC_CREDIT_RE.test(text))
       .map((text) => ({ time: -1, text }));
   }
 
@@ -138,7 +204,7 @@ const TRACK_EN_META: Record<string, { titleEn: string; artistEn: string }> = {
 
 const MOVIE_EN_META: Record<
   string,
-  { titleEn: string; directorEn: string; noteEn: string }
+  { titleEn: string; directorEn: string; noteEn: string; noteZh?: string }
 > = {
   '肖申克的救赎': {
     titleEn: 'The Shawshank Redemption',
@@ -154,6 +220,7 @@ const MOVIE_EN_META: Record<
     titleEn: 'Detective Chinatown',
     directorEn: 'Chen Sicheng',
     noteEn: 'Clever locked-room deduction paired with vibrant Bangkok street energy and dual-character chemistry.',
+    noteZh: '密室推理的巧思，配上曼谷街头的烟火气和一对搭档的默契，轻松又烧脑。',
   },
   '让子弹飞': {
     titleEn: 'Let the Bullets Fly',
@@ -164,11 +231,13 @@ const MOVIE_EN_META: Record<
     titleEn: 'A Place Called Silence',
     directorEn: 'Sam Quah (Ke Wenli)',
     noteEn: 'A tense, rain-soaked thriller examining collective silence and moral reckoning.',
+    noteZh: '雨夜里压抑紧绷的悬疑，追问集体沉默的代价与迟来的清算。',
   },
   '你的婚礼': {
     titleEn: 'My Love',
     directorEn: 'Han Tian',
     noteEn: 'Fifteen years of youth, growth, and bittersweet timing — a nostalgic coming-of-age story.',
+    noteZh: '十五年的青春、成长与总差一点的时机，一部带着怀旧滤镜的成长故事。',
   },
 };
 
@@ -211,7 +280,8 @@ const CURATED_MOVIES = [
   {
     id: 1,
     code: '01',
-    title: '星际穿越 Interstellar',
+    title: '星际穿越',
+    titleEn: 'Interstellar',
     director: 'Christopher Nolan',
     year: '2014',
     rating: '9.4',
@@ -223,7 +293,8 @@ const CURATED_MOVIES = [
   {
     id: 2,
     code: '02',
-    title: '肖申克的救赎 The Shawshank Redemption',
+    title: '肖申克的救赎',
+    titleEn: 'The Shawshank Redemption',
     director: 'Frank Darabont',
     year: '1994',
     rating: '9.7',
@@ -235,7 +306,8 @@ const CURATED_MOVIES = [
   {
     id: 3,
     code: '03',
-    title: '沙丘 2 Dune: Part Two',
+    title: '沙丘 2',
+    titleEn: 'Dune: Part Two',
     director: 'Denis Villeneuve',
     year: '2024',
     rating: '8.9',
@@ -247,7 +319,8 @@ const CURATED_MOVIES = [
   {
     id: 4,
     code: '04',
-    title: '蜘蛛侠：纵横宇宙 Across the Spider-Verse',
+    title: '蜘蛛侠：纵横宇宙',
+    titleEn: 'Spider-Man: Across the Spider-Verse',
     director: 'Joaquim Dos Santos',
     year: '2023',
     rating: '9.1',
@@ -259,7 +332,8 @@ const CURATED_MOVIES = [
   {
     id: 5,
     code: '05',
-    title: '海上钢琴师 The Legend of 1900',
+    title: '海上钢琴师',
+    titleEn: 'The Legend of 1900',
     director: 'Giuseppe Tornatore',
     year: '1998',
     rating: '9.3',
@@ -271,8 +345,10 @@ const CURATED_MOVIES = [
   {
     id: 6,
     code: '06',
-    title: '让子弹飞 Let the Bullets Fly',
-    director: '姜文 Jiang Wen',
+    title: '让子弹飞',
+    titleEn: 'Let the Bullets Fly',
+    director: '姜文',
+    directorEn: 'Jiang Wen',
     year: '2010',
     rating: '9.0',
     poster: 'https://picsum.photos/seed/film-bullets/500/700',
@@ -285,7 +361,7 @@ const CURATED_MOVIES = [
 const CURATED_MOMENTS = [
   {
     id: 1,
-    date: '2026.11 · CHANGSHA',
+    date: '2026.11',
     location: '湖南农业大学 · AIFA Lab',
     contentZh:
       '把「禾书耕文」的 Hybrid RAG 重排链路又压测了一遍，看着万字农学综述能精准溯源到每一篇真实 DOI 文献，成就感拉满。',
@@ -296,7 +372,7 @@ const CURATED_MOMENTS = [
   },
   {
     id: 2,
-    date: '2026.10 · YUELU MOUNTAIN',
+    date: '2026.10',
     location: '长沙 · 岳麓山 & 湘江风光带',
     contentZh:
       '周末背着相机去湘江边和老街走了一下午。写代码久了，去捕捉真实世界的光影和街角烟火气是最好的充电方式。',
@@ -307,7 +383,7 @@ const CURATED_MOMENTS = [
   },
   {
     id: 3,
-    date: '2026.09 · ONION EDU',
+    date: '2026.09',
     location: '湖南洋葱教育 · FDE 驻场工作台',
     contentZh:
       '作为 FDE 驻场工程师和教研老师们坐在一起改工作流，才真正理解“技术指标好”和“业务一线好用”之间那最后 1 公里的工程价值。',
@@ -317,6 +393,58 @@ const CURATED_MOMENTS = [
     likes: 46,
   },
 ];
+
+/** A note clamped to 3 lines that offers "展开全文" only when the text actually overflows. */
+function ClampedNote({
+  text,
+  className,
+  moreLabel,
+  lessLabel,
+  onToggle,
+}: {
+  text: string;
+  className?: string;
+  moreLabel: string;
+  lessLabel: string;
+  onToggle?: (expanded: boolean) => void;
+}) {
+  const ref = useRef<HTMLParagraphElement | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || expanded) return;
+    const measure = () => setOverflows(el.scrollHeight - el.clientHeight > 1);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [text, expanded]);
+
+  return (
+    <>
+      <p ref={ref} className={`${className ?? ''} ${expanded ? '' : 'line-clamp-3'}`}>
+        {text}
+      </p>
+      {(overflows || expanded) && (
+        <button
+          type="button"
+          data-sfx="custom"
+          aria-expanded={expanded}
+          onClick={() => {
+            onToggle?.(!expanded);
+            setExpanded((v) => !v);
+          }}
+          className="mt-1 inline-flex items-center gap-0.5 text-[11px] font-mono text-[#8A6F48] dark:text-[#C8A97E] hover:underline underline-offset-2"
+        >
+          <span>{expanded ? lessLabel : moreLabel}</span>
+          <ChevronDown className={`w-3 h-3 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+        </button>
+      )}
+    </>
+  );
+}
 
 export default function Interests() {
   const { language, t, td } = useI18n();
@@ -358,7 +486,6 @@ export default function Interests() {
 
   const [inline3DOpen, setInline3DOpen] = useState<boolean>(false);
   const [openSectionHints, setOpenSectionHints] = useState<Record<string, boolean>>({});
-  const [expandedMovieNotes, setExpandedMovieNotes] = useState<Record<number, boolean>>({});
   const [showIslandDetails, setShowIslandDetails] = useState<boolean>(false);
 
   const toggleSectionHint = (key: string) => {
@@ -385,7 +512,6 @@ export default function Interests() {
     Array<{
       id: number;
       date: string;
-      dateEn?: string;
       location: string;
       locationEn?: string;
       contentZh: string;
@@ -402,8 +528,11 @@ export default function Interests() {
   const [likedMoments, setLikedMoments] = useState<Record<number, boolean>>({});
   const [danmakuList, setDanmakuList] = useState<DanmakuItem[]>(DEFAULT_DANMAKU);
   const [danmakuInput, setDanmakuInput] = useState('');
-  const [danmakuTone, setDanmakuTone] = useState<'ink' | 'bronze' | 'moss' | 'terracotta'>('bronze');
+  const [danmakuTone, setDanmakuTone] = useState<DanmakuTone>('primary');
   const [submittingDanmaku, setSubmittingDanmaku] = useState(false);
+  const [danmakuStatus, setDanmakuStatus] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
+  const [freshDanmakuId, setFreshDanmakuId] = useState<number | null>(null);
+  const danmakuStatusTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     const visited = sessionStorage.getItem('visited_interests');
@@ -416,8 +545,9 @@ export default function Interests() {
     axios
       .get('/api/danmaku/visible')
       .then((res) => {
-        if (res.data?.status === 'success' && Array.isArray(res.data?.data) && res.data.data.length > 0) {
-          setDanmakuList(res.data.data);
+        if (res.data?.status === 'success' && Array.isArray(res.data?.data)) {
+          const visible = (res.data.data as DanmakuItem[]).filter((d) => !isTestDanmaku(d.content || ''));
+          if (visible.length > 0) setDanmakuList(visible);
         }
       })
       .catch(() => {});
@@ -431,25 +561,30 @@ export default function Interests() {
           const mergedMovies = rawMovies
             .filter((m: any) => m.isVisible !== false)
             .map((m: any, idx: number) => {
+              const rawTitle = String(m.title || '').trim();
               const matchedCurated = CURATED_MOVIES.find(
-                (cm) => cm.title.includes(m.title) || m.title.includes(cm.title.split(' ')[0]),
+                (cm) => rawTitle && (cm.title.includes(rawTitle) || rawTitle.includes(cm.title)),
               );
               const metaEn =
                 Object.entries(MOVIE_EN_META).find(
-                  ([k]) => (m.title || '').includes(k) || k.includes(m.title || ''),
+                  ([k]) => rawTitle && (rawTitle.includes(k) || k.includes(rawTitle)),
                 )?.[1] || undefined;
               const posterSrc = m.posterUrl || m.poster;
               return {
                 id: m.id,
                 code: `0${idx + 1}`.slice(-2),
-                title: matchedCurated ? matchedCurated.title : m.title,
-                titleEn: metaEn?.titleEn || matchedCurated?.title || m.title,
-                director: m.director || matchedCurated?.director || 'Director',
-                directorEn: metaEn?.directorEn || matchedCurated?.director || m.director || 'Director',
-                year: String(m.year || matchedCurated?.year || '2024'),
-                rating: String(m.rating || matchedCurated?.rating || '9.0'),
+                title: rawTitle || matchedCurated?.title || '',
+                titleEn: metaEn?.titleEn || matchedCurated?.titleEn || rawTitle,
+                director: m.director || matchedCurated?.director || '',
+                directorEn: metaEn?.directorEn || matchedCurated?.directorEn || m.director || '',
+                year: String(m.year || matchedCurated?.year || ''),
+                rating: String(m.rating || matchedCurated?.rating || ''),
                 poster: posterSrc ? getImageUrl(posterSrc) : matchedCurated?.poster || 'https://picsum.photos/seed/film/500/700',
-                noteZh: m.review || matchedCurated?.noteZh || '光影留存，值得反复细品的银幕佳作。',
+                noteZh:
+                  m.review ||
+                  matchedCurated?.noteZh ||
+                  metaEn?.noteZh ||
+                  '光影留存，值得反复细品的银幕佳作。',
                 noteEn: metaEn?.noteEn || matchedCurated?.noteEn || 'A memorable cinematic work worth revisiting.',
                 likes: typeof m.likes === 'number' ? m.likes : matchedCurated?.likes || 88,
               };
@@ -502,8 +637,7 @@ export default function Interests() {
                 'Changsha · Hunan';
               return {
                 id: m.id,
-                date: `${dateStr} · ${m.location || 'CHANGSHA'}`,
-                dateEn: `${dateStr} · ${locEn.split('·')[0].trim().toUpperCase()}`,
+                date: dateStr,
                 location: rawLoc,
                 locationEn: locEn,
                 contentZh: rawContent,
@@ -538,13 +672,22 @@ export default function Interests() {
   };
 
   // Parse LRC lyrics for current track (with fallback if DB lyrics is empty)
-  const parsedLyrics = useMemo(() => {
-    const rawLrc =
-      currentMusic?.lyrics ||
-      (currentMusic?.title ? FALLBACK_TRACK_LYRICS[currentMusic.title] : '') ||
-      FALLBACK_TRACK_LYRICS['如果呢'];
-    return parseLrcLyrics(rawLrc);
-  }, [currentMusic?.lyrics, currentMusic?.title]);
+  const rawTrackLrc =
+    currentMusic?.lyrics ||
+    (currentMusic?.title ? FALLBACK_TRACK_LYRICS[currentMusic.title] : '') ||
+    FALLBACK_TRACK_LYRICS['如果呢'];
+  const parsedLyrics = useMemo(() => parseLrcLyrics(rawTrackLrc), [rawTrackLrc]);
+  const lyricCredits = useMemo(() => extractLrcCredits(rawTrackLrc), [rawTrackLrc]);
+
+  const trackStripRef = useRef<HTMLDivElement | null>(null);
+  // Keep the active track pill in view when the track changes (next/prev/auto-advance).
+  useEffect(() => {
+    const strip = trackStripRef.current;
+    const pill = strip?.querySelector<HTMLElement>('[data-active-track="true"]');
+    if (!strip || !pill) return;
+    const target = pill.offsetLeft - strip.clientWidth / 2 + pill.clientWidth / 2;
+    strip.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
+  }, [currentMusicIndex, audioRightPane]);
 
   const currentLyricIndex = useMemo(() => {
     if (parsedLyrics.length === 0) return -1;
@@ -666,41 +809,82 @@ export default function Interests() {
       orderIndex: danmakuList.length + 1,
     };
 
+    const flashStatus = (status: { kind: 'ok' | 'error'; text: string }) => {
+      setDanmakuStatus(status);
+      if (danmakuStatusTimerRef.current) window.clearTimeout(danmakuStatusTimerRef.current);
+      danmakuStatusTimerRef.current = window.setTimeout(() => setDanmakuStatus(null), 4200);
+    };
+
     setSubmittingDanmaku(true);
-    playSuccessChime();
     setDanmakuList((prev) => [...prev, newItem]);
+    setFreshDanmakuId(newItem.id);
     setDanmakuInput('');
 
     try {
       await axios.post('/api/danmaku', { content, color: danmakuTone });
-    } catch {
-      // Optimistically added
+      playSuccessChime();
+      flashStatus({ kind: 'ok', text: td('已上墙，稍后会从右侧飘过来', 'Posted — it will drift in from the right') });
+    } catch (err: any) {
+      // Don't pretend it was saved: take the note back down and give the text back.
+      setDanmakuList((prev) => prev.filter((d) => d.id !== newItem.id));
+      setFreshDanmakuId(null);
+      setDanmakuInput(content);
+      const serverMsg = err?.response?.data?.message || err?.response?.data?.error;
+      flashStatus({
+        kind: 'error',
+        text: td(
+          `发送失败${serverMsg ? `（${serverMsg}）` : ''}，请稍后再试`,
+          `Couldn't post${serverMsg ? ` (${serverMsg})` : ''} — please try again`,
+        ),
+      });
     } finally {
       setSubmittingDanmaku(false);
     }
   };
 
-  const getDanmakuBadgeStyle = (color: string) => {
-    switch (color) {
-      case 'ink':
-        return 'bg-[#141413] text-[#FAF9F5] dark:bg-[#F2F0EA] dark:text-[#141413] border-[#141413]';
-      case 'moss':
-        return 'bg-[#1E3329] text-[#FAF9F5] border-[#1E3329]';
-      case 'terracotta':
-        return 'bg-[#9E553F] text-[#FAF9F5] border-[#9E553F]';
-      default:
-        return 'bg-[#8A6F48] text-[#FAF9F5] border-[#8A6F48]';
-    }
-  };
+  useEffect(
+    () => () => {
+      if (danmakuStatusTimerRef.current) window.clearTimeout(danmakuStatusTimerRef.current);
+    },
+    [],
+  );
+
+  const getDanmakuBadgeStyle = (color: string) => DANMAKU_TONE_STYLES[color] || DANMAKU_TONE_STYLES.primary;
+
+  // Split notes into lanes; each lane is a seamless marquee (two identical halves translating -50%).
+  // Lanes get staggered gaps, speeds and start offsets so the wall never reads as a grid.
+  const danmakuLanes = useMemo(() => {
+    return Array.from({ length: DANMAKU_LANES }, (_, laneIdx) => {
+      const base = danmakuList
+        .map((msg, i) => ({ msg, i }))
+        .filter(({ i }) => i % DANMAKU_LANES === laneIdx)
+        .map(({ msg, i }) => ({ msg, gap: 44 + ((i * 53 + laneIdx * 31) % 72) }));
+      if (base.length === 0) return { items: [], duration: 30, delay: 0 };
+      const baseWidth = base.reduce((sum, it) => sum + estimateDanmakuWidth(it.msg.content) + it.gap, 0);
+      const repeats = Math.max(1, Math.ceil(DANMAKU_MIN_LOOP_PX / baseWidth));
+      const items = Array.from({ length: repeats }, (_, r) =>
+        base.map((it) => ({ ...it, key: `${it.msg.id}-${r}` })),
+      ).flat();
+      const halfWidth = baseWidth * repeats;
+      const duration = halfWidth / DANMAKU_LANE_SPEEDS[laneIdx % DANMAKU_LANE_SPEEDS.length];
+      return { items, duration, delay: -duration * ((laneIdx * 0.37) % 1) };
+    });
+  }, [danmakuList]);
 
   const filterTabs: { id: FilterTab; code: string; labelZh: string; labelEn: string }[] = [
-    { id: 'all', code: 'ALL', labelZh: '全部档案', labelEn: 'All Archives' },
-    { id: 'audio', code: '01', labelZh: '听 · 黑胶与歌单', labelEn: 'Vinyl & Audio' },
-    { id: 'cinema', code: '02', labelZh: '看 · 经典影单', labelEn: 'Curated Cinema' },
-    { id: 'play_read', code: '03', labelZh: '读 · 拟真翻页书房', labelEn: 'Interactive Reading Room' },
-    { id: 'footprints', code: '04', labelZh: '行 · 足迹与日常', labelEn: 'Footprints & Notes' },
-    { id: 'island3d', code: '05', labelZh: '游 · 3D 光影拾遗岛', labelEn: '3D Shutter Island' },
-    { id: 'danmaku', code: '06', labelZh: '言 · 弹幕留言墙', labelEn: 'Guestbook Wall' },
+    { id: 'all', code: 'ALL', labelZh: '全部', labelEn: 'Everything' },
+    { id: 'audio', code: '01', labelZh: '听 · 黑胶', labelEn: 'Listen' },
+    { id: 'cinema', code: '02', labelZh: '看 · 影单', labelEn: 'Watch' },
+    { id: 'play_read', code: '03', labelZh: '读 · 书房', labelEn: 'Read' },
+    { id: 'footprints', code: '04', labelZh: '行 · 足迹', labelEn: 'Wander' },
+    { id: 'island3d', code: '05', labelZh: '游 · 光影岛', labelEn: 'Island' },
+    { id: 'danmaku', code: '06', labelZh: '言 · 留言墙', labelEn: 'Guestbook' },
+  ];
+
+  const archiveStats = [
+    { label: td('歌单', 'VINYL & LOFI'), value: musicList.length, unit: td('首', 'tracks') },
+    { label: td('影单 · 书单', 'FILMS & BOOKS'), value: moviesList.length + READING_SHELF_SIZE, unit: td('部', 'titles') },
+    { label: td('访客留言', 'GUEST NOTES'), value: danmakuList.length, unit: td('条', 'notes') },
   ];
 
   const showSection = (sec: FilterTab) => activeFilter === 'all' || activeFilter === sec;
@@ -723,35 +907,41 @@ export default function Interests() {
             </p>
           </div>
 
-          {/* Archive Telemetry Summary */}
-          <div className="grid grid-cols-3 gap-3 sm:gap-6 pt-4 md:pt-0 border-t md:border-t-0 designer-hairline font-mono text-left">
-            <div>
-              <div className="text-[10px] designer-text-muted uppercase truncate">VINYL &amp; LOFI</div>
-              <div className="text-base sm:text-lg font-semibold designer-text-primary mt-0.5">
-                {musicList.length} Tracks
+          {/* Archive Telemetry Summary — live counts, number first, unit second */}
+          <dl className="grid grid-cols-3 pt-4 md:pt-0 border-t md:border-t-0 designer-hairline text-left shrink-0">
+            {archiveStats.map((stat, i) => (
+              <div
+                key={stat.label}
+                className={`min-w-0 ${i === 0 ? 'pr-4 sm:pr-6' : 'px-4 sm:px-6 border-l designer-hairline'}`}
+              >
+                <dt className="text-[10px] font-mono tracking-widest designer-text-muted uppercase truncate">
+                  {stat.label}
+                </dt>
+                <dd className="mt-1 flex items-baseline gap-1">
+                  <span className="designer-heading text-2xl sm:text-[28px] leading-none tabular-nums">
+                    {stat.value}
+                  </span>
+                  <span className="text-[11px] font-mono designer-text-muted">{stat.unit}</span>
+                </dd>
               </div>
-            </div>
-            <div>
-              <div className="text-[10px] designer-text-muted uppercase truncate">CINEMA &amp; BOOKS</div>
-              <div className="text-base sm:text-lg font-semibold designer-text-primary mt-0.5">10 Curated</div>
-            </div>
-            <div>
-              <div className="text-[10px] designer-text-muted uppercase truncate">GUEST NOTES</div>
-              <div className="text-base sm:text-lg font-semibold text-[#8A6F48] dark:text-[#C8A97E] mt-0.5">
-                {danmakuList.length} Notes
-              </div>
-            </div>
-          </div>
+            ))}
+          </dl>
         </div>
 
-        {/* Filter Navigation Bar — Horizontally scrollable on mobile */}
-        <div className="flex flex-nowrap overflow-x-auto sm:flex-wrap items-center gap-2 mt-7 sm:mt-10 pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {/* Filter Navigation Bar — one row; horizontally scrollable with an edge fade on small screens */}
+        <div
+          role="tablist"
+          aria-label={td('筛选板块', 'Filter sections')}
+          className="flex flex-nowrap overflow-x-auto items-center gap-2 mt-7 sm:mt-10 pb-1 -mx-4 pl-4 pr-10 sm:mx-0 sm:pl-0 lg:pr-0 ix-fade-end-compact [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
           {filterTabs.map((tab) => {
             const active = activeFilter === tab.id;
             return (
               <button
                 key={tab.id}
                 type="button"
+                role="tab"
+                aria-selected={active}
                 data-sfx="custom"
                 onClick={() => {
                   playToggleSwitch(true);
@@ -763,7 +953,7 @@ export default function Interests() {
                     : 'designer-btn-secondary designer-text-secondary'
                 }`}
               >
-                <span className="opacity-65">{tab.code}</span>
+                <span className="opacity-55 tabular-nums">{tab.code}</span>
                 <span>{td(tab.labelZh, tab.labelEn)}</span>
               </button>
             );
@@ -1052,11 +1242,11 @@ export default function Interests() {
                           playVinylNeedle(!isPlaying);
                           togglePlay();
                         }}
-                        aria-label={isPlaying ? 'Pause' : 'Play'}
-                        className="px-5 sm:px-6 py-2.5 rounded-full designer-btn-primary font-mono text-xs font-medium flex items-center gap-2"
+                        aria-label={isPlaying ? td('暂停', 'Pause') : td('播放', 'Play')}
+                        className="min-w-[96px] px-4 sm:px-5 py-2.5 rounded-full designer-btn-primary font-mono text-xs font-medium flex items-center justify-center gap-2 whitespace-nowrap shrink-0"
                       >
                         {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                        <span>{isPlaying ? 'PAUSE' : 'PLAY LP'}</span>
+                        <span>{isPlaying ? 'PAUSE' : 'PLAY'}</span>
                       </button>
                       <button
                         type="button"
@@ -1111,7 +1301,7 @@ export default function Interests() {
                     <span className="text-[#8A6F48] dark:text-[#C8A97E] font-semibold">
                       {audioRightPane === 'lyrics'
                         ? td('SYNCHRONIZED LYRICS // 实时滚动歌词', 'SYNCHRONIZED LYRICS // LIVE LRC')
-                        : 'PLAYLIST INDEX // CODING & LATE NIGHT'}
+                        : td('PLAYLIST // 编码与深夜歌单', 'PLAYLIST // CODING & LATE NIGHT')}
                     </span>
                   </div>
 
@@ -1154,13 +1344,18 @@ export default function Interests() {
 
                 {/* Quick Horizontal Track Pill Strip (Always visible above lyrics so switching tracks takes 1 click) */}
                 {audioRightPane === 'lyrics' && (
-                  <div className="flex items-center gap-1.5 overflow-x-auto pb-2.5 mb-2 border-b designer-hairline shrink-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <div
+                    ref={trackStripRef}
+                    className="relative flex items-center gap-1.5 overflow-x-auto pb-1 pr-8 shrink-0 ix-fade-end [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                  >
                     {musicList.map((track, idx) => {
                       const active = idx === currentMusicIndex;
                       return (
                         <button
                           key={track.id || idx}
                           type="button"
+                          data-active-track={active ? 'true' : undefined}
+                          aria-current={active ? 'true' : undefined}
                           onClick={() => selectMusic(idx)}
                           className={`px-2.5 py-1 rounded-full text-[11px] font-mono whitespace-nowrap shrink-0 transition-all flex items-center gap-1.5 border ${
                             active
@@ -1180,11 +1375,7 @@ export default function Interests() {
 
                 <div className="relative flex-1 min-h-0">
                   {audioRightPane === 'lyrics' ? (
-                    <div className="h-[320px] lg:h-full relative rounded-xl bg-[#FAF9F5]/75 dark:bg-[#121210]/80 border designer-hairline overflow-hidden">
-                      {/* Top & Bottom Soft Fade Masks */}
-                      <div className="pointer-events-none absolute top-0 left-0 right-0 h-14 bg-gradient-to-b from-[#FAF9F5] dark:from-[#121210] to-transparent z-10" />
-                      <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-14 bg-gradient-to-t from-[#FAF9F5] dark:from-[#121210] to-transparent z-10" />
-
+                    <div className="h-[320px] lg:h-full relative overflow-hidden">
                       {/* Return-to-active-lyric floating pill when user scrolls manually */}
                       {isUserScrollingLyrics && parsedLyrics.length > 0 && (
                         <button
@@ -1209,8 +1400,17 @@ export default function Interests() {
                           ref={lyricsViewportRef}
                           onWheel={handleLyricsUserScroll}
                           onTouchMove={handleLyricsUserScroll}
-                          className="h-full overflow-y-auto px-4 sm:px-8 py-[115px] space-y-2.5 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                          className="relative h-full overflow-y-auto px-2 sm:px-8 py-[140px] space-y-1.5 scroll-smooth ix-fade-y [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                         >
+                          {lyricCredits.length > 0 && (
+                            <p className="pb-4 flex flex-wrap justify-center gap-x-3 gap-y-1 text-[10px] font-mono designer-text-muted opacity-75">
+                              {lyricCredits.slice(0, 4).map((credit) => (
+                                <span key={credit} className="whitespace-nowrap">
+                                  {credit}
+                                </span>
+                              ))}
+                            </p>
+                          )}
                           {parsedLyrics.map((line, index) => {
                             const isActive = index === currentLyricIndex;
                             const distance = Math.abs(index - currentLyricIndex);
@@ -1337,19 +1537,13 @@ export default function Interests() {
                   )}
                 </div>
 
-                <div className="mt-4 pt-3.5 border-t designer-hairline flex items-center justify-between text-[11px] font-mono designer-text-muted shrink-0">
-                  <span>
-                    {isSynthFallback
-                      ? 'WEB AUDIO LOFI SYNTH'
-                      : 'HI-FI STEREO 44.1KHZ'}
+                <div className="mt-3 pt-3 border-t designer-hairline flex items-center justify-between gap-3 text-[11px] font-mono designer-text-muted shrink-0">
+                  <span className="tabular-nums">
+                    TRACK {String(currentMusicIndex + 1).padStart(2, '0')} / {String(musicList.length).padStart(2, '0')}
+                    <span className="mx-1.5 opacity-50">·</span>
+                    {isSynthFallback ? 'LOFI SYNTH' : 'HI-FI STEREO'}
                   </span>
-                  <span>
-                    {playMode === 'single'
-                      ? 'MODE // REPEAT ONE'
-                      : playMode === 'shuffle'
-                      ? 'MODE // SHUFFLE'
-                      : 'MODE // REPEAT ALL'}
-                  </span>
+                  <span className="truncate">{playModeLabel}</span>
                 </div>
               </div>
             </div>
@@ -1368,93 +1562,82 @@ export default function Interests() {
                   {td('光影收藏与私人影评', 'Curated Cinema & Film Notes')}
                 </h2>
               </div>
-              <span className="text-xs font-mono designer-text-muted">
-                01 — 06 SELECTED FILMS
+              <span className="text-xs font-mono designer-text-muted tabular-nums">
+                01 — {String(moviesList.length).padStart(2, '0')} SELECTED FILMS
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
               {moviesList.map((movie) => {
                 const liked = !!likedMovies[movie.id];
+                const primaryTitle = td(movie.title, movie.titleEn || movie.title);
+                const secondaryTitle = td(movie.titleEn || '', movie.title);
+                const director = td(movie.director, movie.directorEn || movie.director);
+                const note = td(movie.noteZh, movie.noteEn);
+                const ratingNum = Number(movie.rating);
                 return (
-                  <div
+                  <article
                     key={movie.id}
-                    className="designer-card rounded-2xl overflow-hidden flex flex-col justify-between group"
+                    className="designer-card rounded-2xl overflow-hidden flex flex-col group"
                   >
-                    <div>
-                      <div className="px-5 py-2.5 border-b designer-hairline flex items-center justify-between text-[11px] font-mono bg-[#FAF9F5] dark:bg-[#141412]">
-                        <span className="text-[#8A6F48] dark:text-[#C8A97E]">
-                          FILM // {movie.code}
-                        </span>
-                        <span className="designer-text-muted">
-                          {movie.year} · ★ {movie.rating}
-                        </span>
+                    {/* Native 2:3 poster beside the entry */}
+                    <div className="p-4 sm:p-5 flex gap-4 items-start flex-1">
+                      <div className="w-24 sm:w-28 aspect-[2/3] rounded-lg overflow-hidden bg-[#141413] border designer-hairline shrink-0 shadow-xs">
+                        <ImageWithFallback
+                          src={movie.poster}
+                          alt={primaryTitle}
+                          className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
+                        />
                       </div>
 
-                      {/* Side-by-side layout with native 2:3 vertical cinema poster ratio */}
-                      <div className="p-4 sm:p-5 flex gap-4 items-start">
-                        <div className="w-24 sm:w-28 aspect-[2/3] rounded-xl overflow-hidden bg-[#141413] border designer-hairline shrink-0 shadow-xs">
-                          <ImageWithFallback
-                            src={movie.poster}
-                            alt={movie.title}
-                            className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
-                          />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 text-[10px] font-mono">
+                          <span className="text-[#8A6F48] dark:text-[#C8A97E]">FILM // {movie.code}</span>
+                          {movie.year && <span className="designer-text-muted tabular-nums">{movie.year}</span>}
                         </div>
+                        <h3 className="mt-2 text-[15px] sm:text-base font-semibold designer-text-primary leading-snug">
+                          {primaryTitle}
+                        </h3>
+                        {secondaryTitle && secondaryTitle !== primaryTitle && (
+                          <p className="mt-0.5 text-[11px] designer-text-muted truncate" title={secondaryTitle}>
+                            {secondaryTitle}
+                          </p>
+                        )}
+                        {director && (
+                          <p className="mt-1.5 inline-flex max-w-full items-center gap-1 text-[10px] font-mono designer-text-muted">
+                            <Film className="w-3 h-3 shrink-0 text-[#8A6F48] dark:text-[#C8A97E]" />
+                            <span className="truncate">DIR. {director}</span>
+                          </p>
+                        )}
 
-                        <div className="flex-1 min-w-0 flex flex-col justify-between">
-                          <div>
-                            <div className="inline-flex items-center gap-1 text-[10px] font-mono text-[#8A6F48] dark:text-[#C8A97E] mb-1">
-                              <Film className="w-3 h-3 shrink-0" />
-                              <span className="truncate">
-                                DIR. {td(movie.director, movie.directorEn || movie.director)}
-                              </span>
-                            </div>
-                            <h3 className="text-sm sm:text-base font-semibold designer-text-primary mb-2 leading-snug">
-                              {td(movie.title, movie.titleEn || movie.title)}
-                            </h3>
-
-                            {/* Film review hidden by default — click to reveal */}
-                            <button
-                              type="button"
-                              data-sfx="custom"
-                              onClick={() => {
-                                playToggleSwitch(!expandedMovieNotes[movie.id]);
-                                setExpandedMovieNotes((prev) => ({
-                                  ...prev,
-                                  [movie.id]: !prev[movie.id],
-                                }));
-                              }}
-                              className="inline-flex items-center gap-1 text-[11px] font-mono text-[#8A6F48] dark:text-[#C8A97E] hover:underline"
-                            >
-                              <span>
-                                {expandedMovieNotes[movie.id]
-                                  ? td('收起影评', 'Hide Note')
-                                  : td('展开影评', 'Read Note')}
-                              </span>
-                              <ChevronDown
-                                className={`w-3 h-3 transition-transform ${
-                                  expandedMovieNotes[movie.id] ? 'rotate-180' : ''
-                                }`}
-                              />
-                            </button>
-
-                            {expandedMovieNotes[movie.id] && (
-                              <p
-                                className={`mt-2 text-xs designer-text-secondary leading-relaxed font-serif ${
-                                  language === 'en' ? 'italic' : 'not-italic'
-                                }`}
-                              >
-                                {td(movie.noteZh, movie.noteEn)}
-                              </p>
-                            )}
-                          </div>
-                        </div>
+                        <ClampedNote
+                          key={`${movie.id}-${language}`}
+                          text={note}
+                          className={`mt-2.5 text-xs designer-text-secondary leading-relaxed font-serif ${
+                            language === 'en' ? 'italic' : 'not-italic'
+                          }`}
+                          moreLabel={td('展开全文', 'More')}
+                          lessLabel={td('收起', 'Less')}
+                          onToggle={(open) => playToggleSwitch(open)}
+                        />
                       </div>
                     </div>
 
-                    <div className="px-5 py-3 bg-[#FAF9F5] dark:bg-[#141412] border-t designer-hairline flex items-center justify-between text-xs font-mono">
-                      <span className="designer-text-muted">ARCHIVE ENTRY</span>
+                    <div className="px-4 sm:px-5 py-2.5 border-t designer-hairline flex items-center justify-between text-xs font-mono">
+                      <span className="inline-flex items-baseline gap-1 designer-text-secondary tabular-nums">
+                        {Number.isFinite(ratingNum) && ratingNum > 0 ? (
+                          <>
+                            <span className="text-[#8A6F48] dark:text-[#C8A97E]">★</span>
+                            <span className="font-semibold designer-text-primary">{ratingNum.toFixed(1)}</span>
+                            <span className="designer-text-muted text-[10px]">/ 10</span>
+                          </>
+                        ) : (
+                          <span className="designer-text-muted">—</span>
+                        )}
+                      </span>
                       <button
+                        aria-pressed={liked}
+                        aria-label={td('喜欢这部电影', 'Like this film')}
                         type="button"
                         data-sfx="custom"
                         onClick={() => {
@@ -1473,10 +1656,10 @@ export default function Interests() {
                         }`}
                       >
                         <Heart className={`w-3 h-3 ${liked ? 'fill-current' : ''}`} />
-                        <span>{movie.likes + (liked ? 1 : 0)}</span>
+                        <span className="tabular-nums">{movie.likes + (liked ? 1 : 0)}</span>
                       </button>
                     </div>
-                  </div>
+                  </article>
                 );
               })}
             </div>
@@ -1537,76 +1720,71 @@ export default function Interests() {
               </span>
             </div>
 
-            {/* Moments Cards — Natural Aspect Ratio Masonry without Black Bars */}
-            <div className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6">
+            {/* Moments — even grid, every photo framed 4:3 so rows line up */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
               {momentsList.map((moment) => {
                 const liked = !!likedMoments[moment.id];
                 const imgs = moment.images && moment.images.length > 0 ? moment.images : [moment.image];
+                const shownImgs = imgs.slice(0, 2);
+                const placeLabel = td(moment.location, moment.locationEn || moment.location);
+                const openMomentLightbox = (idx: number) => {
+                  setMomentLightboxSlides(imgs.map((src) => ({ src })));
+                  setMomentLightboxIndex(idx);
+                  setMomentLightboxOpen(true);
+                };
                 return (
-                  <div
+                  <article
                     key={moment.id}
-                    className="designer-card rounded-2xl overflow-hidden flex flex-col justify-between break-inside-avoid mb-6 group"
+                    className="designer-card rounded-2xl overflow-hidden flex flex-col group"
                   >
-                    <div>
-                      {imgs.length === 1 ? (
-                        <div
-                          onClick={() => {
-                            setMomentLightboxSlides(imgs.map((src) => ({ src })));
-                            setMomentLightboxIndex(0);
-                            setMomentLightboxOpen(true);
-                          }}
-                          className="relative w-full overflow-hidden bg-[#F3F1EC] dark:bg-[#181815] border-b designer-hairline cursor-pointer"
+                    <div
+                      className={`relative aspect-[4/3] overflow-hidden bg-[#F3F1EC] dark:bg-[#181815] border-b designer-hairline ${
+                        shownImgs.length > 1 ? 'grid grid-cols-2 gap-0.5' : ''
+                      }`}
+                    >
+                      {shownImgs.map((imgSrc, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => openMomentLightbox(idx)}
+                          aria-label={td(`查看大图 ${idx + 1}/${imgs.length}`, `View photo ${idx + 1} of ${imgs.length}`)}
+                          className="relative block w-full h-full overflow-hidden cursor-zoom-in"
                         >
                           <ImageWithFallback
-                            src={imgs[0]}
-                            alt={moment.location}
-                            naturalAspect={true}
-                            className="group-hover:scale-[1.02] transition-transform duration-700"
+                            src={imgSrc}
+                            alt={`${placeLabel} ${idx + 1}`}
+                            className="w-full h-full object-cover !object-[50%_30%] group-hover:scale-[1.03] transition-transform duration-700"
                           />
-                          <div className="absolute top-2.5 right-2.5 p-1.5 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Maximize2 className="w-3.5 h-3.5" />
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-2 gap-1 p-1.5 bg-[#F3F1EC] dark:bg-[#181815] border-b designer-hairline">
-                          {imgs.map((imgSrc, idx) => (
-                            <div
-                              key={idx}
-                              onClick={() => {
-                                setMomentLightboxSlides(imgs.map((src) => ({ src })));
-                                setMomentLightboxIndex(idx);
-                                setMomentLightboxOpen(true);
-                              }}
-                              className="relative aspect-[3/4] rounded-lg overflow-hidden cursor-pointer bg-[#EAE6DC] dark:bg-[#22221E]"
-                            >
-                              <ImageWithFallback
-                                src={imgSrc}
-                                alt={`${moment.location} ${idx + 1}`}
-                                className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      <div className="p-5">
-                        <div className="text-[11px] font-mono text-[#8A6F48] dark:text-[#C8A97E] mb-2">
-                          {td(moment.date, moment.dateEn || moment.date)}
-                        </div>
-                        <p className="text-xs sm:text-sm designer-text-secondary leading-relaxed">
-                          {td(moment.contentZh, moment.contentEn)}
-                        </p>
-                      </div>
+                          {idx === shownImgs.length - 1 && imgs.length > shownImgs.length && (
+                            <span className="absolute inset-0 flex items-center justify-center bg-black/45 text-white text-sm font-mono">
+                              +{imgs.length - shownImgs.length}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                      <span className="pointer-events-none absolute top-2.5 right-2.5 inline-flex items-center gap-1 px-2 py-1 rounded-full bg-black/50 text-white text-[10px] font-mono opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Maximize2 className="w-3 h-3" />
+                        {imgs.length > 1 && <span className="tabular-nums">{imgs.length}</span>}
+                      </span>
                     </div>
 
-                    <div className="px-5 py-3 bg-[#FAF9F5] dark:bg-[#141412] border-t designer-hairline flex items-center justify-between text-xs font-mono">
-                      <span className="designer-text-muted flex items-center gap-1 truncate">
+                    <div className="p-5 flex-1">
+                      <div className="text-[11px] font-mono tabular-nums text-[#8A6F48] dark:text-[#C8A97E] mb-2">
+                        {moment.date}
+                      </div>
+                      <p className="text-sm designer-text-primary leading-relaxed">
+                        {td(moment.contentZh, moment.contentEn)}
+                      </p>
+                    </div>
+
+                    <div className="px-5 py-3 border-t designer-hairline flex items-center justify-between gap-3 text-xs font-mono">
+                      <span className="designer-text-muted flex items-center gap-1 min-w-0">
                         <MapPin className="w-3 h-3 text-[#8A6F48] shrink-0" />
-                        <span className="truncate">
-                          {td(moment.location, moment.locationEn || moment.location)}
-                        </span>
+                        <span className="truncate">{placeLabel}</span>
                       </span>
                       <button
+                        aria-pressed={liked}
+                        aria-label={td('点赞', 'Like')}
                         type="button"
                         data-sfx="custom"
                         onClick={() => {
@@ -1625,10 +1803,10 @@ export default function Interests() {
                         }`}
                       >
                         <Heart className={`w-3 h-3 ${liked ? 'fill-current' : ''}`} />
-                        <span>{moment.likes + (liked ? 1 : 0)}</span>
+                        <span className="tabular-nums">{moment.likes + (liked ? 1 : 0)}</span>
                       </button>
                     </div>
-                  </div>
+                  </article>
                 );
               })}
             </div>
@@ -1719,22 +1897,23 @@ export default function Interests() {
                     </h3>
 
                     {/* Compact One-Line Island Tags */}
-                    <div className="flex flex-wrap gap-2 font-mono text-[11px]">
+                    <ol className="flex flex-wrap gap-1.5 font-mono text-[11px]" aria-label={td('五座岛屿', 'Five islands')}>
                       {[
-                        td('01 拾光风车岛', '01 Windmill'),
-                        td('02 丁达尔森林', '02 Forest'),
-                        td('03 海岸灯塔暗房', '03 Lighthouse'),
-                        td('04 云端观星台', '04 Summit'),
-                        td('05 漂流瓶码头', '05 Sunset Pier'),
-                      ].map((label) => (
-                        <span
+                        td('拾光风车岛', 'Windmill'),
+                        td('丁达尔森林', 'Forest'),
+                        td('海岸灯塔暗房', 'Lighthouse'),
+                        td('云端观星台', 'Summit'),
+                        td('漂流瓶码头', 'Sunset Pier'),
+                      ].map((label, i) => (
+                        <li
                           key={label}
-                          className="px-3 py-1.5 rounded-full bg-[#F6F4EF] dark:bg-[#1A1917] border designer-hairline designer-text-secondary"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#F6F4EF] dark:bg-[#1A1917] border designer-hairline designer-text-secondary"
                         >
+                          <span className="opacity-50 tabular-nums">{i + 1}</span>
                           {label}
-                        </span>
+                        </li>
                       ))}
-                    </div>
+                    </ol>
 
                     {/* Collapsible Details Toggle */}
                     <div>
@@ -1856,7 +2035,7 @@ export default function Interests() {
               </div>
               {openSectionHints.danmaku && (
                 <p className="mt-3 text-xs font-mono designer-text-muted bg-[#F6F4EF] dark:bg-[#181815] px-3.5 py-2 rounded-xl border designer-hairline">
-                  {td('悬停任意便签可暂停审阅，选择墨色后发送即刻上墙。', 'Hover any note to pause. Pick an ink color and post yours below.')}
+                  {td('悬停任意一行可暂停滚动；选好颜色，写下留言即可上墙。', 'Hover a lane to pause it. Pick a colour and post your note below.')}
                 </p>
               )}
             </div>
@@ -1871,100 +2050,109 @@ export default function Interests() {
                   backgroundSize: '24px 24px',
                 }}
               >
-                {Array.from({ length: 4 }, (_, laneIdx) => {
-                  const laneItems = danmakuList.filter((_, i) => i % 4 === laneIdx);
-                  return (
+                {danmakuLanes.map((lane, laneIdx) => (
+                  <div
+                    key={laneIdx}
+                    className="ix-danmaku-lane"
+                    style={{ top: `${laneIdx * 22 + 9}%`, height: '38px' }}
+                  >
                     <div
-                      key={laneIdx}
-                      className="absolute w-full"
-                      style={{ top: `${laneIdx * 22 + 10}%`, height: '38px' }}
+                      className="ix-danmaku-track"
+                      style={
+                        {
+                          '--ix-dur': `${lane.duration.toFixed(1)}s`,
+                          '--ix-delay': `${lane.delay.toFixed(1)}s`,
+                        } as React.CSSProperties
+                      }
                     >
-                      {laneItems.map((msg, idx) => {
-                        const animDuration = 22;
-                        const delay = -(idx * (animDuration / Math.max(1, laneItems.length)));
-                        return (
-                          <div
-                            key={`${msg.id}-${idx}`}
-                            className={`danmaku-note absolute whitespace-nowrap text-xs font-mono px-4 py-2 rounded-full border shadow-xs cursor-pointer select-none ${getDanmakuBadgeStyle(
-                              msg.color,
-                            )}`}
-                            style={{
-                              animationDuration: `${animDuration}s`,
-                              animationDelay: `${delay}s`,
-                            }}
+                      {[0, 1].map((copy) =>
+                        lane.items.map((it) => (
+                          <span
+                            key={`${copy}-${it.key}`}
+                            aria-hidden={copy === 1 || undefined}
+                            title={it.msg.content}
+                            className={`ix-danmaku-note shrink-0 whitespace-nowrap text-xs font-mono px-4 py-2 rounded-full shadow-xs select-none dark:ring-1 dark:ring-white/10 ${getDanmakuBadgeStyle(
+                              it.msg.color,
+                            )} ${it.msg.id === freshDanmakuId ? 'ix-danmaku-note--fresh' : ''}`}
+                            style={{ marginRight: `${it.gap}px` }}
                           >
-                            {msg.content}
-                          </div>
-                        );
-                      })}
+                            {it.msg.content}
+                          </span>
+                        )),
+                      )}
                     </div>
-                  );
-                })}
-
-                <style>{`
-                  .danmaku-note {
-                    animation-name: danmaku-slide;
-                    animation-timing-function: linear;
-                    animation-iteration-count: infinite;
-                    will-change: transform;
-                    transform: translateX(105vw);
-                  }
-                  .danmaku-note:hover {
-                    z-index: 40;
-                    animation-play-state: paused;
-                  }
-                  @keyframes danmaku-slide {
-                    from { transform: translateX(950px); }
-                    to { transform: translateX(-950px); }
-                  }
-                `}</style>
+                  </div>
+                ))}
               </div>
 
               {/* Input & Tone Selector */}
               <form onSubmit={handleSendDanmaku} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-xs font-mono designer-text-muted">
-                    {td('墨色:', 'INK:')}
-                  </span>
-                  {(
-                    [
-                      { id: 'bronze', label: td('暖铜金', 'Bronze'), bg: 'bg-[#8A6F48]' },
-                      { id: 'ink', label: td('碳墨黑', 'Carbon'), bg: 'bg-[#141413]' },
-                      { id: 'moss', label: td('松墨绿', 'Moss'), bg: 'bg-[#1E3329]' },
-                      { id: 'terracotta', label: td('赤陶棕', 'Rust'), bg: 'bg-[#9E553F]' },
-                    ] as const
-                  ).map((tone) => (
-                    <button
-                      key={tone.id}
-                      type="button"
-                      onClick={() => setDanmakuTone(tone.id)}
-                      className={`w-5 h-5 rounded-full ${tone.bg} transition-transform ${
-                        danmakuTone === tone.id ? 'scale-125 ring-2 ring-[#8A6F48] ring-offset-2' : 'opacity-65'
-                      }`}
-                      title={tone.label}
-                      aria-label={tone.label}
-                    />
-                  ))}
+                <div
+                  role="radiogroup"
+                  aria-label={td('留言颜色', 'Note colour')}
+                  className="flex items-center gap-2.5 shrink-0"
+                >
+                  <span className="text-xs font-mono designer-text-muted">{td('颜色', 'Colour')}</span>
+                  {DANMAKU_TONE_PICKER.map((tone) => {
+                    const selected = danmakuTone === tone.id;
+                    const label = td(tone.labelZh, tone.labelEn);
+                    return (
+                      <button
+                        key={tone.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        onClick={() => setDanmakuTone(tone.id)}
+                        className={`w-5 h-5 rounded-full ${tone.swatch} transition-all ring-offset-2 ring-offset-[color:var(--bg-card)] ${
+                          selected
+                            ? 'ring-2 ring-[#8A6F48] dark:ring-[#C8A97E]'
+                            : 'opacity-70 hover:opacity-100 hover:scale-110 dark:ring-1 dark:ring-white/20 dark:ring-offset-0'
+                        }`}
+                        title={label}
+                        aria-label={label}
+                      />
+                    );
+                  })}
                 </div>
 
-                <input
-                  type="text"
-                  value={danmakuInput}
-                  onChange={(e) => setDanmakuInput(e.target.value)}
-                  maxLength={50}
-                  placeholder={td('写下一句留言，让它飘过这面灵感便签墙...', 'Write a note to float across the guestbook wall...')}
-                  className="flex-1 px-4 py-2.5 rounded-xl bg-[#F6F4EF] dark:bg-[#1E1E1B] border designer-hairline focus:border-[#8A6F48] outline-none text-base sm:text-sm designer-text-primary"
-                />
+                <div className="relative flex-1 min-w-0">
+                  <input
+                    type="text"
+                    value={danmakuInput}
+                    onChange={(e) => setDanmakuInput(e.target.value)}
+                    maxLength={50}
+                    aria-label={td('留言内容', 'Your note')}
+                    placeholder={td('写下一句留言，让它飘过这面墙…', 'Write a note to float across the wall…')}
+                    className="w-full pl-4 pr-14 py-2.5 rounded-xl bg-[#F6F4EF] dark:bg-[#1E1E1B] border designer-hairline focus:border-[#8A6F48] dark:focus:border-[#C8A97E] focus:ring-2 focus:ring-[#8A6F48]/15 outline-none text-base sm:text-sm designer-text-primary transition-colors"
+                  />
+                  <span
+                    aria-hidden="true"
+                    className={`pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] font-mono tabular-nums ${
+                      danmakuInput.length >= 45 ? 'text-[#9E553F]' : 'designer-text-muted'
+                    }`}
+                  >
+                    {danmakuInput.length}/50
+                  </span>
+                </div>
 
                 <button
                   type="submit"
                   disabled={!danmakuInput.trim() || submittingDanmaku}
-                  className="px-6 py-2.5 rounded-xl designer-btn-primary font-mono text-xs font-medium flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="px-6 py-2.5 rounded-xl designer-btn-primary font-mono text-xs font-medium flex items-center justify-center gap-2 whitespace-nowrap disabled:opacity-50"
                 >
                   <Send className="w-3.5 h-3.5" />
-                  <span>{td('发送上墙', 'POST NOTE')}</span>
+                  <span>{submittingDanmaku ? td('发送中…', 'POSTING…') : td('发送上墙', 'POST NOTE')}</span>
                 </button>
               </form>
+              <p
+                role="status"
+                aria-live="polite"
+                className={`mt-2.5 min-h-[1.25rem] text-[11px] font-mono transition-opacity ${
+                  danmakuStatus ? 'opacity-100' : 'opacity-0'
+                } ${danmakuStatus?.kind === 'error' ? 'text-[#9E553F] dark:text-[#E08B72]' : 'text-[#8A6F48] dark:text-[#C8A97E]'}`}
+              >
+                {danmakuStatus ? `${danmakuStatus.kind === 'error' ? '✕' : '✓'} ${danmakuStatus.text}` : ''}
+              </p>
             </div>
           </section>
         )}

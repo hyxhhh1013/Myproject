@@ -149,7 +149,6 @@ export const TravelMap: React.FC = () => {
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [lightboxSlides, setLightboxSlides] = useState<any[]>([]);
   const [isCitiesExpanded, setIsCitiesExpanded] = useState(false);
-  const isMobile = window.innerWidth < 768;
 
   useEffect(() => {
     setActiveCityPhotoIdx(0);
@@ -430,18 +429,19 @@ export const TravelMap: React.FC = () => {
               },
               geo: {
                 map: mapConfig.mapType,
-                roam: true, // 开启缩放和平移
+                // Wheel-zoom would hijack page scrolling (and touch-drag on phones), so the map stays fixed.
+                roam: false,
                 emphasis: {
                   label: {
                     show: true,
-                    color: mapConfig.mapStyle.labelColor,
+                    color: isDark ? '#F0EFEA' : '#141413',
                     formatter: function(params: any) {
                       const rawProv = String(params.name || '').replace(/省|市|自治区|特别行政区/g, '');
                       return isEn ? PROVINCE_NAME_EN_MAP[params.name] || PROVINCE_NAME_EN_MAP[rawProv] || params.name : params.name;
                     }
                   },
                   itemStyle: {
-                    areaColor: 'rgba(176, 168, 185, 0.3)'
+                    areaColor: isDark ? 'rgba(200, 169, 126, 0.26)' : 'rgba(138, 111, 72, 0.18)'
                   }
                 },
                 itemStyle: {
@@ -451,8 +451,8 @@ export const TravelMap: React.FC = () => {
                 },
                 label: {
                   show: true,
-                  color: mapConfig.mapStyle.labelColor,
-                  fontSize: isEn ? 10 : 12,
+                  color: isDark ? 'rgba(212, 209, 199, 0.55)' : 'rgba(95, 94, 88, 0.55)',
+                  fontSize: isEn ? 9 : 10,
                   formatter: function(params: any) {
                     const rawProv = String(params.name || '').replace(/省|市|自治区|特别行政区/g, '');
                     return isEn ? PROVINCE_NAME_EN_MAP[params.name] || PROVINCE_NAME_EN_MAP[rawProv] || params.name : params.name;
@@ -474,25 +474,42 @@ export const TravelMap: React.FC = () => {
                   })),
                   symbol: 'circle',
                   symbolSize: mapConfig.markerStyle.size,
+                  cursor: 'pointer',
                   itemStyle: {
                     color: mapConfig.markerStyle.color,
                     borderColor: mapConfig.markerStyle.borderColor,
-                    borderWidth: 2
+                    borderWidth: 2,
+                    shadowBlur: 6,
+                    shadowColor: 'rgba(138, 111, 72, 0.45)'
                   },
+                  // Visited cities are always named on the map, sitting on a small paper tag.
+                  label: {
+                    show: true,
+                    position: 'right',
+                    distance: 6,
+                    formatter: function(params: any) {
+                      return translateCityName(params.name);
+                    },
+                    color: isDark ? '#F0EFEA' : '#141413',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    backgroundColor: isDark ? 'rgba(20, 20, 19, 0.82)' : 'rgba(250, 249, 245, 0.9)',
+                    borderColor: isDark ? 'rgba(200, 169, 126, 0.45)' : 'rgba(138, 111, 72, 0.35)',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    padding: [2, 5]
+                  },
+                  labelLayout: { hideOverlap: true },
                   emphasis: {
+                    scale: 1.35,
                     itemStyle: {
-                      color: '#ffffff',
-                      shadowBlur: 15,
-                      shadowColor: '#b0a8b9'
+                      color: mapConfig.markerStyle.color,
+                      shadowBlur: 14,
+                      shadowColor: 'rgba(138, 111, 72, 0.6)'
                     },
                     label: {
-                      show: true,
-                      formatter: function(params: any) {
-                        return translateCityName(params.name);
-                      },
-                      color: '#ffffff',
-                      fontSize: 14,
-                      fontWeight: 'bold'
+                      color: isDark ? '#141413' : '#FAF9F5',
+                      backgroundColor: isDark ? '#D2B488' : '#8A6F48'
                     }
                   },
                   zlevel: 2
@@ -822,23 +839,23 @@ export const TravelMap: React.FC = () => {
             <Navigation className="w-3.5 h-3.5 text-[#8A6F48] dark:text-[#C9A87C]" />
             VISITED CITIES ARCHIVE ({optimizedCityData.length})
           </h4>
-          {optimizedCityData.length > (isMobile ? 2 : 3) && (
-            <button
-              onClick={() => setIsCitiesExpanded(!isCitiesExpanded)}
-              className="font-mono-tech text-[11px] uppercase tracking-[0.14em] text-[#8A6F48] dark:text-[#C9A87C] hover:text-[#141413] dark:hover:text-[#F0EFEA] transition-colors flex items-center gap-1 relative z-50"
-            >
-              {isCitiesExpanded
-                ? td('COLLAPSE · 收起', 'COLLAPSE')
-                : td('EXPAND · 展开', 'EXPAND ALL')}
-              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform ${isCitiesExpanded ? 'rotate-180' : ''}`}><path d="m6 9 6 6 6-6"/></svg>
-            </button>
-          )}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {(isCitiesExpanded ? optimizedCityData : optimizedCityData.slice(0, isMobile ? 2 : 3)).map((city) => (
+          {(isCitiesExpanded ? optimizedCityData : optimizedCityData.slice(0, 3)).map((city, cityIdx) => (
             <div
               key={city.id}
-              className="group relative bg-[#FAF9F5] dark:bg-[#0D0D0C] rounded-xl overflow-hidden border designer-hairline hover:border-[#8A6F48] dark:hover:border-[#C9A87C] transition-all duration-300 cursor-pointer"
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setSelectedCity(city);
+                }
+              }}
+              className={`group relative bg-[#FAF9F5] dark:bg-[#0D0D0C] rounded-xl overflow-hidden border designer-hairline hover:border-[#8A6F48] dark:hover:border-[#C9A87C] transition-all duration-300 cursor-pointer ${
+                // Collapsed preview fills exactly one row: 2 cards below lg, 3 at lg.
+                !isCitiesExpanded && cityIdx === 2 ? 'hidden lg:block' : ''
+              }`}
               onClick={() => setSelectedCity(city)}
             >
               <div className="flex h-28">
@@ -886,16 +903,20 @@ export const TravelMap: React.FC = () => {
             </div>
           ))}
         </div>
-        {optimizedCityData.length > (isMobile ? 2 : 3) && !isCitiesExpanded && (
+        {optimizedCityData.length > 2 && (
           <button
-            onClick={() => setIsCitiesExpanded(true)}
-            className="mt-4 w-full py-2.5 flex items-center justify-center gap-2 font-mono-tech text-[11px] uppercase tracking-[0.16em] text-[#141413] dark:text-[#F0EFEA] bg-[#FAF9F5] dark:bg-[#0D0D0C] border designer-hairline hover:border-[#8A6F48] rounded-xl transition-colors relative z-50"
+            type="button"
+            aria-expanded={isCitiesExpanded}
+            onClick={() => setIsCitiesExpanded(!isCitiesExpanded)}
+            className={`mt-4 w-full py-2.5 flex items-center justify-center gap-2 font-mono-tech text-[11px] uppercase tracking-[0.16em] text-[#141413] dark:text-[#F0EFEA] bg-[#FAF9F5] dark:bg-[#0D0D0C] border designer-hairline hover:border-[#8A6F48] rounded-xl transition-colors relative z-10 ${
+              // With exactly 3 cities the lg preview already shows them all.
+              !isCitiesExpanded && optimizedCityData.length <= 3 ? 'lg:hidden' : ''
+            }`}
           >
-            {td(
-              `查看全部 ${optimizedCityData.length} 个城市 · VIEW ALL CITIES`,
-              `VIEW ALL ${optimizedCityData.length} VISITED CITIES`,
-            )}
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            {isCitiesExpanded
+              ? td('收起城市列表', 'SHOW FEWER')
+              : td(`查看全部 ${optimizedCityData.length} 个城市`, `VIEW ALL ${optimizedCityData.length} CITIES`)}
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform ${isCitiesExpanded ? 'rotate-180' : ''}`}><path d="m6 9 6 6 6-6"/></svg>
           </button>
         )}
       </div>
