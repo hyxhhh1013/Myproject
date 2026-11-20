@@ -10,7 +10,8 @@ export type PersonalMemoryKind =
   | 'redbrick-gate'
   | 'gramophone-lounge'
   | 'winter-bros'
-  | 'hunau-campus';
+  | 'hunau-campus'
+  | 'company-studio';
 
 export interface PersonalMemoryNode {
   id: PersonalMemoryKind;
@@ -238,5 +239,44 @@ export const PERSONAL_MEMORIES: PersonalMemoryNode[] = [
     unlockPlaceholderEn: 'Enter major name...',
     unlockAnswers: ['计算机科学与技术', '计科', 'computer science and technology'],
     photos: [],
+  },
+  {
+    id: 'company-studio',
+    indexLabel: 'M07',
+    zoneId: 'coast',
+    // Open sea west of the coast island; faces back toward it (rotY points +z at the coast).
+    islandCenter: { x: -34, y: 1.0, z: 10 },
+    islandRadius: 8.8,
+    pos: { x: -34, y: 1.0, z: 10 },
+    rotY: 2.26,
+    preferredTime: 14.5,
+    categoryZh: '团队记忆 · 我们的办公室',
+    categoryEn: 'TEAM MEMORY · OUR OFFICE',
+    titleZh: '我们的公司 · 剑架与帐篷',
+    titleEn: 'Our Studio · Sword Rack & Tent',
+    subtitleZh: '竹制剑架上的仿古长剑、办公室里的露营帐篷，和一群一起打拼的人',
+    subtitleEn: 'Replica swords on a bamboo rack, a camping tent in the office, and the people building it together',
+    eraZh: '现在进行时 · 一起打拼',
+    storyZh:
+      '工位旁立着一架竹制剑架，金鞘、黑鞘、蓝鞘的仿古长剑一字排开，身后还斜插着银白与赤红的几把；角落里支起米色露营帐篷，配上折叠椅和黑色蛋卷桌，开会也像在野营。挂满红金气球的那天，大家各执一把剑交叉合影，把一间办公室过成了自己的江湖。',
+    storyEn:
+      'Beside the desks stands a bamboo rack of replica swords in gold, black and navy scabbards, with silver and crimson blades upright behind them. In the corner, a beige camping tent, folding chairs and a black roll-top table turn meetings into a campsite. On the day of the red-and-gold balloons, everyone crossed their swords for one photo — our office, our own little jianghu.',
+    unlockQuestionZh: '剑架上一共放着几把剑？',
+    unlockQuestionEn: 'How many swords are on the rack in total?',
+    unlockPlaceholderZh: '输入数字...',
+    unlockPlaceholderEn: 'Enter a number...',
+    unlockAnswers: ['7', '七', '七把', '7把', 'seven'],
+    photos: [
+      {
+        url: '/memories/p7-company-swords.jpg',
+        captionZh: '工位旁的竹制剑架 · 金鞘、黑鞘与蓝鞘',
+        captionEn: 'The bamboo sword rack by our desks',
+      },
+      {
+        url: '/memories/p7-company-tent.jpg',
+        captionZh: '办公室里的露营角 · 帐篷、折叠椅与蛋卷桌',
+        captionEn: 'The camping corner inside the office',
+      },
+    ],
   },
 ];
