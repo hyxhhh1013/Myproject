@@ -139,6 +139,17 @@ app.use((req, res, next) => {
   
   if (req.path.startsWith('/api')) {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    const isPublicReadShowcase =
+      req.method === 'GET' &&
+      !req.headers.authorization &&
+      /^\/api\/(projects|photos|photo-categories|skills|experience|education|hobbies|music|movies|travel-cities|travel-footprints|moments|site-config|social-media|users)(\/|$)/.test(
+        req.path
+      );
+    if (isPublicReadShowcase) {
+      res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+    } else {
+      res.setHeader('Cache-Control', 'no-store');
+    }
   }
   
   res.removeHeader('X-Powered-By');

@@ -1422,6 +1422,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
   const [soundMuted, setSoundMuted] = useState<boolean>(false);
   const [activeZoneId, setActiveZoneId] = useState<string>('meadow');
   const [showControlsHint, setShowControlsHint] = useState<boolean>(false);
+  const [sceneReady, setSceneReady] = useState<boolean>(false);
   const [showTimePanel, setShowTimePanel] = useState<boolean>(() =>
     typeof window !== 'undefined' ? window.innerWidth >= 768 : true
   );
@@ -1811,6 +1812,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
 
     const width = container.clientWidth || window.innerWidth;
     const height = container.clientHeight || window.innerHeight;
+    const isMobileViewport = width < 768;
 
     const scene = new THREE.Scene();
     const fog = new THREE.FogExp2('#FAD4B8', 0.0046);
@@ -1820,12 +1822,12 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
     simRef.current.camera = camera;
 
     const renderer = new THREE.WebGLRenderer({
-      antialias: true,
+      antialias: !isMobileViewport,
       powerPreference: 'high-performance',
       preserveDrawingBuffer: true,
     });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isMobileViewport ? 1.4 : 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -1880,8 +1882,8 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
     const sunLight = new THREE.DirectionalLight('#FF8B3D', 2.2);
     sunLight.position.set(-32, 16, -16);
     sunLight.castShadow = true;
-    sunLight.shadow.mapSize.width = 2048;
-    sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.mapSize.width = isMobileViewport ? 1024 : 2048;
+    sunLight.shadow.mapSize.height = isMobileViewport ? 1024 : 2048;
     sunLight.shadow.camera.near = 2;
     sunLight.shadow.camera.far = 160;
     const d = 58;
@@ -1900,7 +1902,8 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
     cabinLight.position.set(-16.2, 2.5, -2.5);
     scene.add(cabinLight);
 
-    const waterGeo = new THREE.PlaneGeometry(360, 360, 112, 112);
+    const waterSegs = isMobileViewport ? 64 : 112;
+    const waterGeo = new THREE.PlaneGeometry(360, 360, waterSegs, waterSegs);
     waterGeo.rotateX(-Math.PI / 2);
     const waterMat = new THREE.MeshStandardMaterial({
       color: '#38B6B2',
@@ -2535,6 +2538,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
     });
 
     let reqId: number;
+    let firstFrameRendered = false;
     const clock = new THREE.Clock();
     let prevElapsed = 0;
     let clickWalkStuckFrames = 0;
@@ -2865,6 +2869,10 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       camera.lookAt(sim.camFocus);
 
       renderer.render(scene, camera);
+      if (!firstFrameRendered) {
+        firstFrameRendered = true;
+        setSceneReady(true);
+      }
     };
 
     reqId = requestAnimationFrame(animate);
@@ -3176,6 +3184,26 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
         onWheel={handleWheel}
         className="w-full h-full block touch-none cursor-grab active:cursor-grabbing"
       />
+
+      {/* Smooth Editorial Loading Curtain (fades out once WebGL first frame renders) */}
+      <AnimatePresence>
+        {!sceneReady && (
+          <motion.div
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.45, ease: 'easeOut' }}
+            className="absolute inset-0 z-40 bg-[#FAF9F5] dark:bg-[#0D0D0C] flex flex-col items-center justify-center gap-3 pointer-events-none"
+          >
+            <div className="w-9 h-9 rounded-full border-2 border-[#E6E2D8] dark:border-[#2A2925] border-t-[#8A6F48] dark:border-t-[#C8A97E] animate-spin" />
+            <div className="text-[11px] font-mono uppercase tracking-[0.24em] text-[#8A6F48] dark:text-[#C8A97E]">
+              THE SHUTTER ISLAND · WEBGL 3D
+            </div>
+            <div className="font-serif text-sm text-[#524E48] dark:text-[#9E9A92]">
+              {td('正在铺展光影群岛与水下海域...', 'Loading archipelago & underwater sanctuary...')}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Hover 3D Object Floating Tooltip */}
       {hoveredLabel && !selectedEasel && !activeStation && !selectedMemory && (

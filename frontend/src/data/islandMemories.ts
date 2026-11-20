@@ -69,12 +69,12 @@ export const PERSONAL_MEMORIES: PersonalMemoryNode[] = [
     unlockAnswers: ['深圳', '深圳市', 'shenzhen'],
     photos: [
       {
-        url: '/memories/p6-freedive.jpg',
+        url: '/memories/p6-freedive.webp',
         captionZh: '深圳 · 深蓝水下手握导绳自由潜',
         captionEn: 'Shenzhen · Underwater freediving along the guide rope',
       },
       {
-        url: '/memories/p1-night-car.jpg',
+        url: '/memories/p1-night-car.webp',
         captionZh: '夜色车厢 · 绯红微光里的定格',
         captionEn: 'Night Car · Portrait in crimson ambient light',
       },
@@ -107,7 +107,7 @@ export const PERSONAL_MEMORIES: PersonalMemoryNode[] = [
     unlockAnswers: ['227', '227班'],
     photos: [
       {
-        url: '/memories/p2-yzfls.jpg',
+        url: '/memories/p2-yzfls.webp',
         captionZh: '株洲市外国语学校 · 校门阶梯与蓝白教学楼',
         captionEn: 'Zhuzhou Foreign Language School · Steps & Main Hall',
       },
@@ -140,7 +140,7 @@ export const PERSONAL_MEMORIES: PersonalMemoryNode[] = [
     unlockAnswers: ['2114', '2114班'],
     photos: [
       {
-        url: '/memories/p3-redbrick-gate.jpg',
+        url: '/memories/p3-redbrick-gate.webp',
         captionZh: '株洲南方中学 · 晴空下的红砖校门与钟楼广场',
         captionEn: 'Zhuzhou Nanfang High School · Red-brick gate & clock tower',
       },
@@ -173,7 +173,7 @@ export const PERSONAL_MEMORIES: PersonalMemoryNode[] = [
     unlockAnswers: ['重庆', '重庆市', 'chongqing'],
     photos: [
       {
-        url: '/memories/p4-friends-room.jpg',
+        url: '/memories/p4-friends-room.webp',
         captionZh: '重庆 · 夜色落地窗与留声机旁的四人合照',
         captionEn: 'Chongqing · Group photo by the gramophone & night window',
       },
@@ -206,7 +206,7 @@ export const PERSONAL_MEMORIES: PersonalMemoryNode[] = [
     unlockAnswers: ['健身', '去健身', '锻炼', 'gym', 'workout'],
     photos: [
       {
-        url: '/memories/p5-winter-bros.jpg',
+        url: '/memories/p5-winter-bros.webp',
         captionZh: '健身日常 · 米白与黑羽绒服冬日合照',
         captionEn: 'Gym day · Winter duo snapshot in cream and black puffers',
       },

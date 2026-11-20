@@ -161,6 +161,9 @@ export default defineConfig({
       output: {
         manualChunks: (id) => {
           if (id.includes('node_modules')) {
+            if (id.includes('/three/') || id.includes('\\three\\')) {
+              return 'three-vendor';
+            }
             if (id.includes('echarts') || id.includes('zrender')) {
               return 'echarts-vendor';
             }
