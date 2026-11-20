@@ -10,7 +10,8 @@ const config = {
   host: '42.194.162.51',
   port: 22,
   username: 'ubuntu',
-  password: 'huang200513!',
+  // Never commit the SSH password: export DEPLOY_SSH_PASSWORD before running this script.
+  password: process.env.DEPLOY_SSH_PASSWORD,
   deployPath: '/home/ubuntu/personal-website',
   localPath: path.join(__dirname, '../release'),
   zipName: 'release.tar.gz'

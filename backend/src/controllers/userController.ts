@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import jwt from 'jsonwebtoken';
 import { prisma } from '../index';
 import path from 'path';
 import logger from '../utils/logger';
@@ -25,13 +26,35 @@ export const uploadAvatar = asyncHandler(async (req: FileUploadRequest, res: Res
   res.json({ status: 'success', message: 'Avatar updated', data: { avatar: avatarUrl } });
 });
 
+// These GET routes are public (the homepage reads the profile). Never send the
+// password hash; send the phone number only to a request carrying a valid admin
+// token (the admin profile page edits it). The routes are not cached, so a
+// token-bearing response can never be replayed to an anonymous visitor.
+const hasValidAdminToken = (req: Request): boolean => {
+  const header = req.headers.authorization;
+  if (!header || !header.startsWith('Bearer ')) return false;
+  try {
+    jwt.verify(header.split(' ')[1], process.env.JWT_SECRET || 'secret123');
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const toResponseUser = <T extends { password?: string; phone?: string }>(user: T, includePrivate: boolean) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { password, phone, ...publicFields } = user;
+  return includePrivate ? { ...publicFields, phone } : publicFields;
+};
+
 export const getAllUsers = asyncHandler(async (req: Request, res: Response) => {
   const users = await prisma.user.findMany({
     include: { education: true, experience: true, skills: true, projects: true, contacts: true, socialMedia: true },
   });
 
   logger.info('Retrieved all users', { count: users.length });
-  res.status(200).json(users);
+  const includePrivate = hasValidAdminToken(req);
+  res.status(200).json(users.map((user) => toResponseUser(user, includePrivate)));
 });
 
 export const getUserById = asyncHandler(async (req: Request, res: Response) => {
@@ -45,7 +68,7 @@ export const getUserById = asyncHandler(async (req: Request, res: Response) => {
     return res.status(404).json({ status: 'error', message: 'User not found' });
   }
 
-  res.status(200).json(user);
+  res.status(200).json(toResponseUser(user, hasValidAdminToken(req)));
 });
 
 export const createUser = asyncHandler(async (req: Request, res: Response) => {
