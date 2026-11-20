@@ -254,18 +254,33 @@ const FlagshipProjectCard: React.FC<{
         <div className="lg:col-span-7 border-b lg:border-b-0 lg:border-r designer-hairline flex flex-col justify-between bg-[#FAF9F5]/50 dark:bg-[#121210]/50">
           <div
             onClick={() => onOpenLightbox(images, activeImgIdx)}
-            className="aspect-[16/10] bg-[#141413] border-b designer-hairline overflow-hidden relative group cursor-pointer"
+            className="aspect-[16/10] bg-[#F2EFE8] dark:bg-[#191816] border-b designer-hairline p-3 sm:p-4 lg:p-5 relative group cursor-pointer"
           >
-            <ImageWithFallback
-              src={currentImage}
-              thumbnailSrc={currentImage}
-              alt={td(project.title, project.titleEn)}
-              adaptiveFrame={true}
-              className="transition-transform duration-700 group-hover:scale-[1.02]"
-            />
+            <div className="w-full h-full rounded-xl overflow-hidden bg-[#FAF9F5] dark:bg-[#141413] ring-1 ring-[#141413]/10 dark:ring-white/10 shadow-[0_14px_34px_-10px_rgba(20,20,19,0.16)] flex flex-col transition-transform duration-500 group-hover:-translate-y-0.5">
+              {/* Minimal Warm-Sand Browser Chrome */}
+              <div className="h-6 sm:h-7 px-3 bg-[#FAF8F4] dark:bg-[#1D1C19] border-b border-[#141413]/8 dark:border-white/8 flex items-center justify-between gap-2 shrink-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#D5CEC2] dark:bg-[#3A3833]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#D5CEC2] dark:bg-[#3A3833]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#D5CEC2] dark:bg-[#3A3833]" />
+                </div>
+                <span className="text-[10px] font-mono text-[#8A8478] dark:text-[#8E8A80] truncate">
+                  {(project.demoLink || '').replace(/^https?:\/\//, '').replace(/\/$/, '') || project.indexCode}
+                </span>
+                <Maximize2 className="w-3 h-3 text-[#8A6F48]/70 group-hover:text-[#8A6F48] dark:text-[#C8A97E]/70 dark:group-hover:text-[#C8A97E] transition-colors shrink-0" />
+              </div>
 
-            <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 z-20 p-1.5 rounded-full bg-black/55 text-white opacity-85 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-              <Maximize2 className="w-3.5 h-3.5" />
+              {/* Screenshot Viewport with Soft Editorial Harmonization */}
+              <div className="relative flex-1 min-h-0 overflow-hidden bg-[#FAF9F5] dark:bg-[#141413]">
+                <ImageWithFallback
+                  src={currentImage}
+                  thumbnailSrc={currentImage}
+                  alt={td(project.title, project.titleEn)}
+                  adaptiveFrame={true}
+                  className="saturate-[0.88] contrast-[0.98] group-hover:saturate-100 group-hover:contrast-100 transition-all duration-500"
+                />
+                <div className="pointer-events-none absolute inset-0 bg-[#8A6F48]/[0.04] group-hover:bg-transparent transition-colors duration-500" />
+              </div>
             </div>
 
             {images.length > 1 && (
@@ -531,21 +546,36 @@ const ProjectCard: React.FC<{
           </span>
         </div>
 
-        {/* Image Frame with Clean Arrows + Lightbox Click (16:10 native ratio) */}
+        {/* Image Frame with Warm-Sand Showcase Mat + Minimal Browser Bezel */}
         <div
           onClick={() => onOpenLightbox(images, activeImgIdx)}
-          className="aspect-[16/10] bg-[#141413] border-b designer-hairline overflow-hidden relative group cursor-pointer"
+          className="aspect-[16/10] bg-[#F2EFE8] dark:bg-[#191816] border-b designer-hairline p-2.5 sm:p-3.5 relative group cursor-pointer"
         >
-          <ImageWithFallback
-            src={currentImage}
-            thumbnailSrc={currentImage}
-            alt={td(project.title, project.titleEn)}
-            adaptiveFrame={true}
-            className="transition-transform duration-700 group-hover:scale-[1.03]"
-          />
+          <div className="w-full h-full rounded-lg overflow-hidden bg-[#FAF9F5] dark:bg-[#141413] ring-1 ring-[#141413]/10 dark:ring-white/10 shadow-[0_10px_24px_-8px_rgba(20,20,19,0.16)] flex flex-col transition-transform duration-500 group-hover:-translate-y-0.5">
+            {/* Minimal Warm-Sand Browser Chrome */}
+            <div className="h-5 sm:h-6 px-2.5 bg-[#FAF8F4] dark:bg-[#1D1C19] border-b border-[#141413]/8 dark:border-white/8 flex items-center justify-between gap-2 shrink-0">
+              <div className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#D5CEC2] dark:bg-[#3A3833]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-[#D5CEC2] dark:bg-[#3A3833]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-[#D5CEC2] dark:bg-[#3A3833]" />
+              </div>
+              <span className="text-[9.5px] font-mono text-[#8A8478] dark:text-[#8E8A80] truncate">
+                {(project.demoLink || '').replace(/^https?:\/\//, '').replace(/\/$/, '') || project.indexCode}
+              </span>
+              <Maximize2 className="w-2.5 h-2.5 text-[#8A6F48]/70 group-hover:text-[#8A6F48] dark:text-[#C8A97E]/70 dark:group-hover:text-[#C8A97E] transition-colors shrink-0" />
+            </div>
 
-          <div className="absolute top-2.5 right-2.5 z-20 p-1.5 rounded-full bg-black/55 text-white opacity-85 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-            <Maximize2 className="w-3 h-3" />
+            {/* Screenshot Viewport with Soft Editorial Harmonization */}
+            <div className="relative flex-1 min-h-0 overflow-hidden bg-[#FAF9F5] dark:bg-[#141413]">
+              <ImageWithFallback
+                src={currentImage}
+                thumbnailSrc={currentImage}
+                alt={td(project.title, project.titleEn)}
+                adaptiveFrame={true}
+                className="saturate-[0.88] contrast-[0.98] group-hover:saturate-100 group-hover:contrast-100 transition-all duration-500"
+              />
+              <div className="pointer-events-none absolute inset-0 bg-[#8A6F48]/[0.04] group-hover:bg-transparent transition-colors duration-500" />
+            </div>
           </div>
 
           {images.length > 1 && (
@@ -828,7 +858,7 @@ export const Projects: React.FC = () => {
 
             const combinedImages =
               parsedImages.length > 0
-                ? [...defProj.images, ...parsedImages]
+                ? parsedImages
                 : defProj.images;
 
             return {

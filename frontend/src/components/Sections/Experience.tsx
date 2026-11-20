@@ -15,7 +15,6 @@ import 'yet-another-react-lightbox/plugins/captions.css';
 import { getImageUrl } from '../../utils/imageUtils';
 import { ImageWithFallback } from '../UI/ImageWithFallback';
 import { useI18n } from '../../i18n/i18nContext';
-import { ONION_FDE_BLUEPRINT_SVG } from '../../utils/projectBlueprints';
 
 interface ExperienceItem {
   id: number;
@@ -49,7 +48,7 @@ const DEFAULT_EXPERIENCES: ExperienceItem[] = [
       '连续驻场 15 周对接 8 个部门，沉淀 45 份业务流程文档。落地 35 个只读工具的经营 Agent、家教与雅思双线全链路中台（FastAPI 100+ 路由）及巨量引擎 19 条 API 投流归因。',
     descriptionEn:
       'On-site for 15 weeks across 8 teams. Shipped a 35-tool Operations Agent, full-link Tutoring & IELTS middle platform across 100+ FastAPI routes, and 19 Ocean Engine ad attribution APIs.',
-    images: [ONION_FDE_BLUEPRINT_SVG],
+    images: [],
   },
   {
     id: 2,

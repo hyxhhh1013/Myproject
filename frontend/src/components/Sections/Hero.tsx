@@ -3,25 +3,17 @@ import { motion } from 'framer-motion';
 import { Link as ScrollLink } from 'react-scroll';
 import { ChevronDown, ArrowUpRight, FileText, Copy, Check } from 'lucide-react';
 import { ImageWithFallback } from '../UI/ImageWithFallback';
-import { getImageUrl } from '../../utils/imageUtils';
 import axios from '../../utils/axiosConfig';
 import { useI18n } from '../../i18n/i18nContext';
 import { playSuccessChime } from '../../utils/soundEffects';
 
-const DEFAULT_AVATAR = 'https://avatars.githubusercontent.com/hyxhhh1013';
+const GITHUB_AVATAR = 'https://avatars.githubusercontent.com/hyxhhh1013';
 
 export const Hero: React.FC = () => {
   const { language, t, td } = useI18n();
   const [copied, setCopied] = useState(false);
 
-  const [heroData, setHeroData] = useState<{
-    name: string;
-    avatar: string;
-    avatarThumbnail?: string;
-  }>({
-    name: '黄奕轩',
-    avatar: '',
-  });
+  const [heroName, setHeroName] = useState<string>('黄奕轩');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -29,20 +21,10 @@ export const Hero: React.FC = () => {
         const userResponse = await axios.get('/api/users/1');
         const userData = userResponse.data?.data || userResponse.data;
         if (userData && userData.name && userData.name !== '张三' && userData.name !== 'Admin') {
-          setHeroData({
-            name: userData.name,
-            avatar: userData.avatar ? getImageUrl(userData.avatar) : '',
-            avatarThumbnail: userData.avatarThumbnail ? getImageUrl(userData.avatarThumbnail) : '',
-          });
-        } else if (userData && userData.avatar) {
-          setHeroData((prev) => ({
-            ...prev,
-            avatar: getImageUrl(userData.avatar),
-            avatarThumbnail: userData.avatarThumbnail ? getImageUrl(userData.avatarThumbnail) : '',
-          }));
+          setHeroName(userData.name);
         }
       } catch {
-        // Keep default heroData
+        // Keep default heroName
       }
     };
 
@@ -55,8 +37,6 @@ export const Hero: React.FC = () => {
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
   };
-
-  const resolvedAvatar = heroData.avatar && heroData.avatar.trim() !== '' ? heroData.avatar : DEFAULT_AVATAR;
 
   return (
     <section
@@ -81,9 +61,9 @@ export const Hero: React.FC = () => {
                 <div className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full p-1 bg-[var(--bg-canvas)] border designer-hairline shadow-[0_6px_24px_rgba(20,20,19,0.06)]">
                   <div className="w-full h-full rounded-full overflow-hidden bg-[#F3F1EC] dark:bg-[#22221F]">
                     <ImageWithFallback
-                      src={resolvedAvatar}
-                      thumbnailSrc={heroData.avatarThumbnail || resolvedAvatar}
-                      alt={heroData.name}
+                      src={GITHUB_AVATAR}
+                      thumbnailSrc={GITHUB_AVATAR}
+                      alt={heroName}
                       className="w-full h-full object-cover"
                     />
                   </div>
@@ -109,7 +89,7 @@ export const Hero: React.FC = () => {
                   language === 'en' ? 'italic font-normal' : 'not-italic font-medium'
                 }`}
               >
-                {td(heroData.name, 'Huang Yixuan')}
+                {td(heroName, 'Huang Yixuan')}
               </span>
             </h1>
 
