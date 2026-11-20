@@ -23,6 +23,21 @@ import {
   CoQuestion,
   QuestionSection,
 } from '../data/coExamReview';
+import {
+  Q1AddressingDiagram,
+  Q2MemoryPinsDiagram,
+  Q3DecToBinDiagram,
+  Q4MixedRadixDiagram,
+  Q5RamPinsDiagram,
+  Q6FloatFlowDiagram,
+  Q7CacheMappingDiagram,
+  Q8HanziEncodingDiagram,
+  Q9MicroInstructionDiagram,
+  Q10InstVsDataDiagram,
+  Q11CacheSetAssocDiagram,
+  Q12MicroprogramDiagram,
+  Q13SramWiringDiagram,
+} from '../components/CoExamDiagrams';
 
 type MasteryStatus = 'unseen' | 'mastered' | 'review';
 type FilterMode = 'all' | QuestionSection | 'review';
@@ -1101,6 +1116,23 @@ const QuestionCard: React.FC<QuestionCardProps> = ({ q, status, onStatusChange }
               </div>
             )}
 
+            {/* Visual Chart / Schematic Explanation for Every Question (Q1 - Q13) */}
+            <div className="space-y-3">
+              {q.id === 1 && <Q1AddressingDiagram />}
+              {q.id === 2 && <Q2MemoryPinsDiagram />}
+              {q.id === 3 && <Q3DecToBinDiagram />}
+              {q.id === 4 && <Q4MixedRadixDiagram />}
+              {q.id === 5 && <Q5RamPinsDiagram />}
+              {q.id === 6 && <Q6FloatFlowDiagram />}
+              {q.id === 7 && <Q7CacheMappingDiagram />}
+              {q.id === 8 && <Q8HanziEncodingDiagram />}
+              {q.id === 9 && <Q9MicroInstructionDiagram />}
+              {q.id === 10 && <Q10InstVsDataDiagram />}
+              {q.id === 11 && <Q11CacheSetAssocDiagram {...cacheVariant} />}
+              {q.id === 12 && <Q12MicroprogramDiagram />}
+              {q.id === 13 && <Q13SramWiringDiagram />}
+            </div>
+
             {/* Step-by-step Derivation */}
             <div className="space-y-1.5">
               <div className="text-[11px] font-mono uppercase tracking-wider designer-text-muted">
@@ -1131,18 +1163,6 @@ const QuestionCard: React.FC<QuestionCardProps> = ({ q, status, onStatusChange }
                 </ul>
               )}
             </div>
-
-            {/* SRAM Wiring Diagram & Rubric (Q13) */}
-            {q.sramDiagram && (
-              <div className="space-y-2">
-                <div className="text-[11px] font-mono uppercase tracking-wider designer-text-muted">
-                  存储器扩展连线示意图
-                </div>
-                <pre className="p-3.5 rounded-xl bg-[#141413] text-[#F0EFEA] text-[11px] leading-snug overflow-x-auto font-mono">
-                  {q.sramDiagram}
-                </pre>
-              </div>
-            )}
 
             {q.sramRubric && (
               <div className="space-y-2">
