@@ -1802,6 +1802,8 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
   const rootRef = useRef<HTMLDivElement | null>(null);
   const mountRef = useRef<HTMLDivElement | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  const sceneRef = useRef<THREE.Scene | null>(null);
+  const lastHoverCheckRef = useRef<number>(0);
   const filmstripRef = useRef<HTMLDivElement | null>(null);
   // Fullscreen owns the keyboard from the start; embedded waits for a click inside the scene.
   const keyboardActiveRef = useRef<boolean>(!embedded);
@@ -2184,6 +2186,10 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
     setTimeout(() => setShutterFlash(false), 260);
 
     try {
+      // With preserveDrawingBuffer: false (faster GPU swap-chain), render one fresh frame right before reading pixels.
+      if (sceneRef.current && simRef.current.camera) {
+        renderer.render(sceneRef.current, simRef.current.camera);
+      }
       const dataUrl = renderer.domElement.toDataURL('image/png');
       const atmo = computeAtmosphere(timeOfDay);
       const zone = ISLAND_ZONES.find((z) => z.id === activeZoneId) || ISLAND_ZONES[0];
@@ -2377,10 +2383,10 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
     const renderer = new THREE.WebGLRenderer({
       antialias: !isMobileViewport,
       powerPreference: 'high-performance',
-      preserveDrawingBuffer: true,
+      preserveDrawingBuffer: false,
     });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isMobileViewport ? 1.4 : 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isMobileViewport ? 1.25 : 1.5));
     renderer.shadowMap.enabled = true;
     // PCFSoftShadowMap was removed from three.js (it silently fell back to PCF and logged a warning).
     renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -2390,6 +2396,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
     container.innerHTML = '';
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
+    sceneRef.current = scene;
 
     const skyGeo = new THREE.SphereGeometry(210, 32, 20);
     const skyUniforms = {
@@ -2436,8 +2443,8 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
     const sunLight = new THREE.DirectionalLight('#FF8B3D', 2.2);
     sunLight.position.set(-32, 16, -16);
     sunLight.castShadow = true;
-    sunLight.shadow.mapSize.width = isMobileViewport ? 1024 : 2048;
-    sunLight.shadow.mapSize.height = isMobileViewport ? 1024 : 2048;
+    sunLight.shadow.mapSize.width = isMobileViewport ? 512 : 1024;
+    sunLight.shadow.mapSize.height = isMobileViewport ? 512 : 1024;
     sunLight.shadow.camera.near = 1;
     sunLight.shadow.camera.far = 140;
     // The shadow frustum follows the camera focus (see the render loop) instead of covering the
@@ -2462,9 +2469,10 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
     cabinLight.position.set(-16.2, 2.5, -2.5);
     scene.add(cabinLight);
 
-    const waterSegs = isMobileViewport ? 64 : 112;
+    const waterSegs = isMobileViewport ? 42 : 64;
     const waterGeo = new THREE.PlaneGeometry(360, 360, waterSegs, waterSegs);
     waterGeo.rotateX(-Math.PI / 2);
+    const waterUniforms = { uTime: { value: 0 } };
     const waterMat = new THREE.MeshStandardMaterial({
       color: '#38B6B2',
       roughness: 0.22,
@@ -2474,6 +2482,16 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       opacity: 0.78,
       side: THREE.DoubleSide,
     });
+    waterMat.onBeforeCompile = (shader) => {
+      shader.uniforms.uTime = waterUniforms.uTime;
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nuniform float uTime;')
+        .replace(
+          '#include <begin_vertex>',
+          `#include <begin_vertex>
+           transformed.y += sin(transformed.x * 0.22 + uTime * 1.6) * 0.09 + cos(transformed.z * 0.25 + uTime * 1.3) * 0.08;`
+        );
+    };
     const waterMesh = new THREE.Mesh(waterGeo, waterMat);
     waterMesh.position.y = -0.22;
     waterMesh.receiveShadow = true;
@@ -3193,7 +3211,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
     }
 
     // 21. Dedicated Personal Memory Islands, Stepping-Stone Paths & Refined 3D Landmarks
-    const memoryModels: BuiltMemoryModel[] = [];
+    const memoryModels: { built: BuiltMemoryModel; pos: { x: number; z: number } }[] = [];
     const destructionManager = new IslandDestructionManager(scene, {
       onExplode: (meta, toastZh, toastEn) => {
         setBlastFlash(true);
@@ -3321,7 +3339,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       built.group.position.set(mem.pos.x, mem.id === 'freedive-crimson' ? mem.pos.y : mem.pos.y + 0.12, mem.pos.z);
       built.group.rotation.y = mem.rotY;
       scene.add(built.group);
-      memoryModels.push(built);
+      memoryModels.push({ built, pos: mem.pos });
       if (DESTRUCTIBLE_IDS.has(mem.id)) {
         const reg = destructionManager.registerTarget(
           mem.id,
@@ -3403,7 +3421,6 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
     const uwFogColor = new THREE.Color('#03588C');
     const uwWaterColor = new THREE.Color('#0E87B4');
     let clickWalkStuckFrames = 0;
-    const baseWaterPos = waterGeo.attributes.position.clone();
 
     const tryMoveWithSliding = (
       curX: number,
@@ -3551,7 +3568,11 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
         sr.mesh.rotation.y = elapsed * 0.12;
       });
 
-      memoryModels.forEach((mm) => mm.update(elapsed));
+      memoryModels.forEach((mm) => {
+        if (Math.hypot(mm.pos.x - sim.camFocus.x, mm.pos.z - sim.camFocus.z) < 58) {
+          mm.built.update(elapsed);
+        }
+      });
 
       const flameBoost = cozyToysManager.getCampfireBoost();
       flameOuter.scale.set(
@@ -3567,16 +3588,8 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       boatGroup.position.y = -0.05 + Math.sin(elapsed * 1.8) * 0.06;
       boatGroup.rotation.z = Math.sin(elapsed * 1.4) * 0.05;
 
-      const wAttr = waterGeo.attributes.position;
-      for (let i = 0; i < wAttr.count; i++) {
-        const wx = baseWaterPos.getX(i);
-        const wz = baseWaterPos.getZ(i);
-        const wave =
-          Math.sin(wx * 0.22 + elapsed * 1.6) * 0.09 +
-          Math.cos(wz * 0.25 + elapsed * 1.3) * 0.08;
-        wAttr.setY(i, wave);
-      }
-      wAttr.needsUpdate = true;
+      // GPU vertex shader drives ocean waves — zero per-frame CPU loop or buffer upload
+      waterUniforms.uTime.value = elapsed;
 
       let moveForward = sim.joyY;
       let moveRight = sim.joyX;
@@ -3900,6 +3913,7 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       renderer.forceContextLoss();
       renderer.domElement.remove();
       if (rendererRef.current === renderer) rendererRef.current = null;
+      if (sceneRef.current === scene) sceneRef.current = null;
     };
   }, []);
 
@@ -3952,7 +3966,8 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       } else if (item.kind === 'hourglass') {
         if (destructionRef.current?.getState(item.id as PersonalMemoryKind) !== 'exploded') continue;
       }
-      const hit = raycaster.intersectObject(item.mesh, true)[0];
+      const recursive = item.kind === 'easel' || item.kind === 'station' || item.kind === 'memory';
+      const hit = raycaster.intersectObject(item.mesh, recursive)[0];
       if (hit && (!best || hit.distance < best.dist)) best = { item, dist: hit.distance };
     }
     if (!best) return null;
@@ -4031,6 +4046,16 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
 
     // Skip hover raycasting for touch pointers to save mobile GPU/CPU
     if (e.pointerType === 'touch') return;
+
+    // Keep tooltip smoothly tracking the cursor even between throttled raycasts
+    if (tooltipRef.current && hoveredKeyRef.current) {
+      tooltipRef.current.style.left = `${e.clientX + 14}px`;
+      tooltipRef.current.style.top = `${e.clientY - 18}px`;
+    }
+
+    const now = performance.now();
+    if (now - lastHoverCheckRef.current < 50) return;
+    lastHoverCheckRef.current = now;
 
     const hitTarget = pickInteractive(e.clientX, e.clientY);
 

@@ -534,8 +534,6 @@ export class IslandSkySeaToysManager {
   private rockets: FireworkRocket[] = [];
   private fwSparks: FireworkSpark[] = [];
   private fwSparkMesh: THREE.InstancedMesh;
-  private fwLight: THREE.PointLight;
-  private fwLightAge = 99;
   private readonly MAX_FW_SPARKS = 220;
 
   // Stone skipping runtime
@@ -559,10 +557,6 @@ export class IslandSkySeaToysManager {
     this.scene = scene;
     this.destruction = destruction;
     this.callbacks = callbacks;
-
-    // Fireworks PointLight
-    this.fwLight = new THREE.PointLight('#F472B6', 0, 42, 1.5);
-    this.scene.add(this.fwLight);
 
     // Rocket shells pool (6)
     const rocketGeo = new THREE.SphereGeometry(0.16, 8, 8);
@@ -825,10 +819,6 @@ export class IslandSkySeaToysManager {
 
   private burstFirework(pos: THREE.Vector3, color: THREE.Color) {
     playFireworkBurstSound(this.callbacks.isMuted?.() ?? false);
-    this.fwLight.position.copy(pos);
-    this.fwLight.color.copy(color);
-    this.fwLight.intensity = 24;
-    this.fwLightAge = 0;
 
     let spawned = 0;
     let colorDirty = false;
@@ -924,13 +914,6 @@ export class IslandSkySeaToysManager {
       this.fwSparkMesh.setMatrixAt(i, _m4);
     }
     if (fwDirty) this.fwSparkMesh.instanceMatrix.needsUpdate = true;
-
-    if (this.fwLightAge < 0.75) {
-      this.fwLightAge += safeDt;
-      this.fwLight.intensity = 24 * Math.pow(1 - Math.min(1, this.fwLightAge / 0.75), 2.2);
-    } else if (this.fwLight.intensity > 0) {
-      this.fwLight.intensity = 0;
-    }
 
     // 2. Skipping stones & water ripples
     for (const st of this.skipStones) {
@@ -1041,7 +1024,7 @@ export class IslandSkySeaToysManager {
   public dispose() {
     this.mountedRoots.forEach((r) => this.scene.remove(r));
     this.mountedRoots = [];
-    this.scene.remove(this.fwLight, this.fwSparkMesh, this.ufo.root);
+    this.scene.remove(this.fwSparkMesh, this.ufo.root);
     this.rockets.forEach((r) => this.scene.remove(r.mesh));
     this.skipStones.forEach((s) => this.scene.remove(s.mesh));
     this.ripples.forEach((r) => {

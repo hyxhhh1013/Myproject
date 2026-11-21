@@ -749,10 +749,8 @@ export class IslandDestructionManager {
   private badgeTex: THREE.CanvasTexture;
   private paperTex: THREE.CanvasTexture;
 
-  // Camera shake & dynamic blast flash light
+  // Camera shake
   private shakeIntensity = 0;
-  private blastLight: THREE.PointLight;
-  private blastLightAge = 99;
 
   // Shockwave rings pool
   private shockwaves: ShockwaveRing[] = [];
@@ -775,10 +773,6 @@ export class IslandDestructionManager {
 
     this.badgeTex = createDetonatorBadgeTexture();
     this.paperTex = createExamPaperTexture();
-
-    // Dynamic warm explosion PointLight (lights up flying bricks & grass!)
-    this.blastLight = new THREE.PointLight('#FF9D2E', 0, 30, 1.8);
-    this.scene.add(this.blastLight);
 
     // Expanding shockwave rings pool
     const ringGeo = new THREE.RingGeometry(0.75, 1.0, 36);
@@ -1135,15 +1129,8 @@ export class IslandDestructionManager {
     target.hourglass.root.visible = true;
     target.hourglass.root.scale.setScalar(0.01);
 
-    // Camera shake + dynamic warm flash light + shockwave ring
+    // Camera shake + shockwave ring
     this.shakeIntensity = Math.min(1.15, this.shakeIntensity + 0.78);
-    this.blastLight.position.set(
-      target.worldCenter.x,
-      target.worldCenter.y + 3.2,
-      target.worldCenter.z
-    );
-    this.blastLight.intensity = 22;
-    this.blastLightAge = 0;
 
     const ring = this.shockwaves.find((r) => !r.active) ?? this.shockwaves[0];
     ring.active = true;
@@ -1433,15 +1420,6 @@ export class IslandDestructionManager {
       }
     });
 
-    // Dynamic blast flash light decay
-    if (this.blastLightAge < 0.55) {
-      this.blastLightAge += safeDt;
-      const t = Math.min(1, this.blastLightAge / 0.55);
-      this.blastLight.intensity = 22 * Math.pow(1 - t, 2.4);
-    } else if (this.blastLight.intensity > 0) {
-      this.blastLight.intensity = 0;
-    }
-
     // Shockwave rings
     for (const r of this.shockwaves) {
       if (!r.active) continue;
@@ -1584,7 +1562,6 @@ export class IslandDestructionManager {
       t.group.remove(t.hourglass.root);
     });
     this.targets.clear();
-    this.scene.remove(this.blastLight);
     this.shockwaves.forEach((r) => {
       this.scene.remove(r.mesh);
       r.mat.dispose();
