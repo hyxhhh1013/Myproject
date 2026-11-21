@@ -40,11 +40,20 @@ import { useTheme } from '../context/ThemeContext';
 import { useI18n } from '../i18n/i18nContext';
 import {
   PERSONAL_MEMORIES,
+  PersonalMemoryKind,
   PersonalMemoryNode,
   MEMORY_PASSPHRASE_HINT_ZH,
   MEMORY_PASSPHRASE_HINT_EN,
 } from '../data/islandMemories';
 import { buildPersonalMemoryModel, BuiltMemoryModel } from '../utils/islandMemoryModels';
+import {
+  IslandDestructionManager,
+  DESTRUCTIBLE_TARGETS,
+  DESTRUCTIBLE_IDS,
+} from '../utils/islandDestruction';
+import { IslandWorldToysManager, WorldToyKind } from '../utils/islandWorldToys';
+import { IslandSkySeaToysManager, SkySeaToyKind } from '../utils/islandSkySeaToys';
+import { IslandCozyToysManager, CozyToyKind } from '../utils/islandCozyToys';
 import { resolvePhotoExif } from '../components/Sections/Photos';
 
 // ============================================================================
@@ -1373,6 +1382,24 @@ function buildPhotoEaselMesh(easel: EaselNode): {
   return { group, photoPlane, frameMat };
 }
 
+function createBearBlushTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    const grad = ctx.createRadialGradient(64, 64, 8, 64, 64, 58);
+    grad.addColorStop(0, 'rgba(255, 146, 154, 0.88)');
+    grad.addColorStop(0.55, 'rgba(255, 162, 170, 0.48)');
+    grad.addColorStop(1, 'rgba(255, 162, 170, 0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 128, 128);
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
 function buildPhotographerAvatar(): {
   root: THREE.Group;
   leftLeg: THREE.Mesh;
@@ -1380,107 +1407,202 @@ function buildPhotographerAvatar(): {
   leftArm: THREE.Mesh;
   rightArm: THREE.Mesh;
 } {
+  // Cozy 3D clay/plushie 自嘲熊 (Joke Bear) seamlessly blended into the warm low-poly island:
+  // Keeps the exact neckless Nagano bear silhouette & GitHub avatar glasses,
+  // but uses natural warm-lit matte plush materials (no harsh 2D black comic outline!)
+  // so it catches golden sunset light & soft shadows just like the rest of the island.
   const root = new THREE.Group();
 
-  const skinMat = new THREE.MeshStandardMaterial({ color: '#FFE3D3', roughness: 0.65 });
-  const ponchoMat = new THREE.MeshStandardMaterial({ color: '#E06348', roughness: 0.78 });
-  const scarfMat = new THREE.MeshStandardMaterial({ color: '#F4D35E', roughness: 0.75 });
-  const pantsMat = new THREE.MeshStandardMaterial({ color: '#2F3E46', roughness: 0.85 });
-  const hatMat = new THREE.MeshStandardMaterial({ color: '#F3C66F', roughness: 0.8 });
-  const leatherMat = new THREE.MeshStandardMaterial({ color: '#8A5229', roughness: 0.75 });
-  const silverMetal = new THREE.MeshStandardMaterial({ color: '#E5E7EB', roughness: 0.3, metalness: 0.75 });
-  const darkMetal = new THREE.MeshStandardMaterial({ color: '#1F2937', roughness: 0.4, metalness: 0.5 });
+  const bearPlushMat = new THREE.MeshStandardMaterial({
+    color: '#F6F1E6',
+    roughness: 0.9,
+    metalness: 0.0,
+    emissive: '#FFF5E4',
+    emissiveIntensity: 0.04,
+  });
+  const warmInkMat = new THREE.MeshStandardMaterial({
+    color: '#2A2522',
+    roughness: 0.55,
+    metalness: 0.08,
+  });
+  const lensGlassMat = new THREE.MeshStandardMaterial({
+    color: '#FFFDF8',
+    roughness: 0.12,
+    metalness: 0.2,
+    transparent: true,
+    opacity: 0.14,
+    side: THREE.DoubleSide,
+  });
+  const leatherMat = new THREE.MeshStandardMaterial({ color: '#8C5832', roughness: 0.78 });
+  const scarfMat = new THREE.MeshStandardMaterial({ color: '#D96B43', roughness: 0.88 });
+  const silverMetal = new THREE.MeshStandardMaterial({ color: '#E2DFD7', roughness: 0.35, metalness: 0.7 });
 
-  const legGeo = new THREE.CapsuleGeometry(0.09, 0.26, 6, 12);
-  const leftLeg = new THREE.Mesh(legGeo, pantsMat);
-  leftLeg.position.set(-0.14, 0.25, 0);
+  // 1. Seamless Neckless 自嘲熊 Body + Head (Single continuous soft plush silhouette)
+  const profile: THREE.Vector2[] = [
+    new THREE.Vector2(0.001, 0.3),
+    new THREE.Vector2(0.18, 0.31),
+    new THREE.Vector2(0.285, 0.37),
+    new THREE.Vector2(0.325, 0.48),
+    new THREE.Vector2(0.318, 0.66),
+    new THREE.Vector2(0.305, 0.84),
+    new THREE.Vector2(0.342, 0.98),
+    new THREE.Vector2(0.365, 1.12),
+    new THREE.Vector2(0.352, 1.26),
+    new THREE.Vector2(0.295, 1.38),
+    new THREE.Vector2(0.185, 1.455),
+    new THREE.Vector2(0.001, 1.48),
+  ];
+  const bodyGeo = new THREE.LatheGeometry(profile, 28);
+  const body = new THREE.Mesh(bodyGeo, bearPlushMat);
+  body.scale.set(1.06, 1.0, 0.88);
+  body.castShadow = true;
+  body.receiveShadow = true;
+  root.add(body);
+
+  // 2. Cute Distinct Cylindrical White Bear Legs
+  const legGeo = new THREE.CapsuleGeometry(0.105, 0.24, 8, 14);
+  const leftLeg = new THREE.Mesh(legGeo, bearPlushMat);
+  leftLeg.position.set(-0.15, 0.22, 0);
   leftLeg.castShadow = true;
+  leftLeg.receiveShadow = true;
   root.add(leftLeg);
 
-  const rightLeg = new THREE.Mesh(legGeo, pantsMat);
-  rightLeg.position.set(0.14, 0.25, 0);
+  const rightLeg = new THREE.Mesh(legGeo, bearPlushMat);
+  rightLeg.position.set(0.15, 0.22, 0);
   rightLeg.castShadow = true;
+  rightLeg.receiveShadow = true;
   root.add(rightLeg);
 
-  const torso = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.76, 16), ponchoMat);
-  torso.position.y = 0.72;
-  torso.castShadow = true;
-  root.add(torso);
-
-  const scarf = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.065, 10, 20), scarfMat);
-  scarf.rotation.x = Math.PI / 2;
-  scarf.position.y = 1.05;
-  root.add(scarf);
-
-  const armGeo = new THREE.CapsuleGeometry(0.075, 0.28, 6, 10);
-  const leftArm = new THREE.Mesh(armGeo, ponchoMat);
-  leftArm.position.set(-0.34, 0.82, 0.06);
-  leftArm.rotation.z = 0.28;
+  // 3. Soft Dangling Tubular Bear Arms
+  const armGeo = new THREE.CapsuleGeometry(0.078, 0.27, 8, 12);
+  const leftArm = new THREE.Mesh(armGeo, bearPlushMat);
+  leftArm.position.set(-0.355, 0.72, 0.03);
+  leftArm.rotation.z = -0.18;
   leftArm.castShadow = true;
+  leftArm.receiveShadow = true;
   root.add(leftArm);
 
-  const rightArm = new THREE.Mesh(armGeo, ponchoMat);
-  rightArm.position.set(0.34, 0.82, 0.06);
-  rightArm.rotation.z = -0.28;
+  const rightArm = new THREE.Mesh(armGeo, bearPlushMat);
+  rightArm.position.set(0.355, 0.72, 0.03);
+  rightArm.rotation.z = 0.18;
   rightArm.castShadow = true;
+  rightArm.receiveShadow = true;
   root.add(rightArm);
 
-  const backpack = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.48, 0.24), leatherMat);
-  backpack.position.set(0, 0.78, -0.26);
-  backpack.castShadow = true;
-  root.add(backpack);
+  // 4. Tiny Round Cotton-Ball Bear Tail (back)
+  const tail = new THREE.Mesh(new THREE.SphereGeometry(0.088, 14, 12), bearPlushMat);
+  tail.position.set(0, 0.44, -0.3);
+  tail.castShadow = true;
+  root.add(tail);
 
-  const bedroll = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.09, 0.09, 0.48, 12),
-    new THREE.MeshStandardMaterial({ color: '#52B788', roughness: 0.8 })
-  );
-  bedroll.rotation.z = Math.PI / 2;
-  bedroll.position.set(0, 1.06, -0.26);
-  root.add(bedroll);
+  // 5. Twin Small Rounded Bear Ears
+  const earGeo = new THREE.SphereGeometry(0.095, 16, 14);
+  [-0.27, 0.27].forEach((ex) => {
+    const ear = new THREE.Mesh(earGeo, bearPlushMat);
+    ear.scale.set(1.05, 0.96, 0.65);
+    ear.position.set(ex, 1.44, -0.02);
+    ear.castShadow = true;
+    ear.receiveShadow = true;
+    root.add(ear);
+  });
 
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.26, 20, 16), skinMat);
-  head.position.y = 1.28;
-  head.castShadow = true;
-  root.add(head);
+  // 6. Signature Oversized Dark-Espresso Glasses (softly lit, naturally integrated!)
+  const glassesGroup = new THREE.Group();
+  glassesGroup.position.set(0, 1.21, 0.315);
 
-  const eyeGeo = new THREE.SphereGeometry(0.032, 8, 8);
-  const leftEye = new THREE.Mesh(eyeGeo, darkMetal);
-  leftEye.position.set(-0.09, 1.3, 0.23);
-  root.add(leftEye);
-  const rightEye = new THREE.Mesh(eyeGeo, darkMetal);
-  rightEye.position.set(0.09, 1.3, 0.23);
-  root.add(rightEye);
+  [-1, 1].forEach((side) => {
+    const frameGroup = new THREE.Group();
+    frameGroup.position.set(side * 0.145, 0, -0.01);
+    frameGroup.rotation.y = side * 0.2;
 
-  const hatBrim = new THREE.Mesh(new THREE.CylinderGeometry(0.54, 0.56, 0.04, 24), hatMat);
-  hatBrim.position.y = 1.46;
-  hatBrim.castShadow = true;
-  root.add(hatBrim);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.016, 10, 24), warmInkMat);
+    rim.scale.set(1.12, 0.94, 1.0);
+    rim.castShadow = true;
+    frameGroup.add(rim);
 
-  const hatRibbon = new THREE.Mesh(new THREE.CylinderGeometry(0.29, 0.3, 0.07, 20), ponchoMat);
-  hatRibbon.position.y = 1.51;
-  root.add(hatRibbon);
+    const lens = new THREE.Mesh(new THREE.CircleGeometry(0.114, 20), lensGlassMat);
+    lens.scale.set(1.12, 0.94, 1.0);
+    frameGroup.add(lens);
 
-  const hatCrown = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.29, 0.22, 20), hatMat);
-  hatCrown.position.y = 1.6;
-  hatCrown.castShadow = true;
-  root.add(hatCrown);
+    glassesGroup.add(frameGroup);
 
-  const camGroup = new THREE.Group();
-  camGroup.position.set(0, 0.84, 0.34);
+    const temple = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.022, 0.3), warmInkMat);
+    temple.position.set(side * 0.355, 0.015, -0.17);
+    temple.rotation.y = -side * 0.14;
+    glassesGroup.add(temple);
+  });
 
-  const camBody = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.18, 0.14), darkMetal);
-  camGroup.add(camBody);
+  const bridge = new THREE.Mesh(new THREE.TorusGeometry(0.036, 0.013, 8, 12, Math.PI), warmInkMat);
+  bridge.position.set(0, 0.015, 0.018);
+  glassesGroup.add(bridge);
+  root.add(glassesGroup);
 
-  const camTopPlate = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.05, 0.145), silverMetal);
-  camTopPlate.position.y = 0.075;
-  camGroup.add(camTopPlate);
+  // 7. Expressive 自嘲熊 Face (warm espresso dot eyes, soft coral blush & ":3" mouth)
+  const eyeGeo = new THREE.SphereGeometry(0.026, 12, 10);
+  [-0.105, 0.105].forEach((ex) => {
+    const eye = new THREE.Mesh(eyeGeo, warmInkMat);
+    eye.position.set(ex, 1.225, 0.326);
+    root.add(eye);
+  });
 
-  const camLens = new THREE.Mesh(new THREE.CylinderGeometry(0.068, 0.068, 0.12, 16), silverMetal);
+  const blushTex = createBearBlushTexture();
+  const blushMat = new THREE.MeshStandardMaterial({
+    map: blushTex,
+    transparent: true,
+    opacity: 0.78,
+    roughness: 0.95,
+    depthWrite: false,
+  });
+  [-1, 1].forEach((side) => {
+    const blush = new THREE.Mesh(new THREE.PlaneGeometry(0.145, 0.11), blushMat);
+    blush.position.set(side * 0.185, 1.155, 0.305);
+    blush.rotation.y = side * 0.36;
+    root.add(blush);
+  });
+
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.022, 10, 10), warmInkMat);
+  nose.scale.set(1.3, 0.85, 0.72);
+  nose.position.set(0, 1.12, 0.342);
+  root.add(nose);
+
+  const philtrum = new THREE.Mesh(new THREE.CylinderGeometry(0.0065, 0.0065, 0.026, 6), warmInkMat);
+  philtrum.position.set(0, 1.098, 0.34);
+  root.add(philtrum);
+
+  [-0.028, 0.028].forEach((mx) => {
+    const smileArc = new THREE.Mesh(
+      new THREE.TorusGeometry(0.028, 0.0075, 8, 14, Math.PI),
+      warmInkMat
+    );
+    smileArc.rotation.z = Math.PI;
+    smileArc.position.set(mx, 1.088, 0.338);
+    root.add(smileArc);
+  });
+
+  // 8. Cozy Island-Traveler Accents (ties bear into the warm Ghibli palette without breaking silhouette!)
+  // Small terracotta ribbon tail / mini explorer backpack on the back (so 3rd-person view feels super cozy)
+  const miniPack = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.3, 0.14), leatherMat);
+  miniPack.position.set(0, 0.72, -0.32);
+  miniPack.castShadow = true;
+  root.add(miniPack);
+
+  const packFlap = new THREE.Mesh(new THREE.BoxGeometry(0.29, 0.09, 0.15), scarfMat);
+  packFlap.position.set(0, 0.83, -0.32);
+  root.add(packFlap);
+
+  // Mini silver-and-espresso camera slung casually on his right hip (keeps front tummy clean!)
+  const hipCam = new THREE.Group();
+  hipCam.position.set(0.32, 0.56, 0.16);
+  hipCam.rotation.y = 0.55;
+  const camBody = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.105, 0.085), warmInkMat);
+  camBody.castShadow = true;
+  const camTop = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.028, 0.088), silverMetal);
+  camTop.position.y = 0.044;
+  const camLens = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.065, 12), silverMetal);
   camLens.rotation.x = Math.PI / 2;
-  camLens.position.z = 0.09;
-  camGroup.add(camLens);
-
-  root.add(camGroup);
+  camLens.position.z = 0.05;
+  hipCam.add(camBody, camTop, camLens);
+  root.add(hipCam);
 
   return { root, leftLeg, rightLeg, leftArm, rightArm };
 }
@@ -1725,7 +1847,15 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
   const [passphraseInput, setPassphraseInput] = useState<string>('');
   const [passphraseError, setPassphraseError] = useState<boolean>(false);
   const [nearbyPrompt, setNearbyPrompt] = useState<{
-    type: 'easel' | 'station' | 'memory';
+    type:
+      | 'easel'
+      | 'station'
+      | 'memory'
+      | 'detonator'
+      | 'hourglass'
+      | 'world-toy'
+      | 'sky-sea-toy'
+      | 'cozy-toy';
     id: string;
     titleZh: string;
     subZh: string;
@@ -1784,6 +1914,23 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
   const [newBottleText, setNewBottleText] = useState('');
   const [newBottleAuthor, setNewBottleAuthor] = useState('');
 
+  // Diegetic 3D Destructible Landmarks & World Toys
+  const [blastFlash, setBlastFlash] = useState(false);
+  const [blastToast, setBlastToast] = useState<{
+    titleZh: string;
+    titleEn: string;
+    textZh: string;
+    textEn: string;
+    icon?: string;
+    key: number;
+  } | null>(null);
+  const soundMutedRef = useRef(false);
+  const destructionRef = useRef<IslandDestructionManager | null>(null);
+  const worldToysRef = useRef<IslandWorldToysManager | null>(null);
+  const skySeaToysRef = useRef<IslandSkySeaToysManager | null>(null);
+  const cozyToysRef = useRef<IslandCozyToysManager | null>(null);
+  const blastToastTimerRef = useRef<number | null>(null);
+
   const simRef = useRef({
     timeOfDay: 17.4,
     playerPos: new THREE.Vector3(0, 0.95, 3.2),
@@ -1817,7 +1964,15 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       frameMat: THREE.MeshStandardMaterial;
     }[],
     interactiveMeshes: [] as {
-      kind: 'easel' | 'station' | 'memory';
+      kind:
+        | 'easel'
+        | 'station'
+        | 'memory'
+        | 'detonator'
+        | 'hourglass'
+        | 'world-toy'
+        | 'sky-sea-toy'
+        | 'cozy-toy';
       id: string;
       mesh: THREE.Object3D;
       worldPos: Vec3;
@@ -1837,6 +1992,16 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
   useEffect(() => {
     simRef.current.underwaterMode = underwaterMode;
   }, [underwaterMode]);
+
+  useEffect(() => {
+    soundMutedRef.current = soundMuted;
+  }, [soundMuted]);
+
+  useEffect(() => {
+    return () => {
+      if (blastToastTimerRef.current) window.clearTimeout(blastToastTimerRef.current);
+    };
+  }, []);
 
   const surfaceFromUnderwater = useCallback(() => {
     playWindChimeNote(2, soundMuted);
@@ -2081,6 +2246,16 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
         } else if (nearbyPrompt.type === 'memory') {
           const foundMem = PERSONAL_MEMORIES.find((m) => m.id === nearbyPrompt.id);
           if (foundMem) inspectMemory(foundMem);
+        } else if (nearbyPrompt.type === 'detonator') {
+          destructionRef.current?.pressDetonator(nearbyPrompt.id as PersonalMemoryKind);
+        } else if (nearbyPrompt.type === 'hourglass') {
+          destructionRef.current?.activateHourglass(nearbyPrompt.id as PersonalMemoryKind);
+        } else if (nearbyPrompt.type === 'world-toy') {
+          worldToysRef.current?.triggerToy(nearbyPrompt.id as WorldToyKind);
+        } else if (nearbyPrompt.type === 'sky-sea-toy') {
+          skySeaToysRef.current?.triggerToy(nearbyPrompt.id as SkySeaToyKind);
+        } else if (nearbyPrompt.type === 'cozy-toy') {
+          cozyToysRef.current?.triggerToy(nearbyPrompt.id as CozyToyKind);
         } else if (nearbyPrompt.type === 'station') {
           playWindChimeNote(2, soundMuted);
           setActiveStation(nearbyPrompt.id as SpecialStation['id']);
@@ -3019,6 +3194,69 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
 
     // 21. Dedicated Personal Memory Islands, Stepping-Stone Paths & Refined 3D Landmarks
     const memoryModels: BuiltMemoryModel[] = [];
+    const destructionManager = new IslandDestructionManager(scene, {
+      onExplode: (meta, toastZh, toastEn) => {
+        setBlastFlash(true);
+        window.setTimeout(() => setBlastFlash(false), 200);
+        setBlastToast({
+          titleZh: meta.nameZh,
+          titleEn: meta.nameEn,
+          textZh: toastZh,
+          textEn: toastEn,
+          key: Date.now(),
+        });
+        if (blastToastTimerRef.current) window.clearTimeout(blastToastTimerRef.current);
+        blastToastTimerRef.current = window.setTimeout(() => setBlastToast(null), 4000);
+      },
+      isMuted: () => soundMutedRef.current,
+    });
+    destructionRef.current = destructionManager;
+    const worldToysManager = new IslandWorldToysManager(scene, {
+      onToast: (titleZh, titleEn, textZh, textEn, icon) => {
+        setBlastToast({ titleZh, titleEn, textZh, textEn, icon, key: Date.now() });
+        if (blastToastTimerRef.current) window.clearTimeout(blastToastTimerRef.current);
+        blastToastTimerRef.current = window.setTimeout(() => setBlastToast(null), 4000);
+      },
+      onShiftTimeOfDay: (targetHour) => {
+        setTimeOfDay(targetHour);
+      },
+      isMuted: () => soundMutedRef.current,
+    });
+    worldToysRef.current = worldToysManager;
+    const skySeaToysManager = new IslandSkySeaToysManager(scene, destructionManager, {
+      onToast: (titleZh, titleEn, textZh, textEn, icon) => {
+        setBlastToast({ titleZh, titleEn, textZh, textEn, icon, key: Date.now() });
+        if (blastToastTimerRef.current) window.clearTimeout(blastToastTimerRef.current);
+        blastToastTimerRef.current = window.setTimeout(() => setBlastToast(null), 4200);
+      },
+      isMuted: () => soundMutedRef.current,
+    });
+    skySeaToysRef.current = skySeaToysManager;
+    skySeaToysManager.mountProps((x, z) => getTerrainHeightAt(x, z).y).forEach((reg) => {
+      simRef.current.interactiveMeshes.push({
+        kind: 'sky-sea-toy',
+        id: reg.kind,
+        mesh: reg.hitTarget,
+        worldPos: reg.worldPos,
+      });
+    });
+    const cozyToysManager = new IslandCozyToysManager(scene, {
+      onToast: (titleZh, titleEn, textZh, textEn, icon) => {
+        setBlastToast({ titleZh, titleEn, textZh, textEn, icon, key: Date.now() });
+        if (blastToastTimerRef.current) window.clearTimeout(blastToastTimerRef.current);
+        blastToastTimerRef.current = window.setTimeout(() => setBlastToast(null), 4000);
+      },
+      isMuted: () => soundMutedRef.current,
+    });
+    cozyToysRef.current = cozyToysManager;
+    const woodReg = cozyToysManager.mountCampfireWoodpile((x, z) => getTerrainHeightAt(x, z).y);
+    simRef.current.interactiveMeshes.push({
+      kind: 'cozy-toy',
+      id: woodReg.kind,
+      mesh: woodReg.hitTarget,
+      worldPos: woodReg.worldPos,
+    });
+    const shakeOffset = new THREE.Vector3();
     const memoryStoneMat = new THREE.MeshStandardMaterial({
       color: '#E5DFD3',
       roughness: 0.85,
@@ -3084,6 +3322,49 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       built.group.rotation.y = mem.rotY;
       scene.add(built.group);
       memoryModels.push(built);
+      if (DESTRUCTIBLE_IDS.has(mem.id)) {
+        const reg = destructionManager.registerTarget(
+          mem.id,
+          built.group,
+          built.beacon,
+          mem.pos,
+          mem.islandRadius
+        );
+        if (reg) {
+          simRef.current.interactiveMeshes.push(
+            {
+              kind: 'detonator',
+              id: mem.id,
+              mesh: reg.detonatorHit,
+              worldPos: reg.detonatorWorldPos,
+            },
+            {
+              kind: 'hourglass',
+              id: mem.id,
+              mesh: reg.hourglassHit,
+              worldPos: reg.hourglassWorldPos,
+            }
+          );
+        }
+      }
+      const toyReg = worldToysManager.registerLandmarkToy(mem.id, built.group, mem.pos);
+      if (toyReg) {
+        simRef.current.interactiveMeshes.push({
+          kind: 'world-toy',
+          id: toyReg.kind,
+          mesh: toyReg.hitTarget,
+          worldPos: toyReg.worldPos,
+        });
+      }
+      if (mem.id === 'gramophone-lounge') {
+        const gramReg = cozyToysManager.attachGramophone(built.group);
+        simRef.current.interactiveMeshes.push({
+          kind: 'cozy-toy',
+          id: gramReg.kind,
+          mesh: gramReg.hitTarget,
+          worldPos: gramReg.worldPos,
+        });
+      }
       // Attach a focused click hitbox ONLY around the floating Memory Beacon diamond
       // so clicking the seabed, campus plaza, stairs, or trees never accidentally opens the modal!
       const beaconHitZone = new THREE.Mesh(
@@ -3215,7 +3496,9 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
 
       searchlightGroup.visible = atmo.nightFactor > 0.15 || atmo.goldenFactor > 0.5;
       searchlightGroup.rotation.y = elapsed * 0.75;
-      campfireLight.intensity = 2.5 + Math.sin(elapsed * 9) * 0.6 + atmo.nightFactor * 2.5;
+      const fireBoost = cozyToysManager.getCampfireBoost();
+      campfireLight.intensity =
+        2.5 + Math.sin(elapsed * 9) * 0.6 + atmo.nightFactor * 2.5 + fireBoost * 5.5;
       cabinLight.intensity = 1.4 + atmo.nightFactor * 2.2;
 
       // Star dome & fireflies visibility
@@ -3270,8 +3553,17 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
 
       memoryModels.forEach((mm) => mm.update(elapsed));
 
-      flameOuter.scale.y = 0.9 + Math.sin(elapsed * 10) * 0.18;
-      flameInner.scale.y = 0.9 + Math.cos(elapsed * 12) * 0.2;
+      const flameBoost = cozyToysManager.getCampfireBoost();
+      flameOuter.scale.set(
+        1 + flameBoost * 0.32,
+        0.9 + Math.sin(elapsed * 10) * 0.18 + flameBoost * 0.85,
+        1 + flameBoost * 0.32
+      );
+      flameInner.scale.set(
+        1 + flameBoost * 0.25,
+        0.9 + Math.cos(elapsed * 12) * 0.2 + flameBoost * 0.72,
+        1 + flameBoost * 0.25
+      );
       boatGroup.position.y = -0.05 + Math.sin(elapsed * 1.8) * 0.06;
       boatGroup.rotation.z = Math.sin(elapsed * 1.4) * 0.05;
 
@@ -3405,7 +3697,15 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       avatar.root.rotation.y += diffYaw * 0.18;
 
       let closestPrompt: {
-        type: 'easel' | 'station' | 'memory';
+        type:
+          | 'easel'
+          | 'station'
+          | 'memory'
+          | 'detonator'
+          | 'hourglass'
+          | 'world-toy'
+          | 'sky-sea-toy'
+          | 'cozy-toy';
         id: string;
         titleZh: string;
         subZh: string;
@@ -3456,9 +3756,67 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
         }
       });
 
+      const destructPrompt = destructionManager.getProximityPrompt(sim.playerPos);
+      const bestDistSoFar = closestPrompt ? (closestPrompt as { dist: number }).dist : Infinity;
+      if (destructPrompt && destructPrompt.dist < bestDistSoFar) {
+        closestPrompt =
+          destructPrompt.kind === 'detonator'
+            ? {
+                type: 'detonator',
+                id: destructPrompt.id,
+                titleZh: `🧨 神秘起爆器 · ${destructPrompt.meta.shortZh}`,
+                subZh: '按 [E] 或点击按下红柄压杆引爆',
+                dist: destructPrompt.dist,
+              }
+            : {
+                type: 'hourglass',
+                id: destructPrompt.id,
+                titleZh: `⏳ 时光倒流沙漏 · ${destructPrompt.meta.shortZh}`,
+                subZh: '按 [E] 或点击倒流时间复原建筑',
+                dist: destructPrompt.dist,
+              };
+      }
+
+      const toyPrompt = worldToysManager.getProximityPrompt(sim.playerPos);
+      const bestDistAfterDestruct = closestPrompt ? (closestPrompt as { dist: number }).dist : Infinity;
+      if (toyPrompt && toyPrompt.dist < bestDistAfterDestruct) {
+        closestPrompt = {
+          type: 'world-toy',
+          id: toyPrompt.kind,
+          titleZh: toyPrompt.titleZh,
+          subZh: toyPrompt.subZh,
+          dist: toyPrompt.dist,
+        };
+      }
+
+      const skySeaPrompt = skySeaToysManager.getProximityPrompt(sim.playerPos);
+      const bestDistAfterToys = closestPrompt ? (closestPrompt as { dist: number }).dist : Infinity;
+      if (skySeaPrompt && skySeaPrompt.dist < bestDistAfterToys) {
+        closestPrompt = {
+          type: 'sky-sea-toy',
+          id: skySeaPrompt.kind,
+          titleZh: skySeaPrompt.titleZh,
+          subZh: skySeaPrompt.subZh,
+          dist: skySeaPrompt.dist,
+        };
+      }
+
+      const cozyPrompt = cozyToysManager.getProximityPrompt(sim.playerPos);
+      const bestDistAfterSky = closestPrompt ? (closestPrompt as { dist: number }).dist : Infinity;
+      if (cozyPrompt && cozyPrompt.dist < bestDistAfterSky) {
+        closestPrompt = {
+          type: 'cozy-toy',
+          id: cozyPrompt.kind,
+          titleZh: cozyPrompt.titleZh,
+          subZh: cozyPrompt.subZh,
+          dist: cozyPrompt.dist,
+        };
+      }
+
       setNearbyPrompt((prev) => {
         if (!closestPrompt && !prev) return null;
-        if (closestPrompt && prev && prev.id === closestPrompt.id) return prev;
+        if (closestPrompt && prev && prev.id === closestPrompt.id && prev.type === closestPrompt.type)
+          return prev;
         return closestPrompt
           ? {
               type: closestPrompt.type,
@@ -3485,6 +3843,11 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
         sim.camFocus.y + sim.camDist * sp,
         sim.camFocus.z + sim.camDist * cp * cy
       );
+      destructionManager.update(dt, elapsed, shakeOffset);
+      worldToysManager.update(dt, elapsed);
+      skySeaToysManager.update(dt, elapsed);
+      cozyToysManager.update(dt, elapsed);
+      camera.position.add(shakeOffset);
       camera.lookAt(sim.camFocus);
 
       renderer.render(scene, camera);
@@ -3512,6 +3875,14 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
     return () => {
       cancelAnimationFrame(reqId);
       resizeObserver.disconnect();
+      destructionManager.dispose();
+      if (destructionRef.current === destructionManager) destructionRef.current = null;
+      worldToysManager.dispose();
+      if (worldToysRef.current === worldToysManager) worldToysRef.current = null;
+      skySeaToysManager.dispose();
+      if (skySeaToysRef.current === skySeaToysManager) skySeaToysRef.current = null;
+      cozyToysManager.dispose();
+      if (cozyToysRef.current === cozyToysManager) cozyToysRef.current = null;
       // Free GPU memory and the WebGL context: browsers cap live contexts (~16), and every
       // open/close of the embedded view or trip to the fullscreen route creates a new one.
       scene.traverse((obj) => {
@@ -3576,6 +3947,11 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
 
     let best: { item: (typeof sim.interactiveMeshes)[number]; dist: number } | null = null;
     for (const item of sim.interactiveMeshes) {
+      if (item.kind === 'detonator') {
+        if (destructionRef.current?.getState(item.id as PersonalMemoryKind) !== 'intact') continue;
+      } else if (item.kind === 'hourglass') {
+        if (destructionRef.current?.getState(item.id as PersonalMemoryKind) !== 'exploded') continue;
+      }
       const hit = raycaster.intersectObject(item.mesh, true)[0];
       if (hit && (!best || hit.distance < best.dist)) best = { item, dist: hit.distance };
     }
@@ -3682,6 +4058,111 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
             title: `${mem?.indexLabel || ''} · ${mem?.titleZh || td('个人记忆', 'Memory')}`,
             subtitle: `${mem?.categoryZh || ''} · ${td('点击翻阅记忆手账', 'Click to open the journal')}`,
           });
+        } else if (hitTarget.kind === 'detonator') {
+          const meta = DESTRUCTIBLE_TARGETS.find((x) => x.id === hitTarget.id);
+          setHoveredLabel({
+            x: e.clientX,
+            y: e.clientY,
+            title: `🧨 ${td('神秘起爆器', 'Mystery Detonator')} · ${td(meta?.shortZh || '', meta?.shortEn || '')}`,
+            subtitle: td('点击按下红柄压杆，点燃引爆线', 'Click to slam the plunger & ignite the wire'),
+          });
+        } else if (hitTarget.kind === 'hourglass') {
+          const meta = DESTRUCTIBLE_TARGETS.find((x) => x.id === hitTarget.id);
+          setHoveredLabel({
+            x: e.clientX,
+            y: e.clientY,
+            title: `⏳ ${td('时光倒流沙漏', 'Time-Rewind Hourglass')} · ${td(meta?.shortZh || '', meta?.shortEn || '')}`,
+            subtitle: td('点击倒流时间，复原整座建筑', 'Click to rewind time & rebuild'),
+          });
+        } else if (hitTarget.kind === 'world-toy') {
+          const toyKind = hitTarget.id as WorldToyKind;
+          const labelMap: Record<WorldToyKind, { tZh: string; tEn: string; sZh: string; sEn: string }> = {
+            'school-bell': {
+              tZh: '🔔 放学铜钟 · 株洲南方中学',
+              tEn: '🔔 Dismissal Bell · Nanfang HS',
+              sZh: '点击敲响下课钟，天色快进到 17:30 放学黄昏',
+              sEn: 'Click to ring the bell & jump to sunset hour',
+            },
+            'maple-harvest': {
+              tZh: '🍁 稻田稻草人 · 湖南农业大学',
+              tEn: '🍁 Harvest Scarecrow · HUNAU',
+              sZh: '点击唤起秋风红枫叶雨与金色丰收',
+              sEn: 'Click to summon a swirling crimson maple breeze',
+            },
+            'power-breaker': {
+              tZh: worldToysRef.current?.isStudioPoweredOff()
+                ? '💡 工业电闸（已断电） · 研发工作室'
+                : '⚡ 工业电闸（供电中） · 研发工作室',
+              tEn: worldToysRef.current?.isStudioPoweredOff()
+                ? '💡 Power Breaker (OFF) · Studio'
+                : '⚡ Power Breaker (ON) · Studio',
+              sZh: worldToysRef.current?.isStudioPoweredOff()
+                ? '点击推上电闸，恢复全楼供电'
+                : '点击拉闸物理断电，准时下班',
+              sEn: worldToysRef.current?.isStudioPoweredOff()
+                ? 'Click to restore building power'
+                : 'Click to pull the breaker & cut power',
+            },
+          };
+          const info = labelMap[toyKind];
+          setHoveredLabel({
+            x: e.clientX,
+            y: e.clientY,
+            title: td(info.tZh, info.tEn),
+            subtitle: td(info.sZh, info.sEn),
+          });
+        } else if (hitTarget.kind === 'sky-sea-toy') {
+          const skyKind = hitTarget.id as SkySeaToyKind;
+          const skyLabels: Record<SkySeaToyKind, { tZh: string; tEn: string; sZh: string; sEn: string }> = {
+            'pier-fireworks': {
+              tZh: '🎆 彩绘烟花筒 · 漂流瓶码头',
+              tEn: '🎆 Sea Fireworks · Sunset Pier',
+              sZh: '点击点火连发 5 枚彩色海面烟花',
+              sEn: 'Click to launch a 5-shot fireworks salvo',
+            },
+            'beach-skip-stone': {
+              tZh: '🪨 鹅卵石堆 · 海岸浅滩',
+              tEn: '🪨 Skipping Pebbles · Shoreline',
+              sZh: '点击向海面甩出一颗打水漂石子',
+              sEn: 'Click to skip a flat stone across the sea',
+            },
+            'ufo-antenna': {
+              tZh: '📡 神秘雷达天线 · 主岛西坡',
+              tEn: '📡 Mystery Radar Dish · West Ridge',
+              sZh: '点击发射信号，召唤 UFO 开启牵引光束',
+              sEn: 'Click to summon a UFO tractor beam over a landmark',
+            },
+          };
+          const info = skyLabels[skyKind];
+          setHoveredLabel({
+            x: e.clientX,
+            y: e.clientY,
+            title: td(info.tZh, info.tEn),
+            subtitle: td(info.sZh, info.sEn),
+          });
+        } else if (hitTarget.kind === 'cozy-toy') {
+          const cozyKind = hitTarget.id as CozyToyKind;
+          const isPlaying = cozyToysRef.current?.isGramophonePlaying() ?? false;
+          const info =
+            cozyKind === 'gramophone-play'
+              ? {
+                  tZh: isPlaying ? '🎶 复古黄铜留声机（播放中）' : '🎵 复古黄铜留声机 · 云端客厅',
+                  tEn: isPlaying ? '🎶 Vintage Gramophone (Playing)' : '🎵 Vintage Gramophone · Lounge',
+                  sZh: isPlaying ? '点击抬起唱针暂停旋律' : '点击落针播放夜色 Lo-Fi 旋律与音符',
+                  sEn: isPlaying ? 'Click to pause the melody' : 'Click to drop the needle & play Lo-Fi chords',
+                }
+              : {
+                  tZh: '🪵 篝火木柴堆 · 云端观星台',
+                  tEn: '🪵 Firewood Stack · Summit Campfire',
+                  sZh: '点击往篝火添一根干木柴，火焰窜高爆火星',
+                  sEn: 'Click to toss a log onto the campfire for embers',
+                };
+          setHoveredLabel({
+            x: e.clientX,
+            y: e.clientY,
+            title: td(info.tZh, info.tEn),
+            subtitle: td(info.sZh, info.sEn),
+          });
         } else {
           const st = SPECIAL_STATIONS.find((x) => x.id === hitTarget.id);
           setHoveredLabel({
@@ -3728,6 +4209,16 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
       } else if (item.kind === 'memory') {
         const mem = PERSONAL_MEMORIES.find((m) => m.id === item.id);
         if (mem) inspectMemory(mem);
+      } else if (item.kind === 'detonator') {
+        destructionRef.current?.pressDetonator(item.id as PersonalMemoryKind);
+      } else if (item.kind === 'hourglass') {
+        destructionRef.current?.activateHourglass(item.id as PersonalMemoryKind);
+      } else if (item.kind === 'world-toy') {
+        worldToysRef.current?.triggerToy(item.id as WorldToyKind);
+      } else if (item.kind === 'sky-sea-toy') {
+        skySeaToysRef.current?.triggerToy(item.id as SkySeaToyKind);
+      } else if (item.kind === 'cozy-toy') {
+        cozyToysRef.current?.triggerToy(item.id as CozyToyKind);
       } else {
         playWindChimeNote(3, soundMuted);
         setActiveStation(item.id as SpecialStation['id']);
@@ -3932,6 +4423,47 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
             transition={{ duration: 0.25 }}
             className="absolute inset-0 z-50 bg-[#FAF9F5] pointer-events-none"
           />
+        )}
+      </AnimatePresence>
+
+      {/* Cartoon Explosion Warm Flash Overlay */}
+      <AnimatePresence>
+        {blastFlash && (
+          <motion.div
+            initial={{ opacity: 0.52 }}
+            animate={{ opacity: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.28 }}
+            className="absolute inset-0 z-40 pointer-events-none"
+            style={{
+              background:
+                'radial-gradient(circle at 50% 50%, rgba(255,220,130,0.85), rgba(234,88,12,0.45))',
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Explosion Funny Toast Banner */}
+      <AnimatePresence>
+        {blastToast && (
+          <motion.div
+            key={blastToast.key}
+            initial={{ opacity: 0, y: -18, scale: 0.92 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -12, scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 420, damping: 28 }}
+            className="absolute top-16 left-1/2 -translate-x-1/2 z-40 pointer-events-none max-w-[90vw] px-4 py-2.5 rounded-2xl bg-[#1C1410]/90 text-[#FAF9F5] border border-amber-400/50 backdrop-blur-xl shadow-2xl flex items-center gap-2.5"
+          >
+            <span className="text-lg leading-none">{blastToast.icon ?? '💥'}</span>
+            <div className="min-w-0">
+              <div className="text-[10px] font-mono uppercase tracking-[0.16em] text-amber-300">
+                {td(blastToast.titleZh, blastToast.titleEn)}
+              </div>
+              <div className="text-xs sm:text-sm font-serif font-medium text-[#FAF9F5]">
+                {td(blastToast.textZh, blastToast.textEn)}
+              </div>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
 
@@ -4439,6 +4971,16 @@ export const ShutterIsland3D: React.FC<ShutterIsland3DProps> = ({ embedded = fal
                 } else if (nearbyPrompt.type === 'memory') {
                   const foundMem = PERSONAL_MEMORIES.find((m) => m.id === nearbyPrompt.id);
                   if (foundMem) inspectMemory(foundMem);
+                } else if (nearbyPrompt.type === 'detonator') {
+                  destructionRef.current?.pressDetonator(nearbyPrompt.id as PersonalMemoryKind);
+                } else if (nearbyPrompt.type === 'hourglass') {
+                  destructionRef.current?.activateHourglass(nearbyPrompt.id as PersonalMemoryKind);
+                } else if (nearbyPrompt.type === 'world-toy') {
+                  worldToysRef.current?.triggerToy(nearbyPrompt.id as WorldToyKind);
+                } else if (nearbyPrompt.type === 'sky-sea-toy') {
+                  skySeaToysRef.current?.triggerToy(nearbyPrompt.id as SkySeaToyKind);
+                } else if (nearbyPrompt.type === 'cozy-toy') {
+                  cozyToysRef.current?.triggerToy(nearbyPrompt.id as CozyToyKind);
                 } else {
                   playWindChimeNote(2, soundMuted);
                   setActiveStation(nearbyPrompt.id as SpecialStation['id']);
